@@ -18,7 +18,7 @@ const guiControls_default = {
 	waterEvaporation: 0.0001,
 	evapHeat: 1.9, // 1.9
 	meltingHeat: 0.6, // 0.281
-	waterWeight: 0.5, // 0.50
+	waterWeight: 0.50, // 0.50
 	inactiveDroplets: 0,
 	aboveZeroThreshold: 1.0, // PRECIPITATION
 	subZeroThreshold: 0.05, // 0.05
