@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>WebGL 2D Weather Simulation v4</title>
+		<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
+		<script type="text/javascript" src="libraries/pako.min.js"></script>
+		<script type="text/javascript" src="app.js"></script>
+		<style>
+			canvas {
+				position: absolute;
+				top: 0;
+				left: 0;
+			}
+
+			input[type=range] {
+				width: 800px;
+			}
+		</style>
+	</head>
+	<body id="body" style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41);">
+		<img src="resources/noise_texture.jpg	" id="noiseImg" hidden>
+
+		<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
+			<h1>WebGL 2D Weather Simulation v4</h1>
+
+			<form id="startBtn" oninput="simResShowX.value=parseInt(simResSelX.value);">
+				<p>Choose a resolution. The higher the resolution, the slower it will run!</p>
+				<table>
+					<tr>
+						<td>
+							<b>Horizontal resolution</b>
+							
+						</td>
+						<td>
+							<input type="range" min="300" max="6000" value="2500" step="10" id="simResSelX" />
+							<output name="simResShowX">2500</output>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<b>Vertical resolution</b>
+						</td>
+						<td>
+							<!--<input type="range" min="100" max="300" value="300" step="2" id="simResSelY" />-->
+							<output name="simResShowY">300</output>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<input type="button" value="Create New Simulation" onclick="loadData()" />
+						</td>
+					</tr>
+				</table>
+			</form>
+
+			<p>
+				<label for="fileInput">Load Save File:</label>
+				<input type="file" id="fileInput" name="fileInput" accept=".weathersim4" onchange="loadData()"/>
+			</p>
+			<p style="font-size: 20px;">
+				<i>Save files from previous versions wont work!</i>
+			</p>
+
+			<p><a style="color: white" href="./saves">Download example save files here</a></p>
+
+			<div id="help" style="margin: 15px">
+				<h2>Controls</h2>
+				<h3>Mouse</h3>
+				<li>Middle mouse button to drag the simulation area arround</li>
+				<li>Mouse wheel to zoom in and out, Or to change brush size while holding down B</li>
+				<li>Left mouse button to use selected tool. Hold down Ctrl (command on mac) to perform the inverted action</li>
+				<li>Touchscreen input is not supported yet</li>
+				<h3>Keys</h3>
+				<table style="width: 1000px">
+					<tr>
+						<td>1 - 8 </td>
+						<td>Display Mode</td>
+					</tr>
+					<tr>
+						<td>Q - Y</td>
+						<td>Change Tool</td>
+					</tr>
+					<tr>
+						<td>Arrows ◄ ▲ ▼ ► </td>
+						<td>Move View</td>
+					</tr>
+					<tr>
+						<td>+   -</td>
+						<td>Zoom View</td>
+					</tr>
+					<tr>
+						<td>Space Bar </td>
+						<td>Pause / Resume</td>
+					</tr>
+					<tr>
+						<td>D</td>
+						<td>Show / Hide droplets</td>
+					</tr>
+					<tr>
+						<td>G</td>
+						<td>Show / Hide Sounding Graph</td>
+					</tr>
+					<tr>
+						<td>H</td>
+						<td>Show / Hide GUI</td>
+					</tr>
+					<tr>
+						<td>V</td>
+						<td>Reset view to see full simulation area</td>
+					</tr>
+					<tr>
+						<td>B</td>
+						<td>Change Brush Size By Scrolling</td>
+					</tr>
+					<tr>
+						<td>B x 2</td>
+						<td>Toggle Whole Width Brush</td>
+					</tr>
+				</table>
+
+				<h2>New Features</h2>
+				<li>Settings saved to save file</li>
+				<li>Visualisation wrapped so it feels infinite</li>
+				<li>Realistic sun angle simulation</li>
+				<li>More control keys</li>
+				<li>More settings</li>
+				<li>Imperial units for Americans</li>
+				<li>Better visuals</li>
+
+				<br />
+				<i>By Niels Daemen</i>
+				
+			</div>
+		</div>
+		<canvas id="graphCanvas" style="z-index: -1; display: none;"></canvas>
+		<canvas id="mainCanvas" style="position: fixed; user-select: none; -webkit-user-select: none; -moz-user-select: none; z-index: -2; display: none;"> Your browser does not support HTML5, you must be using a really old browser! </canvas>
+	</body>
+</html>
