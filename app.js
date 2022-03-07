@@ -20,15 +20,15 @@ const guiControls_default = {
 	meltingHeat: 0.60, // 0.281
 	waterWeight: 0.50, // 0.50
 	inactiveDroplets: 0,
-	aboveZeroThreshold: 1.0, // PRECIPITATION
+	aboveZeroThreshold: 1.0, // PRECIPITATION Parameters
 	subZeroThreshold: 0.05, // 0.05
 	spawnChance: 0.00001, // 0.0005
 	snowDensity: 0.3,
 	fallSpeed: 0.0003,
 	growthRate0C: 0.0005, // 0.0005
 	growthRate_30C: 0.005, // 0.01
-	freezingRate: 0.0002,
-	meltingRate: 0.0015, // END OF PRECIPITATION
+	freezingRate: 0.0005,
+	meltingRate: 0.0005, // END OF PRECIPITATION
 	displayMode: "DISP_REAL",
 	timeOfDay: 9.9,
 	latitude: 40.0,
