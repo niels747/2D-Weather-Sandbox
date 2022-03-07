@@ -2,7 +2,7 @@ precision highp int; // needed for chrome 97, older versions didn't need this sp
 precision highp isampler2D; // Not sure if the WebGL standard changed
 
 #define lightHeatingConst 0.004 // how much a unit of light adds heat
-#define IRHeatingConst 0.00001 // how much a unit of IR adds heat
+#define IRHeatingConst 0.000005 // how much a unit of IR (w/m2) adds or subsracts heat
 
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2)
