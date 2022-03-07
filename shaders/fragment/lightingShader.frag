@@ -63,7 +63,7 @@ void main()
 
                 if (wall[0] == 1) { // if land, IR only affects land
                     IR_up = IR_emitted(realTemp); // emissivity = 1.0
-                    net_heating += IR_down - IR_up;
+                    net_heating += (IR_down - IR_up) * IRHeatingConst;
                     //  net_heating *= 0.5;
                 } else if (wall[0] == 2) { // if water surface
                     IR_up = IR_emitted(waterTemperature); // emissivity = 1.0
@@ -74,7 +74,7 @@ void main()
                     // sunlight = 1.0;
                 }
 
-            } else {
+            } else { // in air
 
                 IR_up = texture(lightTex, texCoordX0Ym)[3];
 
@@ -90,7 +90,7 @@ void main()
                 float absorbedUp = IR_up * emissivity;
                 float emitted = IR_emitted(realTemp) * emissivity; // this amount is emitted both up and down
 
-                net_heating += absorbedDown + absorbedUp - emitted * 2.0;
+                net_heating += (absorbedDown + absorbedUp - emitted * 2.0) * IRHeatingConst;
 
                 IR_down -= absorbedDown;
                 IR_down += emitted;

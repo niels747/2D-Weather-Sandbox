@@ -1,7 +1,8 @@
 precision highp int; // needed for chrome 97, older versions didn't need this specified
 precision highp isampler2D; // Not sure if the WebGL standard changed
 
-#define lightHeatingConst 0.004 // how much a unit of light add heats
+#define lightHeatingConst 0.004 // how much a unit of light adds heat
+#define IRHeatingConst 0.00001 // how much a unit of IR adds heat
 
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2)
@@ -142,16 +143,16 @@ vec4 bilerpWall(sampler2D tex, isampler2D wallTex, vec2 pos) // prevents sampeli
 }
 
 
-#define IR_constant 0.25
+#define IR_constant 5.670374419 // ×10−8
 
 float IR_emitted(float T)
 {
-    return pow(T * 0.001, 4.) * IR_constant; // Stefan–Boltzmann law
+    return pow(T * 0.01, 4.) * IR_constant; // Stefan–Boltzmann law
 }
 
 float IR_temp(float IR) // inversed Stefan–Boltzmann law
 {
-    return pow(IR / IR_constant, 1. / 4.) * 1000.0;
+    return pow(IR / IR_constant, 1. / 4.) * 100.0;
 }
 
 float absHorizontalDist(float a, float b) // for wrapping around simulation border

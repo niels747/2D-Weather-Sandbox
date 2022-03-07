@@ -122,7 +122,7 @@ function dT_saturated(dTdry, dTl) {
 	}
 }
 
-const IR_constant = 0.000025;
+const IR_constant = 5.670374419; // ×10−8
 
 function IR_emitted(T) {
 	return Math.pow(T * 0.01, 4) * IR_constant; // Stefan–Boltzmann law
@@ -130,7 +130,7 @@ function IR_emitted(T) {
 
 function IR_temp(IR) {
 	// inversed Stefan–Boltzmann law
-	return Math.pow(IR / IR_constant, 1 / 4) * 100.0;
+	return Math.pow(IR / IR_constant, 1.0 / 4.0) * 100.0;
 }
 
 ////////////// Water Functions ///////////////
@@ -932,8 +932,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		console.log("LIGHT-----------------------------------------");
 		console.log("Sunlight:  ", lightTextureValues[0]);
 		console.log("IR cooling:", lightTextureValues[1]); // net effect of ir
-		console.log("IR down:   ", KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + " °C");
-		console.log("IR up:     ", KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + " °C");
+		console.log("IR down:   ", lightTextureValues[2] , "W/m²", KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + " °C");
+		console.log("IR up:     ", lightTextureValues[3] , "W/m²", KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + " °C");
+		console.log("Net IR UP = ", lightTextureValues[3] - lightTextureValues[2], "W/m²");
 	}
 
 	var middleMousePressed = false;
