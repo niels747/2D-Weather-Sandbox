@@ -348,9 +348,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 	var guiControls;
 
 	if (guiControlsFromSaveFile == null) {
-		setupDatGui(JSON.stringify(guiControls_default));
+		setupDatGui(JSON.stringify(guiControls_default)); // use default settings
 	} else {
-		setupDatGui(guiControlsFromSaveFile);
+		setupDatGui(guiControlsFromSaveFile); // use settings from save file
 	}
 
 	function setupDatGui(strGuiControls) {
@@ -1661,6 +1661,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
+
+
+	updateSunlight();
 
 	await loadingBar.set(100, "Loading complete"); // loading complete
 	await loadingBar.remove();
