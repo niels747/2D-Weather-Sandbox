@@ -1661,9 +1661,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
-
-
-	updateSunlight();
+	
+	updateSunlight("MANUAL_ANGLE"); // set angle from savefile
 
 	await loadingBar.set(100, "Loading complete"); // loading complete
 	await loadingBar.remove();
