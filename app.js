@@ -45,6 +45,8 @@ const guiControls_default = {
 	showGraph: false,
 	showDrops: false,
 	paused: false,
+	IterPerFrame: 10,
+	auto_IterPerFrame: false,
 	dryLapseRate: 10.0, // 9.81 degrees / km
 	simHeight: 12000, // meters
 	imperialUnits: false // only for display.  false = metric
@@ -59,9 +61,9 @@ var sim_res_y;
 
 var frameNum = 0;
 var lastFrameNum = 0;
-var IterPerFrame = 10; // 10
-var maxIterFound = false;
-var calcCount = 0;
+//var IterPerFrame = 10; // 10
+//var maxIterFound = false;
+//var calcCount = 0;
 
 var IterNum = 0;
 
@@ -650,6 +652,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 				gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), guiControls.exposure);
 			})
 			.name("Exposure");
+
+		datGui
+			.add(guiControls, "IterPerFrame", 1, 50)
+			.name("Iterations / Frame").listen();
+
+		datGui.add(guiControls, "auto_IterPerFrame").name("Auto Adjust").listen();
 		
 		datGui.add(guiControls, "showGraph").onChange(hideOrShowGraph).name("Show Sounding Graph").listen();
 		datGui.add(guiControls, "imperialUnits").name("I am an American");
@@ -1117,9 +1125,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		} else if (event.code == "KeyI") {
 			guiControls.tool = "TOOL_WALL_SNOW";
 		} else if (event.key == "PageUp") {
-			IterPerFrame++;
+			adjIterPerFrame(1);
 		} else if (event.code == "PageDown") {
-			IterPerFrame--;
+			adjIterPerFrame(-1);
 		}
 	});
 
@@ -1745,13 +1753,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		gl.uniform1i(gl.getUniformLocation(advectionProgram, "userInputType"), inputType); // 0 = nothing 	1 = temp	 2 = wall	3 = heating wall	4 = cooling wall
 
 		if (!guiControls.paused) {
-			if (guiControls.dayNightCycle) updateSunlight(0.0001 * IterPerFrame); // 0.00010
+			if (guiControls.dayNightCycle) updateSunlight(0.0001 * guiControls.IterPerFrame); // 0.00010
 
 			gl.viewport(0, 0, sim_res_x, sim_res_y);
 			gl.clearColor(0.0, 0.0, 0.0, 0.0);
 			// IterPerFrame
 
-			for (var i = 0; i < IterPerFrame; i++) {
+			for (var i = 0; i < guiControls.IterPerFrame; i++) {
 				// calc and apply velocity
 				gl.useProgram(velocityProgram);
 				gl.activeTexture(gl.TEXTURE0);
@@ -2164,21 +2172,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		}
 	}
 
+	function adjIterPerFrame(adj)
+	{
+		guiControls.IterPerFrame = Math.round(Math.min(Math.max(guiControls.IterPerFrame + adj, 1), 50));
+	}
+
 	function calcFps() {
 		var FPS = frameNum - lastFrameNum;
 		lastFrameNum = frameNum;
 
-		console.log(FPS + " FPS   " + IterPerFrame + " Iterations / frame      " + FPS * IterPerFrame + " Iterations / second");
-
 		const fpsTarget = 60;
 
-		if (!maxIterFound && !guiControls.paused) {
-			if (FPS >= fpsTarget) IterPerFrame++;
-			else if (FPS < fpsTarget && calcCount > 5) {
-				IterPerFrame--;
-				maxIterFound = true;
-			}
+		if (guiControls.auto_IterPerFrame && !guiControls.paused) {
+			console.log(FPS + " FPS   " + guiControls.IterPerFrame + " Iterations / frame      " + FPS * guiControls.IterPerFrame + " Iterations / second");
+			adjIterPerFrame(((FPS / fpsTarget)-1.0) * 5.0); // example: ((30 / 60)-1.0) = -0.5
 		}
-		calcCount++;
 	}
 }
