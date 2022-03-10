@@ -43,6 +43,7 @@ uniform float growthRate0C; // 0.0005
 uniform float growthRate_30C; // 0.01
 uniform float freezingRate; //0.0002
 uniform float meltingRate; // 0.0015
+uniform float evapRate; // 0.0005
 
 #include functions
 
@@ -159,8 +160,7 @@ void main()
             } else { // melting
                 newMass[0] += growth; // water growth
 
-                float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea / newDensity,
-                    newMass[1]); // 0.0002 snow / hail melting
+                float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea / newDensity, newMass[1]); // 0.0002 snow / hail melting
                 newMass[1] -= melting;
                 newMass[0] += melting;
                 feedback[1] -= melting * meltingHeat;
@@ -174,22 +174,21 @@ void main()
             if (newMass[1] > 0.0) // if any ice
                 dropletTemp = min(dropletTemp, CtoK(0.0)); // temp can not be more than 0 C
 
-            float evapAndSubli = max((maxWater(dropletTemp) - water[0]) * surfaceArea * 0.0005,
-                0.); // 0.001 evaporation and sublimation only positive
+            float evapAndSubli = max((maxWater(dropletTemp) - water[0]) * surfaceArea * evapRate, 0.); // 0.0005 evaporation and sublimation only positive
 
-            float evap = min(newMass[0], evapAndSubli);
-            float subli = min(newMass[1], evapAndSubli - evap);
+            float evap = min(newMass[0], evapAndSubli); // can only evaporate as much water as it contains
+            float subli = min(newMass[1], evapAndSubli - evap); // the rest is ice sublimation, upto the amount of ice it contains
 
             newMass[0] -= evap; // water evaporation
             newMass[1] -= subli; // ice sublimation
 
-            feedback[2] += evap;
+            feedback[2] += evap; // added to water vapor in air
             feedback[2] += subli;
-            feedback[1] -= evap * evapHeat;
+            feedback[1] -= evap * evapHeat; // heat cost extracted from air
             feedback[1] -= subli * evapHeat;
             feedback[1] -= subli * meltingHeat;
 
-            // move
+            // Update position
             newPos += base.xy / resolution * 2.; // move with air       * 2 because -1. to 1.
             newPos.y -= fallSpeed * newDensity * sqrt(totalMass / surfaceArea); // fall speed relative to air
 

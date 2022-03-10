@@ -28,7 +28,8 @@ const guiControls_default = {
 	growthRate0C: 0.0005, // 0.0005
 	growthRate_30C: 0.005, // 0.01
 	freezingRate: 0.0005,
-	meltingRate: 0.0005, // END OF PRECIPITATION
+	meltingRate: 0.0005, 
+	evapRate: 0.0005, // END OF PRECIPITATION
 	displayMode: "DISP_REAL",
 	timeOfDay: 9.9,
 	latitude: 40.0,
@@ -397,6 +398,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "growthRate_30C"), guiControls.growthRate_30C);
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "freezingRate"), guiControls.freezingRate);
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "meltingRate"), guiControls.meltingRate);
+				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "evapRate"), guiControls.evapRate);
 
 				hideOrShowGraph();
 				updateSunlight();
@@ -615,7 +617,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 				gl.useProgram(precipitationProgram);
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "meltingRate"), guiControls.meltingRate);
 			})
-			.name("Melting rate");
+			.name("Melting Rate");
+
+		precipitation_folder
+			.add(guiControls, "evapRate", 0.0001, 0.005)
+			.onChange(function () {
+				gl.useProgram(precipitationProgram);
+				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "evapRate"), guiControls.evapRate);
+			})
+			.name("Evaporation Rate");
+
+		precipitation_folder.add(guiControls, "inactiveDroplets", 0, NUM_DROPLETS).listen().name("Inactive Droplets");
+		precipitation_folder.add(guiControls, "showDrops").name("Show Droplets").listen();
 
 		datGui
 			.add(guiControls, "displayMode", {
@@ -637,8 +650,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 				gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), guiControls.exposure);
 			})
 			.name("Exposure");
-		datGui.add(guiControls, "inactiveDroplets", 0, NUM_DROPLETS).listen().name("Inactive Droplets");
-		datGui.add(guiControls, "showDrops").name("Show Droplets").listen();
+		
 		datGui.add(guiControls, "showGraph").onChange(hideOrShowGraph).name("Show Sounding Graph").listen();
 		datGui.add(guiControls, "imperialUnits").name("I am an American");
 		datGui.add(guiControls, "paused").name("Paused").listen();
@@ -1636,6 +1648,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 	gl.uniform1f(gl.getUniformLocation(precipitationProgram, "growthRate_30C"), guiControls.growthRate_30C);
 	gl.uniform1f(gl.getUniformLocation(precipitationProgram, "freezingRate"), guiControls.freezingRate);
 	gl.uniform1f(gl.getUniformLocation(precipitationProgram, "meltingRate"), guiControls.meltingRate);
+	gl.uniform1f(gl.getUniformLocation(precipitationProgram, "evapRate"), guiControls.evapRate);
 
 	gl.useProgram(IRtempDisplayProgram);
 	gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, "resolution"), sim_res_x, sim_res_y);
