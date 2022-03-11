@@ -106,10 +106,7 @@ void main()
             gl_Position = vec4(newPos, 0.0, 1.0);
         } else { // still inactive
             feedback[3] = 1.0; // count 1 inactive droplet
-            gl_Position = vec4(
-                vec2(-1. + texelSize.x, -1. + texelSize.y),
-                0.0,
-                1.0); // render to bottem left corner (0, 0) to count inactive droplets
+            gl_Position = vec4(vec2(-1. + texelSize.x, -1. + texelSize.y),0.0,1.0); // render to bottem left corner (0, 0) to count inactive droplets
         }
 
     } else { // active

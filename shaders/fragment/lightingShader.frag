@@ -35,10 +35,9 @@ void main()
 
         // sunlight calculation
 
-        vec2 ray = vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
-        vec2 sampleCoord = texCoord + ray;
-        float sunlight = texture(lightTex, sampleCoord)[0];
-        //float liquidWater = texture(waterTex, sampleCoord)[1]; // cloudwater
+        vec2 sunRay = vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
+        float sunlight = texture(lightTex, texCoord + sunRay)[0];
+       // float sunlight = bilerp(lightTex, fragCoord + vec2(sin(sunAngle) , cos(sunAngle)))[0];
 
         float realTemp = potentialToRealT(texture(baseTex, texCoord)[3]);
         vec4 water = texture(waterTex, texCoord);
@@ -53,7 +52,7 @@ void main()
 
             sunlight -= lightReflected + lightAbsorbed;
 
-            net_heating += lightAbsorbed * lightHeatingConst * sunIntensity; // smoke being heated
+            net_heating += lightAbsorbed * lightHeatingConst/* * sunIntensity*/; // smoke being heated
 
             // longwave / IR calculation
             float IR_down = texture(lightTex, texCoordX0Yp)[2];
@@ -70,8 +69,6 @@ void main()
                 } else if (wall[0] == 3) { // if fire
                     IR_up = IR_emitted(realTemp); // emissivity = 1.0
                     net_heating = 0.0;
-                    // IR_down = 0.0;
-                    // sunlight = 1.0;
                 }
 
             } else { // in air

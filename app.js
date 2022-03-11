@@ -1457,7 +1457,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 	const lightTexture_0 = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.HALF_FLOAT, null);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null); // HALF_FLOAT before, but problems with acuracy
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	const lightFrameBuff_0 = gl.createFramebuffer();
@@ -1466,7 +1466,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 	const lightTexture_1 = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.HALF_FLOAT, null);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	const lightFrameBuff_1 = gl.createFramebuffer();
@@ -1876,7 +1876,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 				if (IterNum % 600 == 0) {
 					gl.readBuffer(gl.COLOR_ATTACHMENT0);
 					var sampleValues = new Float32Array(4);
-					gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues); //console.log(sampleValues[3]); // number of inactive droplets
+					gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
 					//console.log(sampleValues[3]); // number of inactive droplets
 					guiControls.inactiveDroplets = sampleValues[3];
 					gl.useProgram(precipitationProgram);

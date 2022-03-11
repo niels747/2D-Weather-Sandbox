@@ -7,5 +7,5 @@ out vec4 fragmentColor;
 
 void main()
 {
-fragmentColor = vec4(feedback); // simply pass through
+fragmentColor = feedback; // simply pass through
 }
