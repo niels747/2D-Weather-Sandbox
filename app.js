@@ -1878,9 +1878,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 					var sampleValues = new Float32Array(4);
 					gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
 					//console.log(sampleValues[3]); // number of inactive droplets
-					guiControls.inactiveDroplets = sampleValues[3];
+					guiControls.inactiveDroplets = sampleValues[0];
 					gl.useProgram(precipitationProgram);
-					gl.uniform1f(gl.getUniformLocation(precipitationProgram, "inactiveDroplets"), sampleValues[3]);
+					gl.uniform1f(gl.getUniformLocation(precipitationProgram, "inactiveDroplets"), sampleValues[0]);
 				}
 
 				gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);

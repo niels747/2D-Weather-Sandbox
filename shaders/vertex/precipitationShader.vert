@@ -11,10 +11,10 @@ out vec2 mass_out;
 out float density_out;
 
 // to fragmentshader for feedback to fluid
-// feedback[0] droplet weigth
-// feedback[1] heating and cooling of fluid
-// feedback[2] evaporation and taking water from cloud
-// feedback[3] number of inactive droplets count
+// feedback[0] droplet weigth / number of inactive droplets count
+// feedback[1] heat exchange with fluid
+// feedback[2] water exchange with fluid / rain accumulation on ground
+// feedback[3] snow acumulation on ground
 out vec4 feedback;
 
 vec2 texCoord; // for functions
@@ -105,7 +105,7 @@ void main()
             gl_PointSize = 1.0;
             gl_Position = vec4(newPos, 0.0, 1.0);
         } else { // still inactive
-            feedback[3] = 1.0; // count 1 inactive droplet
+            feedback[0] = 1.0; // count 1 inactive droplet
             gl_Position = vec4(vec2(-1. + texelSize.x, -1. + texelSize.y),0.0,1.0); // render to bottem left corner (0, 0) to count inactive droplets
         }
 
@@ -194,7 +194,7 @@ void main()
             feedback[0] = -totalMass * waterWeight;
 
 #define pntSize 16. // 8
-            float pntSurface = pntSize * pntSize;
+            float pntSurface = pntSize * pntSize; // suface area
 
             feedback[0] /= pntSurface;
             feedback[1] /= pntSurface;
