@@ -952,9 +952,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		console.log("LIGHT-----------------------------------------");
 		console.log("Sunlight:  ", lightTextureValues[0]);
 		console.log("IR cooling:", lightTextureValues[1]); // net effect of ir
-		console.log("IR down:   ", lightTextureValues[2] , "W/m²", KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + " °C");
-		console.log("IR up:     ", lightTextureValues[3] , "W/m²", KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + " °C");
-		console.log("Net IR UP = ", lightTextureValues[3] - lightTextureValues[2], "W/m²");
+		console.log("IR down:   ", lightTextureValues[2].toFixed(2) , "W/m²", KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + " °C");
+		console.log("IR up:     ", lightTextureValues[3].toFixed(2) , "W/m²", KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + " °C");
+		console.log("Net IR up: ", (lightTextureValues[3] - lightTextureValues[2]).toFixed(2), "W/m²");
 	}
 
 	var middleMousePressed = false;
