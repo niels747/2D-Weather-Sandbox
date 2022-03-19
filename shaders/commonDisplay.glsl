@@ -13,7 +13,7 @@ void drawCursor()
             vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
             distFromMouseF = length(vecFromMouse);
         }
-        if (abs(distFromMouseF - cursor.z * texelSize.y) < 0.001 / view[2]) {
+        if (abs(distFromMouseF - cursor.z * texelSize.y) < 0.000001 / view[2] * resolution.x) { // 0.001
             fragmentColor = vec4(0.5, 0.5, 0.5, 1.0); // gray line
         }
     }

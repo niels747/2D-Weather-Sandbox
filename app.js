@@ -1,6 +1,8 @@
 var canvas;
 var gl;
 
+var SETUP_MODE = true;
+
 var loadingBar;
 
 const degToRad = 0.0174533;
@@ -27,8 +29,8 @@ const guiControls_default = {
 	fallSpeed: 0.0003,
 	growthRate0C: 0.0005, // 0.0005
 	growthRate_30C: 0.005, // 0.01
-	freezingRate: 0.0005,
-	meltingRate: 0.0005, 
+	freezingRate: 0.0035,
+	meltingRate: 0.0035, 
 	evapRate: 0.0005, // END OF PRECIPITATION
 	displayMode: "DISP_REAL",
 	timeOfDay: 9.9,
@@ -606,7 +608,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			.name("Growth Rate -30°C");
 
 		precipitation_folder
-			.add(guiControls, "freezingRate", 0.0001, 0.0005)
+			.add(guiControls, "freezingRate", 0.0005, 0.009) // 0.0035
 			.onChange(function () {
 				gl.useProgram(precipitationProgram);
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "freezingRate"), guiControls.freezingRate);
@@ -614,7 +616,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			.name("Freezing Rate");
 
 		precipitation_folder
-			.add(guiControls, "meltingRate", 0.0005, 0.005)
+			.add(guiControls, "meltingRate", 0.0005, 0.009) // 0.0035
 			.onChange(function () {
 				gl.useProgram(precipitationProgram);
 				gl.uniform1f(gl.getUniformLocation(precipitationProgram, "meltingRate"), guiControls.meltingRate);
@@ -1032,6 +1034,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 	canvas.addEventListener("mousedown", function (event) {
 		if (event.button == 0) {
 			leftMousePressed = true;
+			if(SETUP_MODE){ // DISABLE SETUP MODE
+				SETUP_MODE = false;
+				gl.useProgram(realisticDisplayProgram);
+				gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), guiControls.exposure);
+			}
 		} else if (event.button == 1) {
 			// middle mouse button
 			middleMousePressed = true;
@@ -1673,12 +1680,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 	// Use setup shader to set initial conditions
 	if (initialWallTex == null) {
 		gl.viewport(0, 0, sim_res_x, sim_res_y);
-		gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
 		gl.useProgram(setupProgram);
+		// Render to both framebuffers
+		gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
 		gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1); // render to both framebuffers
+		gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1); 
 		gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
@@ -1719,6 +1727,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		var topEdge = canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
 		var bottemEdge = canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
 		var mouseYinSim = map_range(mouseY, bottemEdge, topEdge, 0.0, 1.0) - (viewYpos / 2.0) * sim_aspect;
+
+		if(SETUP_MODE){
+			gl.disable(gl.BLEND);
+			gl.viewport(0, 0, sim_res_x, sim_res_y);
+			gl.useProgram(setupProgram);
+			gl.uniform1f(gl.getUniformLocation(setupProgram, "seed"), mouseXinSim);
+			// Render to both framebuffers
+			gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+			gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+	
+			gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1); 
+			gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+		}else{ // NOT SETUP MODE:
 
 		//gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.disable(gl.BLEND);
@@ -1894,6 +1918,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			soundingGraph.draw(Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x))), Math.floor(mouseYinSim * sim_res_y));
 		}
 
+	} // END OF NOT SETUP
+
+	
+
 		let mouseXinSim_SIG = mouseXinSim; // for drawing cursor
 		if (guiControls.wholeWidth) {
 			mouseXinSim_SIG = -24.0;
@@ -1901,6 +1929,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			// cursor off
 			mouseXinSim_SIG = -25.0;
 		}
+
+	
 
 		// render to canvas
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
@@ -1936,6 +1966,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, "aspectRatios"), sim_aspect, canvas_aspect);
 			gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, "view"), viewXpos, viewYpos, viewZoom);
 			gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, "cursor"), mouseXinSim_SIG, mouseYinSim, guiControls.brushSize * 0.5);
+
+			if(SETUP_MODE)
+				gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), 10.0);
 
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
 
