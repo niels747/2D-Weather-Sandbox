@@ -233,6 +233,7 @@ async function loadData() {
 		sim_res_y = 300; /*parseInt(document.getElementById("simResSelY").value);*/
 		NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
 		SETUP_MODE = true;
+		
 		mainScript(null);
 	}
 	viewYpos = -0.5 + sim_res_y / sim_res_x; // match bottem to bottem of screen
@@ -349,8 +350,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		throw " Error: Your browser does not support WebGL2, Download a new version of Chrome, Edge, Firefox or Opera";
 	}
 
-	// SETUP GUI
+	function startSimulation()
+	{
+		SETUP_MODE = false;
+		gl.useProgram(realisticDisplayProgram);
+		gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), guiControls.exposure);
+		// SETUP GUI
 
+	
+
+	
+	}
+
+	
 	var guiControls;
 
 	if (guiControlsFromSaveFile == null) {
@@ -359,10 +371,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		setupDatGui(guiControlsFromSaveFile); // use settings from save file
 	}
 
+	
+
 	function setupDatGui(strGuiControls) {
 		var datGui = new dat.GUI();
 		guiControls = JSON.parse(strGuiControls); // load object
-
+		datGui.hide();
 		// add functions to guicontrols object
 		guiControls.download = function () {
 			prepareDownload();
@@ -1036,9 +1050,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 		if (event.button == 0) {
 			leftMousePressed = true;
 			if(SETUP_MODE){ // DISABLE SETUP MODE
-				SETUP_MODE = false;
-				gl.useProgram(realisticDisplayProgram);
-				gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, "exposure"), guiControls.exposure);
+				//SETUP_MODE = false;
+				startSimulation();
+				
 			}
 		} else if (event.button == 1) {
 			// middle mouse button
