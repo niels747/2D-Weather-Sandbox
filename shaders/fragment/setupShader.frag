@@ -7,6 +7,7 @@ uniform vec2 texelSize;
 uniform float dryLapse;
 
 uniform float seed;
+uniform float heightMult;
 
 uniform float initial_T[300];
 
@@ -43,7 +44,7 @@ void main()
     height += noise(var * i + rand(seed+i)*10.) * 0.5/i;
     }
 
-    //height *= 0.75;
+    height *= heightMult;
 
     //height = 0.0; // flat
 

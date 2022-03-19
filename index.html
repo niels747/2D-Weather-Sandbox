@@ -46,23 +46,30 @@
 							<output name="simResShowY">300</output>
 						</td>
 					</tr>
-					<tr>
-						<td>
-							<input type="button" value="Create New Simulation" onclick="loadData()" />
-						</td>
-					</tr>
 				</table>
+				<input type="button" value="Create New Simulation" onclick="loadData()" />
+				<i>Move the mouse until you see a terrain you like, then just click to start.</i>
 			</form>
-
+	
 			<p>
 				<label for="fileInput">Load Save File:</label>
 				<input type="file" id="fileInput" name="fileInput" accept=".weathersim4" onchange="loadData()"/>
 			</p>
 			<p style="font-size: 20px;">
-				<i>Save files from previous versions wont work!</i>
+				<i>Save files from older versions won't work!</i>
 			</p>
 
 			<p><a style="color: white" href="./saves">Download example save files here</a></p>
+
+			<h2>New Features</h2>
+				<li>Random Terrain Generator</li>
+				<li>Settings saved to save file</li>
+				<li>Visualisation wrapped horizontally, so it feels infinite</li>
+				<li>Realistic sun angle for any latitude, time of year and time of day</li>
+				<li>More control keys</li>
+				<li>More settings</li>
+				<li>Imperial units for Americans</li>
+				<li>Better visuals</li>
 
 			<div id="help" style="margin: 15px">
 				<h2>Controls</h2>
@@ -79,7 +86,7 @@
 					</tr>
 					<tr>
 						<td>Q - Y</td>
-						<td>Change Tool</td>
+						<td>Tool</td>
 					</tr>
 					<tr>
 						<td>Arrows ◄ ▲ ▼ ► </td>
@@ -95,7 +102,7 @@
 					</tr>
 					<tr>
 						<td>D</td>
-						<td>Show / Hide droplets</td>
+						<td>Show / Hide Droplets</td>
 					</tr>
 					<tr>
 						<td>G</td>
@@ -107,7 +114,7 @@
 					</tr>
 					<tr>
 						<td>V</td>
-						<td>Reset view to see full simulation area</td>
+						<td>Reset View</td>
 					</tr>
 					<tr>
 						<td>B</td>
@@ -119,14 +126,6 @@
 					</tr>
 				</table>
 
-				<h2>New Features</h2>
-				<li>Settings saved to save file</li>
-				<li>Visualisation wrapped so it feels infinite</li>
-				<li>Realistic sun angle simulation</li>
-				<li>More control keys</li>
-				<li>More settings</li>
-				<li>Imperial units for Americans</li>
-				<li>Better visuals</li>
 
 				<br />
 				<i>By Niels Daemen</i>

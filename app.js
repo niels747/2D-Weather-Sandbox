@@ -1,7 +1,7 @@
 var canvas;
 var gl;
 
-var SETUP_MODE = true;
+var SETUP_MODE = false;
 
 var loadingBar;
 
@@ -232,6 +232,7 @@ async function loadData() {
 		sim_res_x = parseInt(document.getElementById("simResSelX").value);
 		sim_res_y = 300; /*parseInt(document.getElementById("simResSelY").value);*/
 		NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
+		SETUP_MODE = true;
 		mainScript(null);
 	}
 	viewYpos = -0.5 + sim_res_y / sim_res_x; // match bottem to bottem of screen
@@ -1733,6 +1734,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 			gl.viewport(0, 0, sim_res_x, sim_res_y);
 			gl.useProgram(setupProgram);
 			gl.uniform1f(gl.getUniformLocation(setupProgram, "seed"), mouseXinSim);
+			gl.uniform1f(gl.getUniformLocation(setupProgram, "heightMult"), (canvas.height - mouseY)/canvas.height *2.0); 
 			// Render to both framebuffers
 			gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
 			gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
