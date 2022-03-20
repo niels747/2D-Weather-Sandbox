@@ -248,12 +248,12 @@ void main()
 
     if (wall[1] == 0) { // is wall
         //base[3] += 1000.0; // WHY DOES WALL TEMP HAVE AFFECT ON SIMULATION? special temperature, just to identify that it is a wall cell when drawing the graph
-    } else { // no wall
+              } else { // no wall
 
-        if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
+                if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
             water = vec4(0.0);
 
-        water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
+                    water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
     }
 }
 
