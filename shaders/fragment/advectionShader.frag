@@ -144,7 +144,7 @@ void main()
 
             if (water[2] > 0.0 && tempC > 0.0) { // water evaporating from ground
                 //float evaporation = min((1.0 - relativeHumd(CtoK(tempC), waterX0Yp[0])) * 0.005, water[2]);
-                float evaporation = max((maxWater(CtoK(tempC)) - water[0]) * 0.00002, 0.); // water evaporating from land
+                float evaporation = max((maxWater(CtoK(tempC)) - water[0]) * 0.00001, 0.); // water evaporating from land
                 water[2] -= evaporation;
             }
         } else { // cell above is also wall

@@ -42,5 +42,5 @@ void main()
     //  if(texCoord.y > 0.2)
     //    base[3] -= 0.0005;
 
-    base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.25; // 0.05 - 0.5 0.40 lower multiplier dampenes pressure waves, max 0.5      pressure changes proportional to the net in or outflow, to or from the cell.
+    base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.49; // 0.05 - 0.5 0.40 lower multiplier dampenes pressure waves, max 0.5      pressure changes proportional to the net in or outflow, to or from the cell.
 }

@@ -56,7 +56,7 @@ const guiControls_default = {
 	showDrops: false,
 	paused: false,
 	IterPerFrame: 10,
-	auto_IterPerFrame: false,
+	auto_IterPerFrame: true,
 	dryLapseRate: 10.0, // 9.81 degrees / km
 	simHeight: 12000, // meters
 	imperialUnits: false, // only for display.  false = metric
@@ -660,7 +660,7 @@ async function mainScript(
 					guiControls.waterEvaporation
 				);
 			})
-			.name("Water Evaporation");
+			.name("Lake / Sea Evaporation");
 		water_folder
 			.add(guiControls, "evapHeat", 0.0, 5.0)
 			.onChange(function () {

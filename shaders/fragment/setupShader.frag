@@ -38,6 +38,16 @@ void main()
     // WALL SETUP
 
     float height = 0.0;
+
+    if(heightMult < 0.05){ // all sea
+
+    height = 0.0;
+
+    } else if(heightMult < 0.10){ // all land
+
+    height = 0.005;
+
+    }else{ // generate mountains
     float var = fragCoord.x * 0.001;
 
     for(float i = 2.0; i < 1000.0; i*=1.5){
@@ -45,8 +55,7 @@ void main()
     }
 
     height *= heightMult;
-
-    //height = 0.0; // flat
+}
 
     if (texCoord.y < texelSize.y || texCoord.y < height) { // set to wall
         wall[1] = 0; // set to wall
