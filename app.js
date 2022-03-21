@@ -351,7 +351,7 @@ async function mainScript(
 		depth: false,
 		failIfMajorPerformanceCaveat: false,
 		powerPreference: "high-performance",
-		premultipliedAlpha: true,
+		premultipliedAlpha: true, // true
 		preserveDrawingBuffer: false,
 		stencil: false,
 	};
@@ -359,10 +359,8 @@ async function mainScript(
 	//console.log(gl.getContextAttributes());
 
 	if (!gl) {
-		alert(
-			"Your browser does not support WebGL2, Download a new version of Chrome, Edge, Firefox or Opera"
-		);
-		throw " Error: Your browser does not support WebGL2, Download a new version of Chrome, Edge, Firefox or Opera";
+		alert("Your browser does not support WebGL2, Download a new browser.");
+		throw " Error: Your browser does not support WebGL2";
 	}
 
 	function startSimulation() {
@@ -1157,6 +1155,8 @@ async function mainScript(
 	canvas.style.display = "block";
 	canvas_aspect = canvas.width / canvas.height;
 
+	var mouseXinSim, mouseYinSim;
+
 	window.addEventListener("resize", function () {
 		canvas.width = window.innerWidth;
 		canvas.height = window.innerHeight;
@@ -1166,19 +1166,6 @@ async function mainScript(
 	});
 
 	function logSample() {
-		var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
-		var rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
-		var mouseXinSim =
-			map_range(mouseX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
-
-		var topEdge =
-			canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
-		var bottemEdge =
-			canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
-		var mouseYinSim =
-			map_range(mouseY, bottemEdge, topEdge, 0.0, 1.0) -
-			(viewYpos / 2.0) * sim_aspect;
-
 		// mouse position in sim coordinates
 		var simXpos = Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x)));
 		var simYpos = Math.floor(mouseYinSim * sim_res_y);
@@ -2492,14 +2479,14 @@ async function mainScript(
 
 		var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
 		var rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
-		var mouseXinSim =
+		mouseXinSim =
 			map_range(mouseX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
 
 		var topEdge =
 			canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
 		var bottemEdge =
 			canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
-		var mouseYinSim =
+		mouseYinSim =
 			map_range(mouseY, bottemEdge, topEdge, 0.0, 1.0) -
 			(viewYpos / 2.0) * sim_aspect;
 
@@ -3260,4 +3247,4 @@ async function mainScript(
 			}
 		}
 	}
-}
+} // end of mainscript
