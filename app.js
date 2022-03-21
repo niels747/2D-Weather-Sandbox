@@ -1180,7 +1180,7 @@ async function mainScript(
 			(viewYpos / 2.0) * sim_aspect;
 
 		// mouse position in sim coordinates
-		var simXpos = Math.floor(mouseXinSim * sim_res_x);
+		var simXpos = Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x)));
 		var simYpos = Math.floor(mouseYinSim * sim_res_y);
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
