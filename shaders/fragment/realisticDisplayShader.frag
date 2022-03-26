@@ -20,7 +20,7 @@ uniform float sunAngle;
 
 uniform float exposure;
 uniform vec3 view; // Xpos  Ypos    Zoom
-uniform vec3 cursor; // xpos   Ypos  Size
+uniform vec4 cursor; // xpos   Ypos  Size   type
 
 
 out vec4 fragmentColor;
@@ -78,6 +78,10 @@ void main()
     wall = texture(wallTex, texCoord).xy;
     water = bilerpWallVis(waterTex, wallTex, fragCoord);
     light = texture(lightTex, texCoord)[0];
+
+
+    
+
     light = pow(light, 1. / 2.2); // gamma correction
 
    // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
@@ -113,7 +117,15 @@ void main()
 
     float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
     vec3 lightCol = sunColor(scatering) * light;
-    const float shadowLight = 0.05;
+    float shadowLight = 0.05;
+    
+    if(fract(cursor.w) > 0.5){ // enable flashlight
+        vec2 vecFromMouse = cursor.xy - texCoord;
+        vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
+       // shadowLight += max(1. / (1.+length(vecFromMouse)*5.0),0.0); // point light
+        shadowLight += max(cos(min(length(vecFromMouse)*2.5,2.)), 0.0); // smooth light
+    }
+
     lightCol += vec3(shadowLight);
 
     fragmentColor = vec4(clamp(color * lightCol * exposure, 0., 1.), opacity);

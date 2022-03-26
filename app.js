@@ -62,6 +62,8 @@ const guiControls_default = {
 	imperialUnits: false, // only for display.  false = metric
 };
 
+var sunIsUp = true;
+
 var saveFileName = "";
 
 var guiControlsFromSaveFile = null;
@@ -507,7 +509,7 @@ async function mainScript(
 			}
 		};
 
-		var fluidParams_folder = datGui.addFolder("Fluid Parameters ");
+		var fluidParams_folder = datGui.addFolder("Fluid");
 
 		fluidParams_folder
 			.add(guiControls, "vorticity", 0.0, 0.015)
@@ -545,6 +547,7 @@ async function mainScript(
 		var UI_folder = datGui.addFolder("User Interaction");
 
 		UI_folder.add(guiControls, "tool", {
+			Flashlight: "TOOL_NONE",
 			Temperature: "TOOL_TEMPERATURE",
 			"Water Vapor / Cloud": "TOOL_WATER",
 			Land: "TOOL_WALL_LAND",
@@ -622,7 +625,7 @@ async function mainScript(
 			})
 			.name("IR Multiplier");
 
-		var water_folder = datGui.addFolder("Water Parameters");
+		var water_folder = datGui.addFolder("Water");
 
 		water_folder
 			.add(guiControls, "waterTemperature", 0.0, 35.0)
@@ -710,7 +713,7 @@ async function mainScript(
 			})
 			.name("Water Weight");
 
-		var precipitation_folder = datGui.addFolder("Precipitation Parameters");
+		var precipitation_folder = datGui.addFolder("Precipitation");
 
 		precipitation_folder
 			.add(guiControls, "aboveZeroThreshold", 0.1, 2.0)
@@ -1425,6 +1428,8 @@ async function mainScript(
 			plusPressed = true; // +
 		} else if (event.key == "-") {
 			minusPressed = true; // -
+		} else if (event.code == "Backquote") {
+			guiControls.tool = "TOOL_NONE";
 		} else if (event.code == "KeyQ") {
 			guiControls.tool = "TOOL_TEMPERATURE";
 		} else if (event.code == "KeyW") {
@@ -2522,9 +2527,11 @@ async function mainScript(
 			gl.disable(gl.BLEND);
 			gl.useProgram(advectionProgram);
 
-			var inputType = 0;
+			var inputType = -1;
 			if (leftMousePressed) {
-				if (guiControls.tool == "TOOL_TEMPERATURE") inputType = 1;
+				if (guiControls.tool == "TOOL_NONE")
+					inputType = 0; // only flashlight on
+				else if (guiControls.tool == "TOOL_TEMPERATURE") inputType = 1;
 				else if (guiControls.tool == "TOOL_WATER") inputType = 2;
 				else if (guiControls.tool == "TOOL_SMOKE") inputType = 3;
 				else if (guiControls.tool == "TOOL_WALL") inputType = 10;
@@ -2720,17 +2727,19 @@ async function mainScript(
 			}
 		} // END OF NOT SETUP
 
-		let mouseXinSim_SIG = mouseXinSim; // for drawing cursor
+		let cursorType = 1.0; // normal circular brush
 		if (guiControls.wholeWidth) {
-			mouseXinSim_SIG = -24.0;
-		} else if (
-			inputType == 0 &&
-			!bPressed &&
-			(guiControls.tool == "TOOL_TEMPERATURE" ||
-				guiControls.tool == "TOOL_WATER")
+			cursorType = 2.0; // cursor whole width brush
+		} else if (inputType <= 0 && !bPressed && guiControls.tool == "TOOL_NONE") {
+			cursorType = 0; // cursor off sig
+		}
+
+		if (
+			inputType == 0 || // clicking while tool is set to flashlight(NONE) always enables it
+			(guiControls.tool != "TOOL_NONE" && !sunIsUp) // turn on the flashlight at night while using tools
 		) {
-			// cursor off
-			mouseXinSim_SIG = -25.0;
+			// enable flashlight
+			cursorType += 0.55;
 		}
 
 		// render to canvas
@@ -2784,11 +2793,12 @@ async function mainScript(
 				viewYpos,
 				viewZoom
 			);
-			gl.uniform3f(
+			gl.uniform4f(
 				gl.getUniformLocation(realisticDisplayProgram, "cursor"),
-				mouseXinSim_SIG,
+				mouseXinSim,
 				mouseYinSim,
-				guiControls.brushSize * 0.5
+				guiControls.brushSize * 0.5,
+				cursorType
 			);
 
 			if (SETUP_MODE)
@@ -2832,11 +2842,12 @@ async function mainScript(
 					viewYpos,
 					viewZoom
 				);
-				gl.uniform3f(
+				gl.uniform4f(
 					gl.getUniformLocation(temperatureDisplayProgram, "cursor"),
-					mouseXinSim_SIG,
+					mouseXinSim,
 					mouseYinSim,
-					guiControls.brushSize * 0.5
+					guiControls.brushSize * 0.5,
+					cursorType
 				);
 			} else if (guiControls.displayMode == "DISP_IRDOWNTEMP") {
 				gl.useProgram(IRtempDisplayProgram);
@@ -2851,11 +2862,12 @@ async function mainScript(
 					viewYpos,
 					viewZoom
 				);
-				gl.uniform3f(
+				gl.uniform4f(
 					gl.getUniformLocation(IRtempDisplayProgram, "cursor"),
-					mouseXinSim_SIG,
+					mouseXinSim,
 					mouseYinSim,
-					guiControls.brushSize * 0.5
+					guiControls.brushSize * 0.5,
+					cursorType
 				);
 				gl.uniform1i(
 					gl.getUniformLocation(IRtempDisplayProgram, "upOrDown"),
@@ -2877,11 +2889,12 @@ async function mainScript(
 					viewYpos,
 					viewZoom
 				);
-				gl.uniform3f(
+				gl.uniform4f(
 					gl.getUniformLocation(IRtempDisplayProgram, "cursor"),
-					mouseXinSim_SIG,
+					mouseXinSim,
 					mouseYinSim,
-					guiControls.brushSize * 0.5
+					guiControls.brushSize * 0.5,
+					cursorType
 				);
 				gl.uniform1i(
 					gl.getUniformLocation(IRtempDisplayProgram, "upOrDown"),
@@ -2903,11 +2916,12 @@ async function mainScript(
 					viewYpos,
 					viewZoom
 				);
-				gl.uniform3f(
+				gl.uniform4f(
 					gl.getUniformLocation(universalDisplayProgram, "cursor"),
-					mouseXinSim_SIG,
+					mouseXinSim,
 					mouseYinSim,
-					guiControls.brushSize * 0.5
+					guiControls.brushSize * 0.5,
+					cursorType
 				);
 
 				switch (guiControls.displayMode) {
@@ -2999,12 +3013,17 @@ async function mainScript(
 				) * radToDeg;
 
 			if (guiControls.latitude - tiltDeg < 0.0) {
-				// If sun is to the north,
+				// If sun is to the north, flip angle
 				guiControls.sunAngle = 180.0 - guiControls.sunAngle;
 			}
 		}
-		let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad;
+		let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // centered around 0
 		// Calculation visualized: https://www.desmos.com/calculator/4wejxvjrtl
+
+		if (Math.abs(sunAngleForShaders) < 1.54) sunIsUp = true;
+		else sunIsUp = false;
+
+		//		console.log(sunAngleForShaders, sunIsUp);
 
 		//	let sunIntensity = guiControls.sunIntensity * Math.pow(Math.max(Math.sin((90.0 - Math.abs(guiControls.sunAngle)) * degToRad) - 0.1, 0.0) * 1.111, 0.4);
 		let sunIntensity =

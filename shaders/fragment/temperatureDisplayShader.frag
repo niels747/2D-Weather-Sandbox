@@ -14,7 +14,7 @@ uniform vec2 texelSize;
 uniform float dryLapse;
 
 uniform vec3 view; // Xpos  Ypos    Zoom
-uniform vec3 cursor; // xpos   Ypos  Size
+uniform vec4 cursor; // xpos   Ypos  Size   type
 
 out vec4 fragmentColor;
 

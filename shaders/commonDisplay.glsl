@@ -2,18 +2,18 @@ const vec3 tempColorPalette[] = vec3[](vec3(1., 0.7, 1.), vec3(1., 0.5, 1.), vec
 
 
 // functions for display shaders
-void drawCursor()
+void drawCursor() // OFF: cursor.w < 1       Normal round: cursor.w 1 to 2         WHOLE WIDTH: cursor.w >= 2        
 {
-    if (cursor.x > -24.5) { // draw cursor enabled
+    if (cursor.w >= 1.) { // draw cursor enabled
         float distFromMouseF;
-        if (cursor.x < -23.5) { // whole width brush
+        if (cursor.w >= 2.) { // whole width brush
             distFromMouseF = abs(cursor.y - texCoord.y); // whole width bar
         } else {
             vec2 vecFromMouse = cursor.xy - texCoord;
             vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
             distFromMouseF = length(vecFromMouse);
         }
-        if (abs(distFromMouseF - cursor.z * texelSize.y) < 0.000001 / view[2] * resolution.x) { // 0.001
+        if (abs(distFromMouseF - cursor.z * texelSize.y) < 0.000001 / view[2] * resolution.x) { // draw brush
             fragmentColor = vec4(0.5, 0.5, 0.5, 1.0); // gray line
         }
     }

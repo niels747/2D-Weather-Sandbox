@@ -15,7 +15,7 @@ uniform int quantityIndex; // wich quantity to display
 uniform float dispMultiplier;
 
 uniform vec3 view; // Xpos  Ypos    Zoom
-uniform vec3 cursor; // xpos   Ypos  Size
+uniform vec4 cursor; // xpos   Ypos  Size   type
 
 out vec4 fragmentColor;
 
