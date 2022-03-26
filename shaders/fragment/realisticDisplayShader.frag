@@ -36,6 +36,8 @@ float light;
 vec3 color;
 float opacity = 1.0;
 
+bool fire = false; // Fire visualization needs some work...
+
 vec3 getWallColor(vec2 coord)
 {
     base = bilerpWallVis(baseTex, wallTex, coord / texelSize);
@@ -67,7 +69,8 @@ vec3 getWallColor(vec2 coord)
         return vec3(0, 0.5, 1.0);
         break;
     case 3: // Fire wall
-        return vec3(1.0, 0.5, 0.0);
+        fire = true;
+        return vec3(1.0, 0.5, 0.0); // orange  
         break;
     }
 }
@@ -79,13 +82,9 @@ void main()
     water = bilerpWallVis(waterTex, wallTex, fragCoord);
     light = texture(lightTex, texCoord)[0];
 
-
-    
-
     light = pow(light, 1. / 2.2); // gamma correction
 
    // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
-    
 
     float cloudwater = water[1];
 
@@ -128,7 +127,10 @@ void main()
 
     lightCol += vec3(shadowLight);
 
+    if(fire)
+        lightCol = vec3(1);
+
     fragmentColor = vec4(clamp(color * lightCol * exposure, 0., 1.), opacity);
     
-    drawCursor();
+    drawCursor(); // over everything else
 }
