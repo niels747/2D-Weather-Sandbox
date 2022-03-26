@@ -42,14 +42,14 @@ const guiControls_default = {
 	evapRate: 0.0005, // END OF PRECIPITATION
 	displayMode: "DISP_REAL",
 	timeOfDay: 9.9,
-	latitude: 40.0,
+	latitude: 45.0,
 	month: 6.67, // Nothern himisphere solstice
 	sunAngle: 9.9,
 	dayNightCycle: true,
 	exposure: 1.5,
 	IR_rate: 1.0,
-	tool: "TOOL_WATER",
-	brushSize: 50,
+	tool: "TOOL_NONE",
+	brushSize: 20,
 	wholeWidth: false,
 	intensity: 0.01,
 	showGraph: false,
@@ -73,9 +73,6 @@ var sim_res_y;
 
 var frameNum = 0;
 var lastFrameNum = 0;
-//var IterPerFrame = 10; // 10
-//var maxIterFound = false;
-//var calcCount = 0;
 
 var IterNum = 0;
 
@@ -386,7 +383,11 @@ async function mainScript(
 	function setupDatGui(strGuiControls) {
 		var datGui = new dat.GUI();
 		guiControls = JSON.parse(strGuiControls); // load object
-		datGui.hide();
+
+		if (frameNum == 0) {
+			// only hide during initial setup. When resetting settings and reinitializing datGui, H key no longer works to unhide it
+			datGui.hide();
+		}
 		// add functions to guicontrols object
 		guiControls.download = function () {
 			prepareDownload();
@@ -858,22 +859,29 @@ async function mainScript(
 			})
 			.name("Exposure");
 
-		datGui
+		var advanced_folder = datGui.addFolder("Advanced");
+
+		advanced_folder
 			.add(guiControls, "IterPerFrame", 1, 50)
 			.name("Iterations / Frame")
 			.listen();
 
-		datGui.add(guiControls, "auto_IterPerFrame").name("Auto Adjust").listen();
-
-		datGui
+		advanced_folder
+			.add(guiControls, "auto_IterPerFrame")
+			.name("Auto Adjust")
+			.listen();
+		advanced_folder.add(guiControls, "imperialUnits").name("Imperial Units");
+		advanced_folder
 			.add(guiControls, "showGraph")
 			.onChange(hideOrShowGraph)
 			.name("Show Sounding Graph")
 			.listen();
-		datGui.add(guiControls, "imperialUnits").name("I am an American");
+		advanced_folder
+			.add(guiControls, "resetSettings")
+			.name("Reset all settings");
+
 		datGui.add(guiControls, "paused").name("Paused").listen();
 		datGui.add(guiControls, "download").name("Save Simulation to File");
-		datGui.add(guiControls, "resetSettings").name("Reset all settings");
 
 		datGui.width = 400;
 	}
@@ -2734,6 +2742,21 @@ async function mainScript(
 			cursorType = 0; // cursor off sig
 		}
 
+		gl.useProgram(realisticDisplayProgram);
+
+		if (cursorType != 0 && !sunIsUp) {
+			// working at night
+			gl.uniform1f(
+				gl.getUniformLocation(realisticDisplayProgram, "exposure"),
+				4.0
+			);
+		} else {
+			gl.uniform1f(
+				gl.getUniformLocation(realisticDisplayProgram, "exposure"),
+				guiControls.exposure
+			);
+		}
+
 		if (
 			inputType == 0 || // clicking while tool is set to flashlight(NONE) always enables it
 			(guiControls.tool != "TOOL_NONE" && !sunIsUp) // turn on the flashlight at night while using tools
@@ -3020,8 +3043,11 @@ async function mainScript(
 		let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // centered around 0
 		// Calculation visualized: https://www.desmos.com/calculator/4wejxvjrtl
 
-		if (Math.abs(sunAngleForShaders) < 1.54) sunIsUp = true;
-		else sunIsUp = false;
+		if (Math.abs(sunAngleForShaders) < 1.54) {
+			sunIsUp = true;
+		} else {
+			sunIsUp = false;
+		}
 
 		//		console.log(sunAngleForShaders, sunIsUp);
 
