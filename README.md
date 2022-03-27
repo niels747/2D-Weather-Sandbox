@@ -3,8 +3,8 @@
 This projects objective is to produce a semirealistic two-dimensional, realtime, interactive simulation of the weather in earth's troposphere.
 
 ## Clouds and precipitation
-Simulating clouds and precipitation are the main objectives of this project
-All the equasions relating to water phase change are simplified versions of the real ones, to improve performance and make ease programming.
+Simulating clouds and precipitation are the main objectives of this project.
+All the equations relating to water phase change are simplified versions of the real ones, to improve performance and ease programming.
 Precipitation is simulated using discrete particles but can be viualized as both partiles and smooth realistic looking curtains.
 ![Bui](https://user-images.githubusercontent.com/42830240/160260531-03ecaee1-244b-4eb1-a758-284728e9d9e7.PNG)
 
