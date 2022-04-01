@@ -1438,6 +1438,7 @@ async function mainScript(
 			minusPressed = true; // -
 		} else if (event.code == "Backquote") {
 			guiControls.tool = "TOOL_NONE";
+			guiControls.wholeWidth = false; // flashlight can't be whole width
 		} else if (event.code == "KeyQ") {
 			guiControls.tool = "TOOL_TEMPERATURE";
 		} else if (event.code == "KeyW") {
