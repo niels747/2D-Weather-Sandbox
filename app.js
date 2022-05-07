@@ -2191,10 +2191,6 @@ async function mainScript(
 		guiControls.vorticity
 	); // can be changed by GUI input
 	gl.uniform1f(
-		gl.getUniformLocation(boundaryProgram, "sunIntensity"),
-		guiControls.sunIntensity
-	); // can be changed by GUI input
-	gl.uniform1f(
 		gl.getUniformLocation(boundaryProgram, "waterTemperature"),
 		CtoK(guiControls.waterTemperature)
 	); // can be changed by GUI input
@@ -3043,7 +3039,6 @@ async function mainScript(
 		}
 		let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // centered around 0
 		// Calculation visualized: https://www.desmos.com/calculator/4wejxvjrtl
-
 		if (Math.abs(sunAngleForShaders) < 1.54) {
 			sunIsUp = true;
 		} else {
@@ -3062,10 +3057,6 @@ async function mainScript(
 		//console.log("sunIntensity: ", sunIntensity);
 
 		gl.useProgram(boundaryProgram);
-		gl.uniform1f(
-			gl.getUniformLocation(boundaryProgram, "sunIntensity"),
-			sunIntensity
-		);
 		gl.uniform1f(
 			gl.getUniformLocation(boundaryProgram, "sunAngle"),
 			sunAngleForShaders
