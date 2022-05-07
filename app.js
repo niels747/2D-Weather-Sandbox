@@ -2577,7 +2577,10 @@ async function mainScript(
 
 				gl.viewport(0, 0, sim_res_x, sim_res_y);
 				gl.clearColor(0.0, 0.0, 0.0, 0.0);
-				// IterPerFrame
+
+				var srcVAO;
+				var destVAO;
+				var destTF;
 
 				for (var i = 0; i < guiControls.IterPerFrame; i++) {
 					// calc and apply velocity
