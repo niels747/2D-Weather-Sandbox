@@ -67,6 +67,7 @@ var sunIsUp = true;
 var saveFileName = "";
 
 var guiControlsFromSaveFile = null;
+var datGui;
 
 var sim_res_x;
 var sim_res_y;
@@ -362,14 +363,7 @@ async function mainScript(
 		throw " Error: Your browser does not support WebGL2";
 	}
 
-	function startSimulation() {
-		SETUP_MODE = false;
-		gl.useProgram(realisticDisplayProgram);
-		gl.uniform1f(
-			gl.getUniformLocation(realisticDisplayProgram, "exposure"),
-			guiControls.exposure
-		);
-	}
+
 
 	// SETUP GUI
 	var guiControls;
@@ -381,7 +375,7 @@ async function mainScript(
 	}
 
 	function setupDatGui(strGuiControls) {
-		var datGui = new dat.GUI();
+		datGui = new dat.GUI();
 		guiControls = JSON.parse(strGuiControls); // load object
 
 		if (frameNum == 0) {
@@ -504,7 +498,6 @@ async function mainScript(
 					gl.getUniformLocation(precipitationProgram, "evapRate"),
 					guiControls.evapRate
 				);
-
 				hideOrShowGraph();
 				updateSunlight();
 			}
@@ -885,9 +878,19 @@ async function mainScript(
 
 		datGui.width = 400;
 	}
-
+	
 	await loadingBar.set(3, "Initializing Sounding Graph");
 	// END OF GUI
+
+	function startSimulation() {
+		SETUP_MODE = false;
+		gl.useProgram(realisticDisplayProgram);
+		gl.uniform1f(
+			gl.getUniformLocation(realisticDisplayProgram, "exposure"),
+			guiControls.exposure
+		);
+		datGui.show(); // unhide
+	}
 
 	function printTemp(tempC) {
 		if (guiControls.imperialUnits) {
@@ -1355,8 +1358,6 @@ async function mainScript(
 		if (event.button == 0) {
 			leftMousePressed = true;
 			if (SETUP_MODE) {
-				// DISABLE SETUP MODE
-				//SETUP_MODE = false;
 				startSimulation();
 			}
 		} else if (event.button == 1) {
@@ -2459,6 +2460,10 @@ async function mainScript(
 	}
 
 	updateSunlight("MANUAL_ANGLE"); // set angle from savefile
+
+	if(!SETUP_MODE){ // 
+		startSimulation();
+	}
 
 	await loadingBar.set(100, "Loading complete"); // loading complete
 	await loadingBar.remove();
