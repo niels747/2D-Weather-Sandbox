@@ -2472,6 +2472,10 @@ async function mainScript(
 
 	requestAnimationFrame(draw);
 
+	var srcVAO;
+	var destVAO;
+	var destTF;
+
 	function draw() {
 		if (leftPressed) {
 			viewXpos += 0.01 / viewZoom; // <
@@ -2578,14 +2582,10 @@ async function mainScript(
 
 			if (!guiControls.paused) {
 				if (guiControls.dayNightCycle)
-					updateSunlight(0.0001 * guiControls.IterPerFrame); // 0.00010
+					updateSunlight(0.0001 * guiControls.IterPerFrame); // increase solar time 0.00010
 
 				gl.viewport(0, 0, sim_res_x, sim_res_y);
 				gl.clearColor(0.0, 0.0, 0.0, 0.0);
-
-				var srcVAO;
-				var destVAO;
-				var destTF;
 
 				for (var i = 0; i < guiControls.IterPerFrame; i++) {
 					// calc and apply velocity
@@ -2743,7 +2743,7 @@ async function mainScript(
 		let cursorType = 1.0; // normal circular brush
 		if (guiControls.wholeWidth) {
 			cursorType = 2.0; // cursor whole width brush
-		} else if (inputType <= 0 && !bPressed && guiControls.tool == "TOOL_NONE") {
+		} else if (SETUP_MODE || (inputType <= 0 && !bPressed && guiControls.tool == "TOOL_NONE")) {
 			cursorType = 0; // cursor off sig
 		}
 
