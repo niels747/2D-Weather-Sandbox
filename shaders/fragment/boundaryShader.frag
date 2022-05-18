@@ -17,7 +17,7 @@ uniform sampler2D vortForceTex;
 uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D
-    precipFeedbackTex; // [0] droplet weigth force,  [1] heating and cooling of
+    precipFeedbackTex; // [0] droplet weight force,  [1] heating and cooling of
                        // fluid,  [2] evaporation and taking water from cloud
 
 uniform float dryLapse;
@@ -30,7 +30,7 @@ uniform float waterTemperature;
 uniform float waterEvaporation;
 uniform float landEvaporation;
 uniform float waterWeight;
-uniform float initial_T[500];
+uniform float initial_T[300];
 
 uniform float IR_rate;
 uniform float sunAngle;
