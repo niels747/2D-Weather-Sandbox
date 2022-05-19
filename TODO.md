@@ -4,4 +4,4 @@
 - [ ] Add tree / vegitation textures.
 - [ ] Make dust blow up in dry areas.
 - [ ] Make fire spread and burn out, only in areas with vegitation.
-- [ ] Add lighting effect.
+- [ ] Add lightning effect.
