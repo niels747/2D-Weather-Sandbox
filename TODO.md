@@ -1,6 +1,7 @@
-- [ ] Add moisture dissipation/removal to options.
+- [ ] Add variable moisture dissipation/removal to options.
 - [ ] Make vegitation amount (greenness) fixed.
 - [ ] Make land evaporation proportional to amount of vegitation.
+- [ ] Fix surface visualization
 - [ ] Add tree / vegetation textures.
 - [ ] Make dust blow up in dry areas.
 - [ ] Make fire spread and burn out, only in areas with vegitation.
