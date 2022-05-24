@@ -486,6 +486,8 @@ async function mainScript(
     gl.uniform1f(
         gl.getUniformLocation(precipitationProgram, 'evapRate'),
         guiControls.evapRate);
+		gl.useProgram(realisticDisplayProgram);
+		gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
   }
 
   function setupDatGui(strGuiControls) {
@@ -1889,7 +1891,7 @@ async function mainScript(
         realToPotentialT(CtoK(realTemp), y);  // initial temperature profile
   }
 
-  //setGuiUniforms();
+  
 
   // Set uniforms
   gl.useProgram(setupProgram);
@@ -1913,6 +1915,7 @@ async function mainScript(
   gl.uniform1fv(
       gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
+  /*
   gl.uniform1f(
       gl.getUniformLocation(advectionProgram, 'evapHeat'),
       guiControls.evapHeat);
@@ -1929,6 +1932,7 @@ async function mainScript(
   gl.uniform1f(
       gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'),
       guiControls.globalEffectsHeight / guiControls.simHeight);
+	  */
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
@@ -1943,12 +1947,13 @@ async function mainScript(
   gl.uniform2f(
       gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX,
       texelSizeY);
-  gl.uniform1f(
-      gl.getUniformLocation(velocityProgram, 'dragMultiplier'),
-      guiControls.dragMultiplier);
+//   gl.uniform1f(
+//       gl.getUniformLocation(velocityProgram, 'dragMultiplier'),
+//       guiControls.dragMultiplier);
   gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
-  gl.uniform1f(
-      gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
+
+//   gl.uniform1f(
+//       gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
 
   gl.useProgram(vorticityProgram);
   gl.uniform2f(
@@ -1976,6 +1981,8 @@ async function mainScript(
       gl.getUniformLocation(boundaryProgram, 'waterTemperature'),
       CtoK(guiControls.waterTemperature));  // can be changed by GUI input
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dryLapse'), dryLapse);
+  gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
+  /*
   gl.uniform1f(
       gl.getUniformLocation(boundaryProgram, 'evapHeat'), guiControls.evapHeat);
   gl.uniform1f(
@@ -1987,12 +1994,13 @@ async function mainScript(
   gl.uniform1f(
       gl.getUniformLocation(boundaryProgram, 'waterWeight'),
       guiControls.waterWeight);
-  gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
+  
   gl.uniform1f(
       gl.getUniformLocation(boundaryProgram, 'IR_rate'), guiControls.IR_rate);
   gl.uniform1f(
       gl.getUniformLocation(boundaryProgram, 'sunAngle'),
       guiControls.sunAngle * degToRad);
+	  */
 
   gl.useProgram(curlProgram);
   gl.uniform2f(
@@ -2006,6 +2014,12 @@ async function mainScript(
   gl.uniform2f(
       gl.getUniformLocation(lightingProgram, 'texelSize'), texelSizeX,
       texelSizeY);
+
+  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'baseTex'), 0);
+  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'waterTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'lightTex'), 3);
+	  /*
   gl.uniform1f(
       gl.getUniformLocation(lightingProgram, 'sunAngle'),
       guiControls.sunAngle * degToRad);
@@ -2013,13 +2027,10 @@ async function mainScript(
   gl.uniform1f(
       gl.getUniformLocation(lightingProgram, 'waterTemperature'),
       CtoK(guiControls.waterTemperature));
-  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'baseTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'waterTex'), 1);
-  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'wallTex'), 2);
-  gl.uniform1i(gl.getUniformLocation(lightingProgram, 'lightTex'), 3);
   gl.uniform1f(
       gl.getUniformLocation(lightingProgram, 'sunIntensity'),
       guiControls.sunIntensity);
+*/
 
   // Display programs:
   gl.useProgram(temperatureDisplayProgram);
@@ -2076,10 +2087,11 @@ async function mainScript(
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
+	  /*
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'exposure'),
       guiControls.exposure);
-
+*/
   gl.useProgram(precipitationProgram);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'waterTex'), 1);
@@ -2091,6 +2103,7 @@ async function mainScript(
       texelSizeY);
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
+/*
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'evapHeat'),
       guiControls.evapHeat);
@@ -2100,7 +2113,6 @@ async function mainScript(
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'waterWeight'),
       guiControls.waterWeight);
-
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'),
       guiControls.aboveZeroThreshold);
@@ -2131,7 +2143,7 @@ async function mainScript(
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'evapRate'),
       guiControls.evapRate);
-
+*/
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(
       gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x,
