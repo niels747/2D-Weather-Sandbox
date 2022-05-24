@@ -25,7 +25,6 @@ uniform float evapHeat;
 uniform vec2 resolution;
 uniform vec2 texelSize;
 uniform float vorticity;
-// uniform float sunIntensity;
 uniform float waterTemperature;
 uniform float waterEvaporation;
 uniform float landEvaporation;
@@ -220,7 +219,7 @@ void main() {
         base[3] += 0.005;  // heat
         water[3] += 0.005; // smoke
 
-        // water[0] += 0.002; // water from burning trees
+        // water[0] += 0.002; // extra water from burning trees
       }
 
       if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallInfluence) { // above
