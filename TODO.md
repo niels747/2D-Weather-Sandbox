@@ -1,4 +1,5 @@
 - [ ] Add variable moisture dissipation/removal to options.
+- [ ] Fix GUI digits, maybe stop using dat.gui and create my own?
 - [ ] Make vegitation amount (greenness) fixed.
 - [ ] Make land evaporation proportional to amount of vegitation.
 - [ ] Fix surface visualization
