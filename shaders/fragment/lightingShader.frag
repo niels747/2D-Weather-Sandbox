@@ -82,7 +82,7 @@ void main() {
 
         float emissivity; // how opage it is too ir, the rest is let trough, no
                           // reflection
-        emissivity = 0.001;              // 0.005 greenhouse gasses
+        emissivity = 0.001;              // 0.001 greenhouse gasses
         emissivity += water[0] * 0.0025; // water vapor
         emissivity += water[1] * 1.5;    // cloud water
         emissivity += water[3] * 0.01;   // smoke

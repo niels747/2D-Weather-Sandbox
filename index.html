@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<title>WebGL 2D Weather Simulation v4</title>
-		<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
+		<script type="text/javascript" src="libraries/dat.gui.js"></script>
 		<script type="text/javascript" src="libraries/pako.min.js"></script>
 		<script type="text/javascript" src="app.js"></script>
 		<style>
@@ -43,9 +43,9 @@
 						<td>
 							<input
 								type="range"
-								min="300"
+								min="100"
 								max="6000"
-								value="2500"
+								value="100"
 								step="10"
 								id="simResSelX"
 							/>
@@ -108,7 +108,7 @@
 			<div id="help" style="margin: 15px">
 				<h2>Controls</h2>
 				<h3>Mouse</h3>
-				<li>Middle mouse button to drag the simulation area arround</li>
+				<li>Middle mouse button to drag the simulation area around</li>
 				<li>
 					Mouse wheel to zoom in and out, Or to change brush size while holding
 					down B

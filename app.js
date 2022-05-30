@@ -217,7 +217,7 @@ async function loadData() {
             saveFileName.split('.').slice(0, -1).join('.');  // remove extension
       }
 
-      console.log('loading file: ' + saveFileName);
+      console.log('loading file: ' + saveFileName);5
       console.log('File versionID: ' + version);
       console.log('sim_res_x: ' + sim_res_x);
       console.log('sim_res_y: ' + sim_res_y);
@@ -386,7 +386,6 @@ async function mainScript(
   }
 
 
-
   // SETUP GUI
   var guiControls;
 
@@ -455,7 +454,6 @@ async function mainScript(
     gl.uniform1f(
         gl.getUniformLocation(precipitationProgram, 'waterWeight'),
         guiControls.waterWeight);
-
     gl.uniform1f(
         gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'),
         guiControls.aboveZeroThreshold);
@@ -504,8 +502,6 @@ async function mainScript(
       prepareDownload();
     };
 
-
-
     guiControls.resetSettings = function() {
       if (confirm('Are you sure you want to reset all settings to default?')) {
         datGui.destroy();  // remove datGui completely
@@ -523,7 +519,7 @@ async function mainScript(
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
-              gl.getUniformLocation(boundaryProgram, 'vorticity'),
+              gl.getUniformLocation(boundaryProgram, 'vorticity'), 
               guiControls.vorticity);
         })
         .name('Vorticity');
@@ -1338,7 +1334,7 @@ async function mainScript(
     } else if (event.code == 'KeyB') {
       // B: scrolling to change brush size
       bPressed = true;
-      if (new Date().getTime() - lastBpressTime < 300)
+      if (new Date().getTime() - lastBpressTime < 300 && guiControls.tool != 'TOOL_NONE') // double pressed B
         guiControls.wholeWidth =
             !guiControls.wholeWidth;  // toggle whole width brush
 
@@ -1891,7 +1887,6 @@ async function mainScript(
         realToPotentialT(CtoK(realTemp), y);  // initial temperature profile
   }
 
-  
 
   // Set uniforms
   gl.useProgram(setupProgram);
@@ -1915,24 +1910,6 @@ async function mainScript(
   gl.uniform1fv(
       gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
-  /*
-  gl.uniform1f(
-      gl.getUniformLocation(advectionProgram, 'evapHeat'),
-      guiControls.evapHeat);
-  gl.uniform1f(
-      gl.getUniformLocation(advectionProgram, 'meltingHeat'),
-      guiControls.meltingHeat);
-
-  gl.uniform1f(
-      gl.getUniformLocation(advectionProgram, 'globalDrying'),
-      guiControls.globalDrying);
-  gl.uniform1f(
-      gl.getUniformLocation(advectionProgram, 'globalHeating'),
-      guiControls.globalHeating);
-  gl.uniform1f(
-      gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'),
-      guiControls.globalEffectsHeight / guiControls.simHeight);
-	  */
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
@@ -1947,13 +1924,8 @@ async function mainScript(
   gl.uniform2f(
       gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX,
       texelSizeY);
-//   gl.uniform1f(
-//       gl.getUniformLocation(velocityProgram, 'dragMultiplier'),
-//       guiControls.dragMultiplier);
-  gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
 
-//   gl.uniform1f(
-//       gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
+  gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
 
   gl.useProgram(vorticityProgram);
   gl.uniform2f(
@@ -1982,25 +1954,6 @@ async function mainScript(
       CtoK(guiControls.waterTemperature));  // can be changed by GUI input
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dryLapse'), dryLapse);
   gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
-  /*
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'evapHeat'), guiControls.evapHeat);
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'landEvaporation'),
-      guiControls.landEvaporation);
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'waterEvaporation'),
-      guiControls.waterEvaporation);
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'waterWeight'),
-      guiControls.waterWeight);
-  
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'IR_rate'), guiControls.IR_rate);
-  gl.uniform1f(
-      gl.getUniformLocation(boundaryProgram, 'sunAngle'),
-      guiControls.sunAngle * degToRad);
-	  */
 
   gl.useProgram(curlProgram);
   gl.uniform2f(
@@ -2019,18 +1972,7 @@ async function mainScript(
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'lightTex'), 3);
-	  /*
-  gl.uniform1f(
-      gl.getUniformLocation(lightingProgram, 'sunAngle'),
-      guiControls.sunAngle * degToRad);
   gl.uniform1f(gl.getUniformLocation(lightingProgram, 'dryLapse'), dryLapse);
-  gl.uniform1f(
-      gl.getUniformLocation(lightingProgram, 'waterTemperature'),
-      CtoK(guiControls.waterTemperature));
-  gl.uniform1f(
-      gl.getUniformLocation(lightingProgram, 'sunIntensity'),
-      guiControls.sunIntensity);
-*/
 
   // Display programs:
   gl.useProgram(temperatureDisplayProgram);
@@ -2103,47 +2045,6 @@ async function mainScript(
       texelSizeY);
   gl.uniform1f(
       gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
-/*
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'evapHeat'),
-      guiControls.evapHeat);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'meltingHeat'),
-      guiControls.meltingHeat);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'waterWeight'),
-      guiControls.waterWeight);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'),
-      guiControls.aboveZeroThreshold);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'subZeroThreshold'),
-      guiControls.subZeroThreshold);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'spawnChance'),
-      guiControls.spawnChance);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'snowDensity'),
-      guiControls.snowDensity);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'fallSpeed'),
-      guiControls.fallSpeed);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'growthRate0C'),
-      guiControls.growthRate0C);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'growthRate_30C'),
-      guiControls.growthRate_30C);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'freezingRate'),
-      guiControls.freezingRate);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'meltingRate'),
-      guiControls.meltingRate);
-  gl.uniform1f(
-      gl.getUniformLocation(precipitationProgram, 'evapRate'),
-      guiControls.evapRate);
-*/
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(
       gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x,
@@ -2187,7 +2088,7 @@ async function mainScript(
 
   updateSunlight('MANUAL_ANGLE');  // set angle from savefile
 
-  if (!SETUP_MODE) {  //
+  if (!SETUP_MODE) {
     startSimulation();
   }
 
