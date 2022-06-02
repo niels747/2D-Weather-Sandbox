@@ -515,7 +515,7 @@ async function mainScript(
 
     var fluidParams_folder = datGui.addFolder('Fluid');
 
-    fluidParams_folder.add(guiControls, 'vorticity', 0.0, 0.015)
+    fluidParams_folder.add(guiControls, 'vorticity', 0.0, 0.015, 0.001)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -524,7 +524,7 @@ async function mainScript(
         })
         .name('Vorticity');
 
-    fluidParams_folder.add(guiControls, 'dragMultiplier', 0.0, 1.0)
+    fluidParams_folder.add(guiControls, 'dragMultiplier', 0.0, 1.0, 0.01)
         .onChange(function() {
           gl.useProgram(velocityProgram);
           gl.uniform1f(
@@ -533,7 +533,7 @@ async function mainScript(
         })
         .name('Drag');
 
-    fluidParams_folder.add(guiControls, 'wind', -1.0, 1.0)
+    fluidParams_folder.add(guiControls, 'wind', -1.0, 1.0, 0.01)
         .onChange(function() {
           gl.useProgram(velocityProgram);
           gl.uniform1f(
@@ -541,7 +541,7 @@ async function mainScript(
         })
         .name('Wind');
 
-    fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.001)
+    fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.001, 0.00001)
         .onChange(function() {
           gl.useProgram(advectionProgram);
           gl.uniform1f(
@@ -550,7 +550,7 @@ async function mainScript(
         })
         .name('Global Drying');
 
-    fluidParams_folder.add(guiControls, 'globalHeating', -0.002, 0.002)
+    fluidParams_folder.add(guiControls, 'globalHeating', -0.002, 0.002, 0.0001)
         .onChange(function() {
           gl.useProgram(advectionProgram);
           gl.uniform1f(
@@ -560,7 +560,7 @@ async function mainScript(
         .name('Global Heating');
 
     fluidParams_folder
-        .add(guiControls, 'globalEffectsHeight', 0, guiControls.simHeight)
+        .add(guiControls, 'globalEffectsHeight', 0, guiControls.simHeight, 10)
         .onChange(function() {
           gl.useProgram(advectionProgram);
           gl.uniform1f(
@@ -585,16 +585,16 @@ async function mainScript(
         })
         .name('Tool')
         .listen();
-    UI_folder.add(guiControls, 'brushSize', 1, 200)
+    UI_folder.add(guiControls, 'brushSize', 1, 200, 1)
         .name('Brush Diameter')
         .listen();
     UI_folder.add(guiControls, 'wholeWidth').name('Whole Width Brush').listen();
-    UI_folder.add(guiControls, 'intensity', 0.005, 0.05)
+    UI_folder.add(guiControls, 'intensity', 0.005, 0.05, 0.001)
         .name('Brush Intensity');
 
     var radiation_folder = datGui.addFolder('Radiation');
 
-    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.9)
+    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.9, 0.01)
         .onChange(function() {
           updateSunlight();
         })
@@ -605,21 +605,21 @@ async function mainScript(
         .name('Day/Night Cycle')
         .listen();
 
-    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0)
+    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1)
         .onChange(function() {
           updateSunlight();
         })
         .name('Latitude')
         .listen();
 
-    radiation_folder.add(guiControls, 'month', 1.0, 12.9)
+    radiation_folder.add(guiControls, 'month', 1.0, 12.9, 0.1)
         .onChange(function() {
           updateSunlight();
         })
         .name('Month')
         .listen();
 
-    radiation_folder.add(guiControls, 'sunAngle', -10.0, 190.0)
+    radiation_folder.add(guiControls, 'sunAngle', -10.0, 190.0, 0.1)
         .onChange(function() {
           updateSunlight('MANUAL_ANGLE');
           guiControls.dayNightCycle = false;
@@ -627,13 +627,13 @@ async function mainScript(
         .name('Sun Angle')
         .listen();
 
-    radiation_folder.add(guiControls, 'sunIntensity', 0.0, 2.0)
+    radiation_folder.add(guiControls, 'sunIntensity', 0.0, 2.0, 0.01)
         .onChange(function() {
           updateSunlight('MANUAL_ANGLE');
         })
         .name('Sun Intensity');
 
-    radiation_folder.add(guiControls, 'IR_rate', 0.0, 10.0)
+    radiation_folder.add(guiControls, 'IR_rate', 0.0, 10.0, 0.1)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -644,7 +644,7 @@ async function mainScript(
 
     var water_folder = datGui.addFolder('Water');
 
-    water_folder.add(guiControls, 'waterTemperature', 0.0, 35.0)
+    water_folder.add(guiControls, 'waterTemperature', 0.0, 35.0, 0.1)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -656,7 +656,7 @@ async function mainScript(
               CtoK(guiControls.waterTemperature));
         })
         .name('Lake / Sea Temp (°C)');
-    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002)
+    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -664,7 +664,7 @@ async function mainScript(
               guiControls.landEvaporation);
         })
         .name('Land Evaporation');
-    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0004)
+    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0004, 0.00001)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -672,7 +672,7 @@ async function mainScript(
               guiControls.waterEvaporation);
         })
         .name('Lake / Sea Evaporation');
-    water_folder.add(guiControls, 'evapHeat', 0.0, 5.0)
+    water_folder.add(guiControls, 'evapHeat', 0.0, 5.0, 0.1)
         .onChange(function() {
           gl.useProgram(advectionProgram);
           gl.uniform1f(
@@ -688,7 +688,7 @@ async function mainScript(
               guiControls.evapHeat);
         })
         .name('Evaporation Heat');
-    water_folder.add(guiControls, 'meltingHeat', 0.0, 5.0)
+    water_folder.add(guiControls, 'meltingHeat', 0.0, 5.0, 0.1)
         .onChange(function() {
           gl.useProgram(advectionProgram);
           gl.uniform1f(
@@ -700,7 +700,7 @@ async function mainScript(
               guiControls.meltingHeat);
         })
         .name('Melting Heat');
-    water_folder.add(guiControls, 'waterWeight', 0.0, 2.0)
+    water_folder.add(guiControls, 'waterWeight', 0.0, 2.0, 0.01)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
@@ -715,7 +715,7 @@ async function mainScript(
 
     var precipitation_folder = datGui.addFolder('Precipitation');
 
-    precipitation_folder.add(guiControls, 'aboveZeroThreshold', 0.1, 2.0)
+    precipitation_folder.add(guiControls, 'aboveZeroThreshold', 0.1, 2.0, 0.1)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -724,7 +724,7 @@ async function mainScript(
         })
         .name('Precipitation Threshhold +°C');
 
-    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.1, 2.0)
+    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.1, 2.0, 0.1)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -733,7 +733,7 @@ async function mainScript(
         })
         .name('Precipitation Threshhold -°C');
 
-    precipitation_folder.add(guiControls, 'spawnChance', 0.00001, 0.0001)
+    precipitation_folder.add(guiControls, 'spawnChance', 0.00001, 0.0001, 0.00001)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -742,7 +742,7 @@ async function mainScript(
         })
         .name('Spawn Rate');
 
-    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 1.0)
+    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 1.0, 0.01)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -751,7 +751,7 @@ async function mainScript(
         })
         .name('Snow Density');
 
-    precipitation_folder.add(guiControls, 'fallSpeed', 0.0001, 0.0006)
+    precipitation_folder.add(guiControls, 'fallSpeed', 0.0001, 0.0010, 0.0001)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -760,7 +760,7 @@ async function mainScript(
         })
         .name('Fall Speed');
 
-    precipitation_folder.add(guiControls, 'growthRate0C', 0.00001, 0.001)
+    precipitation_folder.add(guiControls, 'growthRate0C', 0.0001, 0.005, 0.0001)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -769,7 +769,7 @@ async function mainScript(
         })
         .name('Growth Rate 0°C');
 
-    precipitation_folder.add(guiControls, 'growthRate_30C', 0.0005, 0.001)
+    precipitation_folder.add(guiControls, 'growthRate_30C', 0.0001, 0.005, 0.0001)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -779,7 +779,7 @@ async function mainScript(
         .name('Growth Rate -30°C');
 
     precipitation_folder
-        .add(guiControls, 'freezingRate', 0.0005, 0.009)  // 0.0035
+        .add(guiControls, 'freezingRate', 0.0005, 0.010, 0.0001)  // 0.0035
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -789,7 +789,7 @@ async function mainScript(
         .name('Freezing Rate');
 
     precipitation_folder
-        .add(guiControls, 'meltingRate', 0.0005, 0.009)  // 0.0035
+        .add(guiControls, 'meltingRate', 0.0005, 0.010, 0.0001)  // 0.0035
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -798,7 +798,7 @@ async function mainScript(
         })
         .name('Melting Rate');
 
-    precipitation_folder.add(guiControls, 'evapRate', 0.0001, 0.005)
+    precipitation_folder.add(guiControls, 'evapRate', 0.0001, 0.005, 0.0001)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -827,7 +827,7 @@ async function mainScript(
         })
         .name('Display Mode')
         .listen();
-    datGui.add(guiControls, 'exposure', 1.0, 10.0)
+    datGui.add(guiControls, 'exposure', 1.0, 10.0, 0.01)
         .onChange(function() {
           gl.useProgram(realisticDisplayProgram);
           gl.uniform1f(
@@ -838,7 +838,7 @@ async function mainScript(
 
     var advanced_folder = datGui.addFolder('Advanced');
 
-    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50)
+    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1)
         .name('Iterations / Frame')
         .listen();
 
