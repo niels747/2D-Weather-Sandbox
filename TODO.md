@@ -7,3 +7,5 @@
 - [ ] Make dust blow up in dry areas.
 - [ ] Make fire spread and burn out, only in areas with vegitation.
 - [ ] Add lightning effect.
+
+**Completed taks might not be on github yet, but I did complete and test them offline*
