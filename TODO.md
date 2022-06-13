@@ -8,6 +8,7 @@
 - [ ] Make fire spread and burn out, only in areas with vegitation.
 - [ ] Add lightning effect.
 
-*New realease will be on sunday the 12th, All existing save files will no longer work in the new version!*
+*New version will be up soon. All existing save files will no longer work in the new version!*
+
 
 **Completed taks might not be on github yet, but I did complete and test them offline*
