@@ -3,10 +3,11 @@
 - [ ] Make vegitation amount (greenness) fixed.
 - [ ] Make land evaporation proportional to amount of vegitation.
 - [ ] Fix surface visualization
-- [ ] Add tree / vegetation textures.
+- [x] Add tree / vegetation textures.
 - [ ] Make dust blow up in dry areas.
 - [ ] Make fire spread and burn out, only in areas with vegitation.
 - [ ] Add lightning effect.
+- [ ] Add plane flying mode
 
 *New version will be up soon. All existing save files will no longer work in the new version!*
 
