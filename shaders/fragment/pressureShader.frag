@@ -11,7 +11,7 @@ uniform sampler2D baseTex;
 uniform isampler2D wallTex;
 
 layout(location = 0) out vec4 base;
-layout(location = 2) out ivec2 wall;
+layout(location = 2) out ivec4 wall;
 
 /*
 [0] = vx
@@ -26,7 +26,7 @@ void main()
     vec4 baseXmY0 = texture(baseTex, texCoordXmY0);
     vec4 baseX0Ym = texture(baseTex, texCoordX0Ym);
 
-    wall = texture(wallTex, texCoord).xy; // pass trough
+    wall = texture(wallTex, texCoord); // pass trough
 
     ivec2 wallX0Ym = texture(wallTex, texCoordX0Ym).xy;
     if (wallX0Ym[1] == 0) { // cell below is wall

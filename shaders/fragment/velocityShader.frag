@@ -21,7 +21,7 @@ uniform vec2 texelSize;
 uniform float initial_T[300];
 
 layout(location = 0) out vec4 base;
-layout(location = 2) out ivec2 wall;
+layout(location = 2) out ivec4 wall;
 
 /*
 // baseTex:
@@ -36,7 +36,7 @@ void main() {
   vec4 baseXpY0 = texture(baseTex, texCoordXpY0);
   vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
 
-  wall = texture(wallTex, texCoord).xy;
+  wall = texture(wallTex, texCoord);
 
   if (wall[1] == 0) // is wall
   {

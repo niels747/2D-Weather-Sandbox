@@ -155,10 +155,45 @@ float absHorizontalDist(float a,
   return min(min(abs(a - b), abs(1.0 + a - b)), 1.0 - a + b);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
 float realMod(float a, float b)
 {
     // proper modulo to handle negative numbers
     return mod(mod(a, b) + b, b);
 }
+
+
+
+
+
+
+
+
+
+
 */

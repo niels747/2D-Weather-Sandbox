@@ -36,7 +36,7 @@ uniform float sunAngle;
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
-layout(location = 2) out ivec2 wall; // [0] walltype    [1] distance to nearest
+layout(location = 2) out ivec4 wall; // [0] walltype    [1] distance to nearest
                                      // wall      [2] height above ground
 
 /*
@@ -66,15 +66,17 @@ void main() {
 
   float realTemp = potentialToRealT(base[3]);
 
-  wall = texture(wallTex, texCoord).xy;
-  ivec2 wallXmY0 = texture(wallTex, texCoordXmY0).xy;
-  ivec2 wallX0Ym = texture(wallTex, texCoordX0Ym).xy;
-  ivec2 wallXpY0 = texture(wallTex, texCoordXpY0).xy;
-  ivec2 wallX0Yp = texture(wallTex, texCoordX0Yp).xy;
+  wall = texture(wallTex, texCoord);
+  ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
+  ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+  ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+  ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
   vec4 light = texture(lightTex, texCoord);
 
   bool nextToWall = false;
+
+  wall[2] = wallX0Ym[2] + 1; // height above ground is counted
 
   if (texCoord.y < 0.99 && wallX0Yp[1] == 0 && wallX0Yp[0] != 0 &&
       wallX0Yp[0] != 3) {  // Fill in land and sea below
@@ -102,7 +104,7 @@ void main() {
     water[3] +=
         precipFeedback[0] * 0.0002; // falling rain slowly removes smoke
                                     // linearly to remove last little bit
-    water[3] = max(water[3], 0.0);
+    water[3] = max(water[3], 0.0); // smoke can't go below 0
 
     // GRAVITY
     // temperature is calculated for Vy location
@@ -129,6 +131,7 @@ void main() {
       nextToWall = true;
       wall[0] = wallX0Ym[0]; // copy wall type from wall below
       snowCover = texture(waterTex, texCoordX0Ym)[3]; // get snow amount
+      wall[2] = 1; // directly above ground
     }
     if (wallX0Yp[1] == 0) {
       nextToWall = true;
@@ -181,12 +184,11 @@ void main() {
 
       wall[1] = nearest + 1; // add one to dist to wall
       wall[0] = nearestType; // type = type of nearest wall
-
-      // wall[1] = wallX0Ym[1] + 1; // add one to dist to wall
-      // wall[0] = wallX0Ym[0]; // type = type of wall below
     }
 
     if (wall[1] <= wallInfluence) { // within range of wall
+
+      wall[3] = wallX0Ym[3]; // vegetation is copied from below
 
       float devider = float(wallInfluence);
 
@@ -199,11 +201,15 @@ void main() {
                    (1. + snowCover) / devider; // sun heating land
 
         float evaporation =
-            max((maxWater(realTemp) - water[0]) * landEvaporation / devider,
-                0.); // water evaporating from land
+            max((maxWater(realTemp) - water[0]) * landEvaporation * (float(wall[3])/127.) / devider,
+                0.); // water evaporating from land proportional to vegitation
 
         water[0] += evaporation;
         base[3] -= evaporation * evapHeat;
+
+        if(wall[3] < 10){ // Dry desert area
+            water[3] += max(abs(base[0])-0.05, 0.) * 0.05; // Dust blowing up with wind
+        }
 
       } else if (wall[0] == 2) { // water surface
         base[3] += (waterTemperature - realTemp - 1.0) / devider *
@@ -244,5 +250,11 @@ void main() {
         clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
     water[3] =
         clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
+        wall[2] = wallX0Yp[2] - 1; // height below ground is counted
+
+        if(wall[2] < 0){ // below surface
+          water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
+          wall[3] = wallX0Yp[3]; // vegetation is copied from above
+        }
   }
 } // main

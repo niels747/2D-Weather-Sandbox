@@ -32,7 +32,7 @@ uniform float globalHeating;
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
-layout(location = 2) out ivec2 wall;
+layout(location = 2) out ivec4 wall;
 
 uniform vec2 resolution;
 
@@ -43,7 +43,7 @@ uniform float initial_T[500];
 #include functions
 
 void main() {
-  wall = texture(wallTex, texCoord).xy;
+  wall = texture(wallTex, texCoord);
 
   texelSize = vec2(1) / resolution;
 
@@ -144,10 +144,12 @@ void main() {
     base[3] = 1000.0; // special temperature, just to identify that this is a
                       // wall cell when drawing the graph
 
-    ivec2 wallX0Yp = texture(wallTex, texCoordX0Yp).xy;
+    ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
-    if (wallX0Yp[1] != 0) { // cell above is not wall
+    if (wallX0Yp[1] != 0) { // cell above is not wall, surface layer
 
+      // prevent negative numbers
+      wall[3] = max(wall[3], 0);
       water[2] = max(water[2], 0.0);
 
       vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
@@ -170,9 +172,9 @@ void main() {
                                 0.); // water evaporating from land
         water[2] -= evaporation;
       }
-    } else {             // cell above is also wall
+    }/* else {             // cell above is also wall
       water[2] = -999.0; // indicate non surface layer
-    }
+    }*/
   }
 
   // USER INPUT:
@@ -245,6 +247,13 @@ void main() {
             water[3] += userInputValues[2] * 10.0; // snow
           }
           break;
+          case 16:
+          if (wall[1] == 0 && wall[0] == 1 &&
+              texture(wallTex, texCoordX0Yp)[1] !=
+                  0) { // if land wall and no wall above
+            wall[3] += 1; // add vegetation
+          }
+          break;
         }
 
         if (setWall) {
@@ -263,7 +272,9 @@ void main() {
             water[2] += userInputValues[2] * 10.0;
           } else if (userInputType == 15) {
             water[3] += userInputValues[2] * 10.0;
-          } else if (texCoord.y > texelSize.y) {
+          }else if (userInputType == 16) {
+            wall[3] = max(wall[3] - 1, 0); // remove vegetation
+          } else if (texCoord.y > texelSize.y) { // remove wall
 
             wall[1] = 255; // remove wall
             base[0] = 0.0; // reset all properties to prevent NaN bug

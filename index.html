@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<title>WebGL 2D Weather Simulation v4</title>
+		<title>2D Weather Sandbox</title>
 		<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
 		<script type="text/javascript" src="libraries/pako.min.js"></script>
 		<script type="text/javascript" src="app.js"></script>
@@ -22,10 +22,12 @@
 		id="body"
 		style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41)"
 	>
-		<img src="resources/noise_texture.jpg	" id="noiseImg" hidden />
+		<img src="resources/noise_texture.jpg" id="noiseImg" hidden /> 
+
+		<img src="resources/forest2.png" id="forestImg" hidden /> 
 
 		<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
-			<h1>WebGL 2D Weather Simulation v4</h1>
+			<h1>2D Weather Sandbox</h1>
 
 			<form
 				id="startBtn"
@@ -33,7 +35,7 @@
 			>
 				<p>
 					Choose a resolution. The higher the resolution, the slower it will
-					run!
+					run
 				</p>
 				<table>
 					<tr>
@@ -79,7 +81,7 @@
 					type="file"
 					id="fileInput"
 					name="fileInput"
-					accept=".weathersim4"
+					accept=".weathersandbox"
 					onchange="loadData()"
 				/>
 			</p>

@@ -20,14 +20,14 @@ const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
 
 const saveFileVersionID =
-    368164894;  // Uint32 id to check if save file is compatible
+1939327491;  // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
   vorticity: 0.005,
   dragMultiplier: 0.01,  // 0.1
   wind: -0.0001,
   globalEffectsHeight: 5000,
-  globalDrying: 0.001,
+  globalDrying: 0.00001,
   globalHeating: 0.0,
   sunIntensity: 1.0,
   waterTemperature: 25,  // only in degrees C, Sorry americans
@@ -38,12 +38,12 @@ const guiControls_default = {
   waterWeight: 0.5,  // 0.50
   inactiveDroplets: 0,
   aboveZeroThreshold: 1.0,  // PRECIPITATION Parameters
-  subZeroThreshold: 0.05,   // 0.05
+  subZeroThreshold: 0.01,   // 0.05
   spawnChance: 0.00001,     // 0.0005
   snowDensity: 0.3,
   fallSpeed: 0.0003,
-  growthRate0C: 0.0005,   // 0.0005
-  growthRate_30C: 0.005,  // 0.01
+  growthRate0C: 0.0001,   // 0.0005
+  growthRate_30C: 0.001,  // 0.01
   freezingRate: 0.0035,
   meltingRate: 0.0035,
   evapRate: 0.0005,  // END OF PRECIPITATION
@@ -54,6 +54,7 @@ const guiControls_default = {
   sunAngle: 9.9,
   dayNightCycle: true,
   exposure: 1.5,
+  greenhouseGases: 0.001,
   IR_rate: 1.0,
   tool: 'TOOL_NONE',
   brushSize: 20,
@@ -229,13 +230,13 @@ async function loadData() {
       let baseTexF32 = new Float32Array(baseTexBuf);
 
       sliceStart = sliceEnd;
-      sliceEnd += sim_res_x * sim_res_y * 4 * 4;
+      sliceEnd += sim_res_x * sim_res_y * 4 * 4; // 4 * float
       let waterTexBlob = dataBlob.slice(sliceStart, sliceEnd);
       let waterTexBuf = await waterTexBlob.arrayBuffer();
       let waterTexF32 = new Float32Array(waterTexBuf);
 
       sliceStart = sliceEnd;
-      sliceEnd += sim_res_x * sim_res_y * 2 * 1;
+      sliceEnd += sim_res_x * sim_res_y * 4 * 1; // 4 * byte
       let wallTexBlob = dataBlob.slice(sliceStart, sliceEnd);
       let wallTexBuf = await wallTexBlob.arrayBuffer();
       let wallTexI8 = new Int8Array(wallTexBuf);
@@ -423,11 +424,14 @@ async function mainScript(
         gl.getUniformLocation(velocityProgram, 'dragMultiplier'),
         guiControls.dragMultiplier);
     gl.uniform1f(
-        gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
+        gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind); 
     gl.useProgram(lightingProgram);
     gl.uniform1f(
-        gl.getUniformLocation(lightingProgram, 'waterTemperature'),
-        CtoK(guiControls.waterTemperature));
+        gl.getUniformLocation(lightingProgram, 'waterTemperature'), 
+        CtoK(guiControls.waterTemperature)); 
+        gl.uniform1f(
+          gl.getUniformLocation(lightingProgram, 'greenhouseGases'), 
+          guiControls.greenhouseGases); 
     gl.useProgram(advectionProgram);
     gl.uniform1f(
         gl.getUniformLocation(advectionProgram, 'evapHeat'),
@@ -579,8 +583,9 @@ async function mainScript(
           Land: 'TOOL_WALL_LAND',
           'Lake / Sea': 'TOOL_WALL_SEA',
           Fire: 'TOOL_WALL_FIRE',
-          Smoke: 'TOOL_SMOKE',
+          'Smoke / Dust': 'TOOL_SMOKE',
           Moisture: 'TOOL_WALL_MOIST',
+          Vegetation: 'TOOL_VEGETATION',
           Snow: 'TOOL_WALL_SNOW',
         })
         .name('Tool')
@@ -632,6 +637,15 @@ async function mainScript(
           updateSunlight('MANUAL_ANGLE');
         })
         .name('Sun Intensity');
+
+        radiation_folder.add(guiControls, 'greenhouseGases', 0.0, 0.01, 0.0001)
+        .onChange(function() {
+          gl.useProgram(lightingProgram);
+          gl.uniform1f(
+              gl.getUniformLocation(lightingProgram, 'greenhouseGases'),
+              guiControls.greenhouseGases);
+        })
+        .name('Greenhouse Gases');
 
     radiation_folder.add(guiControls, 'IR_rate', 0.0, 10.0, 0.1)
         .onChange(function() {
@@ -724,7 +738,7 @@ async function mainScript(
         })
         .name('Precipitation Threshhold +°C');
 
-    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.1, 2.0, 0.1)
+    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.0, 2.0, 0.01)
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
@@ -1166,9 +1180,9 @@ async function mainScript(
         waterTextureValues);  // read single cell
 
     gl.readBuffer(gl.COLOR_ATTACHMENT2);  // walltexture
-    var wallTextureValues = new Int8Array(2);
+    var wallTextureValues = new Int8Array(4);
     gl.readPixels(
-        simXpos, simYpos, 1, 1, gl.RG_INTEGER, gl.BYTE, wallTextureValues);
+        simXpos, simYpos, 1, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0);  // lighttexture_1
@@ -1200,6 +1214,8 @@ async function mainScript(
     console.log('WALL-----------------------------------------');
     console.log('walltype :     ', wallTextureValues[0]);
     console.log('distance:', wallTextureValues[1]);
+    console.log('Vertical distance :', wallTextureValues[2]);
+    console.log('Vegitation:', wallTextureValues[3]);
 
     console.log('LIGHT-----------------------------------------');
     console.log('Sunlight:  ', lightTextureValues[0]);
@@ -1233,8 +1249,8 @@ async function mainScript(
   function changeViewZoom(mult) {
     viewZoom *= mult;
 
-    if (viewZoom > 20.0) {
-      viewZoom = 20.0;
+    if (viewZoom > 30.0) {
+      viewZoom = 30.0;
       return false;
     } else if (viewZoom < 0.5) {
       viewZoom = 0.5;
@@ -1399,8 +1415,10 @@ async function mainScript(
     } else if (event.code == 'KeyU') {
       guiControls.tool = 'TOOL_WALL_MOIST';
     } else if (event.code == 'KeyI') {
+      guiControls.tool = 'TOOL_VEGETATION';
+    } else if (event.code == 'KeyO') {
       guiControls.tool = 'TOOL_WALL_SNOW';
-    } else if (event.key == 'PageUp') {
+    }else if (event.key == 'PageUp') {
       adjIterPerFrame(1);
     } else if (event.code == 'PageDown') {
       adjIterPerFrame(-1);
@@ -1734,7 +1752,7 @@ async function mainScript(
   const wallTexture_0 = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
   gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.RG8I, sim_res_x, sim_res_y, 0, gl.RG_INTEGER,
+      gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER,
       gl.BYTE, initialWallTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -1743,7 +1761,7 @@ async function mainScript(
   const wallTexture_1 = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
   gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.RG8I, sim_res_x, sim_res_y, 0, gl.RG_INTEGER,
+      gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER,
       gl.BYTE, initialWallTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -1799,6 +1817,7 @@ async function mainScript(
       null);  // HALF_FLOAT before, but problems with acuracy
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
   const lightFrameBuff_0 = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
   gl.framebufferTexture2D(
@@ -1811,6 +1830,7 @@ async function mainScript(
       null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
   const lightFrameBuff_1 = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
   gl.framebufferTexture2D(
@@ -1829,9 +1849,10 @@ async function mainScript(
       gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D,
       precipitationFeedbackTexture, 0);
 
+
+
   // load images
   var imgElement = document.getElementById('noiseImg');
-  // console.log(imgElement.width);
   const noiseTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
   gl.texImage2D(
@@ -1839,12 +1860,24 @@ async function mainScript(
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(
-      gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,
-      gl.REPEAT);  // default, so no need to set
-  gl.texParameteri(
-      gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
-      gl.REPEAT);  // default, so no need to set
+  // gl.texParameteri(
+  //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,
+  //     gl.REPEAT);  // default, so no need to set
+  // gl.texParameteri(
+  //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
+  //     gl.REPEAT);  // default, so no need to set
+
+  imgElement = document.getElementById('forestImg');
+  const forestTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
+
+
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
@@ -2027,6 +2060,7 @@ async function mainScript(
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'waterTex'), 2);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestTex'), 5);
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
 	  /*
@@ -2188,6 +2222,8 @@ async function mainScript(
           inputType = 14;
         else if (guiControls.tool == 'TOOL_WALL_SNOW')
           inputType = 15;
+        else if (guiControls.tool == 'TOOL_VEGETATION')
+          inputType = 16;
 
         var intensity = guiControls.intensity;
 
@@ -2383,7 +2419,7 @@ async function mainScript(
     if (cursorType != 0 && !sunIsUp) {
       // working at night
       gl.uniform1f(
-          gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 4.0);
+          gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 5.0);
     } else {
       gl.uniform1f(
           gl.getUniformLocation(realisticDisplayProgram, 'exposure'),
@@ -2391,11 +2427,8 @@ async function mainScript(
     }
 
     if (
-        inputType == 0 ||  // clicking while tool is set to flashlight(NONE)
-                           // always enables it
-        (guiControls.tool != 'TOOL_NONE' &&
-         !sunIsUp)  // turn on the flashlight at night while using tools
-    ) {
+        inputType == 0)  // clicking while tool is set to flashlight(NONE)
+         {
       // enable flashlight
       cursorType += 0.55;
     }
@@ -2418,6 +2451,8 @@ async function mainScript(
       gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
       gl.activeTexture(gl.TEXTURE4);
       gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, forestTexture);
 
       // draw background
       gl.useProgram(skyBackgroundDisplayProgram);
@@ -2664,9 +2699,9 @@ async function mainScript(
         gl.readPixels(
             0, 0, sim_res_x, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues);
         gl.readBuffer(gl.COLOR_ATTACHMENT2);
-        let wallTextureValues = new Int8Array(2 * sim_res_x * sim_res_y);
+        let wallTextureValues = new Int8Array(4 * sim_res_x * sim_res_y);
         gl.readPixels(
-            0, 0, sim_res_x, sim_res_y, gl.RG_INTEGER, gl.BYTE,
+            0, 0, sim_res_x, sim_res_y, gl.RGBA_INTEGER, gl.BYTE,
             wallTextureValues);
 
         let precipBufferValues =
@@ -2698,7 +2733,7 @@ async function mainScript(
             new Blob([Uint32Array.of(saveFileVersionID), compressed], {
               type: 'application/x-binary'
             });  // turn back into blob and add version id in front
-        download(saveFileName + '.weathersim4', compressedBlob);
+        download(saveFileName + '.weathersandbox', compressedBlob);
       } else {
         alert('You didn\'t enter a valid file name!');
       }

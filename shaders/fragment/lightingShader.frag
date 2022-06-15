@@ -22,6 +22,8 @@ uniform float waterTemperature;
 
 uniform float sunIntensity;
 
+uniform float greenhouseGases;
+
 out vec4 light;
 
 uniform float dryLapse;
@@ -82,10 +84,10 @@ void main() {
 
         float emissivity; // how opage it is too ir, the rest is let trough, no
                           // reflection
-        emissivity = 0.001;              // 0.001 greenhouse gasses
+        emissivity = greenhouseGases;              // 0.001 greenhouse gasses
         emissivity += water[0] * 0.0025; // water vapor
         emissivity += water[1] * 1.5;    // cloud water
-        emissivity += water[3] * 0.01;   // smoke
+        emissivity += water[3] * 0.0001;   // 0.01 smoke Should be prettymuch transparent to ir
 
         emissivity = min(emissivity, 1.0);
 
@@ -107,7 +109,7 @@ void main() {
       light = vec4(sunlight, net_heating, IR_down, IR_up);
       // light = vec4(1, 0, 0, 0);
     } else {                                 // is wall
-      light = vec4(sunlight * 0.8, 0, 0, 0); // * 0.8 light absorbed by ground
+      light = vec4(sunlight * 0.85, 0, 0, 0); // * 0.8 light absorbed by ground
     }
   }
 }

@@ -19,7 +19,7 @@ void main()
     vec2 texCoordAdjusted = vertTexCoord;
     texCoordAdjusted.x *= Xmult;
 
-    texCoordAdjusted.x -= (Xmult - 1.0) / (2. * texelSize.x); // make shure the position of texture coordinats stays constant on the screen
+    texCoordAdjusted.x -= (Xmult - 1.0) / (2. * texelSize.x); // make sure the position of texture coordinats stays constant on the screen
 
     fragCoord = texCoordAdjusted;
     texCoord = texCoordAdjusted * texelSize; // normalize

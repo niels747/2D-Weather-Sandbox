@@ -19,7 +19,7 @@ in vec2 fragCoord;
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 //layout(location = 2) out vec4 light;
-layout(location = 2) out ivec2 wall;
+layout(location = 2) out ivec4 wall;
 
 float rand(float n) { return fract(sin(n) * 43758.5453123); }
 
@@ -63,7 +63,9 @@ void main()
             wall[0] = 2; // set walltype to water
         }else{
             wall[0] = 1; // set walltype to land
-            water[2] = 100.0;
+            water[2] = 100.0; // soil moisture
+
+            wall[3] = int(110.0 - fragCoord.y*2. + noise(fragCoord.x*0.01 + rand(seed)*10.)*150.); // set vegitation
 
             if(height > 0.15 && height - texCoord.y < texelSize.y * 2.0)
                 water[3] = 100.0; // set snow
@@ -81,4 +83,5 @@ void main()
 
         water[1] = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
     }
+    wall[2] = 100; // prevent water being deleted in boundaryshader ln 250*
 }

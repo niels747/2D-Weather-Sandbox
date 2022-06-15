@@ -12,6 +12,11 @@ uniform vec3 view; // Xpos  Ypos    Zoom
 out vec2 texCoord; // normalized
 out vec2 fragCoord; // non normalized fragment coordinate
 
+out vec2 texCoordXmY0; // left
+out vec2 texCoordXpY0; // right
+out vec2 texCoordX0Yp; // up
+out vec2 texCoordX0Ym; // down
+
 const float Xmult = 100.5; // 1.5
 const float Ymult = 4.0; // 4.0
 
@@ -26,6 +31,11 @@ void main()
 
     fragCoord = texCoordAdjusted;
     texCoord = texCoordAdjusted * texelSize; // normalize
+
+    texCoordXmY0 = texCoord + vec2(-texelSize.x, 0.0);
+    texCoordXpY0 = texCoord + vec2(texelSize.x, 0.0);
+    texCoordX0Yp = texCoord + vec2(0.0, texelSize.y);
+    texCoordX0Ym = texCoord + vec2(0.0, -texelSize.y);
 
     vec2 outpos = vertPosition;
 
