@@ -39,7 +39,7 @@ const guiControls_default = {
   inactiveDroplets: 0,
   aboveZeroThreshold: 1.0,  // PRECIPITATION Parameters
   subZeroThreshold: 0.01,   // 0.05
-  spawnChance: 0.00001,     // 0.0005
+  spawnChance: 0.00002,     // 0.0005
   snowDensity: 0.3,
   fallSpeed: 0.0003,
   growthRate0C: 0.0001,   // 0.0005
@@ -140,12 +140,12 @@ function KtoC(k) {
 
 function dT_saturated(dTdry, dTl) {
   // dTl = temperature difference because of latent heat
-  if (dTl == 0.0)
-    return dTdry;
-  else {
+ // if (dTl == 0.0)
+ //   return dTdry;
+//  else {
     var multiplier = dTdry / (dTdry - dTl);
     return dTdry * multiplier;
-  }
+ // }
 }
 
 const IR_constant = 5.670374419;  // ×10−8
@@ -170,9 +170,9 @@ function maxWater(Td) {
 }
 
 function dewpoint(W) {
-  if (W < 0.00001)
-    return 0.0;
-  else
+//  if (W < 0.00001) // can't remember why this was here...
+//    return 0.0;
+//  else
     return wf_devider * Math.pow(W, 1.0 / wf_pow);
 }
 
