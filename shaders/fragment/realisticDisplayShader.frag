@@ -233,7 +233,7 @@ if(wallX0Ym[0] == 1){ // land below
     vec2 vecFromMouse = cursor.xy - texCoord;
     vecFromMouse.x *= texelSize.y / texelSize.x;                             // aspect ratio correction to make it a circle
                                                                              // shadowLight += max(1. / (1.+length(vecFromMouse)*5.0),0.0); // point light
-    shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 0.4, 0.0); // smooth flashlight
+    shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
 
   lightCol += vec3(shadowLight);
