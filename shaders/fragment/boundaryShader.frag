@@ -34,6 +34,8 @@ uniform float initial_T[300];
 uniform float IR_rate;
 uniform float sunAngle;
 
+uniform float iterNum; // used as seed for random function
+
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall; // [0] walltype    [1] distance to nearest
@@ -104,6 +106,9 @@ void main() {
     water[3] +=
         precipFeedback[0] * 0.0002; // falling rain slowly removes smoke
                                     // linearly to remove last little bit
+
+water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
+
     water[3] = max(water[3], 0.0); // smoke can't go below 0
 
     // GRAVITY
@@ -146,12 +151,8 @@ void main() {
       wall[0] = wallXpY0[0];
     }
 
-    if (nextToWall) {
-      // wall[0] = wallX0Ym[0]; // type = type of down wall
-      wall[1] = 1; // dist to nearest wall = 1
-    } else {       // not next to wall
 
-      // if(abs(base.x) > 0.0040 && abs(base.y) > 0.0040){
+     // if(abs(base.x) > 0.0040 && abs(base.y) > 0.0040){
       //  sample vorticity force
       vec2 vortForceX0Y0 = texture(vortForceTex, texCoord).xy;
       vec2 vortForceXmY0 = texture(vortForceTex, texCoordXmY0).xy;
@@ -161,6 +162,13 @@ void main() {
                       vortForceX0Y0.y + vortForceXmY0.y) *
                  vorticity; // apply vorticity force
       //}
+
+
+    if (nextToWall) {
+      // wall[0] = wallX0Ym[0]; // type = type of down wall
+      wall[1] = 1; // dist to nearest wall = 1
+
+    } else {       // not next to wall
 
       // find nearest wall
       int nearest = 255;
@@ -221,11 +229,18 @@ void main() {
         // water[0] += waterEvaporation * max((0.95 - relativeHumd(realTemp,
         // water[0])),0.0);
       } else if (wall[0] == 3) { // forest fire
+        if(wall[2] == 1){ // one above surface
+        //base[3] += 0.025;  // 0.005 heat
 
-        base[3] += 0.005;  // heat
-        water[3] += 0.005; // smoke
+        float fireIntensity = float(wall[3]) * 0.00015;
+
+        base[3] += fireIntensity;  // heat
+        water[3] += fireIntensity*2.0; // smoke
+         
+        //water[3] = 10.00; // smoke
 
         // water[0] += 0.002; // extra water from burning trees
+}
       }
 
       if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallInfluence) { // above
@@ -255,6 +270,26 @@ void main() {
         if(wall[2] < 0){ // below surface
           water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
           wall[3] = wallX0Yp[3]; // vegetation is copied from above
+        }else if(wall[2] == 0){
+
+         
+
+
+          if(random(iterNum + texCoord.x) < 0.001){
+
+ //if (wallXmY0[1] == 0) {
+            if(wallXmY0[0] == 3 || wallXpY0[0] == 3)
+        wall[0] = 3; // ignite fire
+ //   }
+
+             if(wall[0] == 3){
+
+
+            wall[3] -= int(random(iterNum + texCoord.x*13.7)*10.0); //reduce vegitation
+            if(wall[3] < 25)
+              wall[0] = 1; // turn off fire
+          }
+          }
         }
   }
 } // main

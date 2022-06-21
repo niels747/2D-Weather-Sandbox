@@ -270,6 +270,16 @@ async function loadData() {
   viewYpos = -0.5 + sim_res_y / sim_res_x;  // match bottem to bottem of screen
 }
 
+function loadImage(url)
+{
+  return new Promise((resolve, reject) => {
+    let img = new Image()
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url
+  })
+}
+
 class LoadingBar {
   #loadingBar;
   #bar;
@@ -1852,7 +1862,7 @@ async function mainScript(
 
 
   // load images
-  var imgElement = document.getElementById('noiseImg');
+  imgElement = await loadImage("resources/noise_texture.jpg");
   const noiseTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
   gl.texImage2D(
@@ -1867,7 +1877,9 @@ async function mainScript(
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
   //     gl.REPEAT);  // default, so no need to set
 
-  imgElement = document.getElementById('forestImg');
+
+
+  imgElement = await loadImage("resources/forest3.png");
   const forestTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, forestTexture);
   gl.texImage2D(
@@ -1875,7 +1887,17 @@ async function mainScript(
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  imgElement = await loadImage("resources/forestFire.png");
+  const forestFireTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
 
@@ -2061,13 +2083,9 @@ async function mainScript(
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestTex'), 5);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestFireTex'), 6);
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
-	  /*
-  gl.uniform1f(
-      gl.getUniformLocation(realisticDisplayProgram, 'exposure'),
-      guiControls.exposure);
-*/
   gl.useProgram(precipitationProgram);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'waterTex'), 1);
@@ -2285,6 +2303,8 @@ async function mainScript(
 
           // apply vorticity, boundary conditions and user input
           gl.useProgram(boundaryProgram);
+          gl.uniform1f(
+            gl.getUniformLocation(boundaryProgram, 'iterNum'), IterNum);
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
           gl.activeTexture(gl.TEXTURE1);
@@ -2453,6 +2473,8 @@ async function mainScript(
       gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
       gl.activeTexture(gl.TEXTURE5);
       gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
 
       // draw background
       gl.useProgram(skyBackgroundDisplayProgram);

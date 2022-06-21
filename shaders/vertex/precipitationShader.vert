@@ -26,7 +26,7 @@ uniform vec2 resolution;
 uniform vec2 texelSize;
 uniform float dryLapse;
 
-uniform float frameNum;
+uniform float frameNum; // used as seed for random function
 uniform float inactiveDroplets; // used to maintain constant spawnrate
 
 uniform float evapHeat;

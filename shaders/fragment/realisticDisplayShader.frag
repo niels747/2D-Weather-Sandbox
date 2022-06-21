@@ -17,6 +17,7 @@ uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D noiseTex;
 uniform sampler2D forestTex;
+uniform sampler2D forestFireTex;
 
 uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
@@ -41,8 +42,6 @@ float light;
 vec3 color;
 float opacity = 1.0;
 
-bool fire = false; // Fire visualization needs some work...
-
 vec3 getSurfaceCol()
 {
   //vec3 soilCol = mix(vec3(0.5, 0.2, 0.1), vec3(0.0, 0.7, 0.2), water[2] / 100.); // brown to green, dry earth to grass`
@@ -64,6 +63,7 @@ vec3 getWallColor(vec2 coord) {
   case 0:            // normal wall
     return vec3(0, 0, 0);
     break;
+  case 3: // Fire wall
   case 1: // land wall
 
     vec3 groundCol;
@@ -76,12 +76,6 @@ vec3 getWallColor(vec2 coord) {
 
       return groundCol;
 
-    //   vec4 texCol = texture(forestTex, vec2(texCoord.x * resolution.x / 10., texCoord.y * -resolution.y));
-
-    // if(texCol.w < 0.5)
-    //     opacity = 0.0;
-    
-    // return texCol.rgb;
     }else{
        groundCol = vec3(0.10);                                               // not at surface  dark gray rock
        return vec3((groundCol + texture(noiseTex, vec2(texCoord.x, texCoord.y * (resolution.y / resolution.x)) * 0.2).rgb * 0.2));
@@ -95,10 +89,6 @@ vec3 getWallColor(vec2 coord) {
   case 2: // water wall
     return vec3(0, 0.5, 1.0);
     break;
-  case 3: // Fire wall
-    fire = true;
-    return vec3(1.0, 0.5, 0.0); // orange
-    break;
   }
 }
 
@@ -111,14 +101,13 @@ void main() {
   water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
   light = texture(lightTex, bndFragCoord*texelSize)[0];
 
+  float shadowLight = 0.05;
+
   // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
 
   float cloudwater = water[1];
 
   if (texCoord.y < 0.) { // < texelSize.y below simulation area
-    // worldColor = vec4(0.0, 0.0, 0.0, 1.0);
-   // color = getWallColor(vec2(texCoord.x, max(texCoord.y, 0.002)));
-   // color = vec3(0.5);
 
     vec3 groundCol = vec3((vec3(0.10) + texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb * 0.2));   // dark gray rock
 
@@ -144,6 +133,7 @@ void main() {
   // case 0:            // normal wall
   //   color = vec3(0, 0, 0);
   //   break;
+    case 3: // Fire wall
   case 1: // land wall
 
     vec3 groundCol;
@@ -172,10 +162,6 @@ void main() {
   case 2: // water wall
     color = vec3(0, 0.5, 1.0);
     break;
-  case 3: // Fire wall
-    fire = true;
-    color = vec3(1.0, 0.5, 0.0); // orange
-    break;
   }
 
   } else { // air
@@ -185,9 +171,15 @@ void main() {
 
     cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
 
+    vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
+    vec3 smokeThickCol = vec3(0., 0., 0.);
+    vec3 fireCol = vec3(1.0, 0.7, 0.0);
+
     float smokeOpacity = clamp(1. - (1. / (water[3] + 1.)), 0.0, 1.0);
-    // float smokeOpacity = water[3]*0.5;
-    vec3 smokeCol = mix(vec3(0.8, 0.51, 0.26), vec3(0.0, 0.0, 0.0), smokeOpacity);
+    float fireIntensity = clamp((smokeOpacity -0.8) *25. , 0.0, 1.0);
+    vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
+
+    shadowLight += fireIntensity;
 
     opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                // alpha blending
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
@@ -201,12 +193,23 @@ ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
 if(wallX0Ym[1] == 0){ // wall  below
 
-if(wallX0Ym[0] == 1){ // land below
-   vec4 texCol = texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, mod(-texCoord.y * resolution.y,1.) - 1. + float(wallX0Ym[3]-100)/27.0));
-    if(texCol.w > 0.5){
-    opacity = 1.0;
+if(wallX0Ym[0] == 1 || wallX0Ym[0] == 3 ){ // land below
+
+float treeTexCoordY = mod(-texCoord.y * resolution.y,1.) - 1. + float(wallX0Ym[3]-50)/77.0; // float(wallX0Ym[3]-100)/27.0)
+
+vec4 texCol;
+if(wallX0Ym[0] == 1)
+   texCol = texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
+   else
+  texCol = texture(forestFireTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
+
+    if(texCol.a > 0.5){
     color = texCol.rgb;
+    if(wallX0Ym[0] == 3)
+      light = 1.0;
     }
+    opacity = 1. - (1. - opacity) * (1. - texCol.a);                                                // alpha blending
+
 
       if(texture(wallTex, texCoordXmY0)[1] == 0 ){ // wall to the left and below
     if(localX + localY < 1.0){
@@ -227,7 +230,7 @@ if(wallX0Ym[0] == 1){ // land below
   float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
   light = pow(light, 1. / 2.2); // gamma correction
   vec3 lightCol = sunColor(scatering) * light;
-  float shadowLight = 0.05;
+  
 
   if (fract(cursor.w) > 0.5) { // enable flashlight
     vec2 vecFromMouse = cursor.xy - texCoord;
@@ -237,9 +240,6 @@ if(wallX0Ym[0] == 1){ // land below
   }
 
   lightCol += vec3(shadowLight);
-
-  if (fire)
-    lightCol = vec3(1);
 
   fragmentColor = vec4(clamp(color * lightCol * exposure, 0., 1.), opacity);
 
