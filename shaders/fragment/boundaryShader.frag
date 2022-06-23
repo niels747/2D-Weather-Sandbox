@@ -216,7 +216,7 @@ water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
         base[3] -= evaporation * evapHeat;
 
         if(wall[3] < 10){ // Dry desert area
-            water[3] += max(abs(base[0])-0.05, 0.) * 0.05; // Dust blowing up with wind
+            water[3] = min(water[3] + (max(abs(base[0])-0.05, 0.) * 0.05), 2.4); // Dust blowing up with wind
         }
 
       } else if (wall[0] == 2) { // water surface
@@ -230,16 +230,11 @@ water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
         // water[0])),0.0);
       } else if (wall[0] == 3) { // forest fire
         if(wall[2] == 1){ // one above surface
-        //base[3] += 0.025;  // 0.005 heat
 
         float fireIntensity = float(wall[3]) * 0.00015;
-
         base[3] += fireIntensity;  // heat
         water[3] += fireIntensity*2.0; // smoke
-         
-        //water[3] = 10.00; // smoke
-
-        // water[0] += 0.002; // extra water from burning trees
+        water[0] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
 }
       }
 
@@ -275,11 +270,11 @@ water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
          
 
 
-          if(random(iterNum + texCoord.x) < 0.001){
+          if(random(iterNum + texCoord.x) < 0.001){ // fire updated randomly
 
  //if (wallXmY0[1] == 0) {
-            if(wallXmY0[0] == 3 || wallXpY0[0] == 3)
-        wall[0] = 3; // ignite fire
+            if(wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5) // if left or right is on fire or fire is blowing over
+        wall[0] = 3; // spread fire
  //   }
 
              if(wall[0] == 3){

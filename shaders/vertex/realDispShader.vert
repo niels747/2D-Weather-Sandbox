@@ -17,8 +17,8 @@ out vec2 texCoordXpY0; // right
 out vec2 texCoordX0Yp; // up
 out vec2 texCoordX0Ym; // down
 
-const float Xmult = 100.5; // 1.5
-const float Ymult = 4.0; // 4.0
+const float Xmult = 4.; // high numbers produce precision issues with the horizontal coordinats. This can create vertical lines in the realistic displaymode
+const float Ymult = 4.; // 4.0
 
 void main()
 {
@@ -26,11 +26,16 @@ void main()
     texCoordAdjusted.x *= Xmult;
     texCoordAdjusted.y *= Ymult;
 
-    texCoordAdjusted.x -= (Xmult - 1.0) / (2. * texelSize.x); // make shure the position of texture coordinats stays constant on the screen
+    texCoordAdjusted.x -= (Xmult - 1.0) / (2. * texelSize.x); // make sure the position of texture coordinats stays constant on the screen
     texCoordAdjusted.y -= (Ymult - 1.0) / (2. * texelSize.y);
 
+// wrapped arround edge
     fragCoord = texCoordAdjusted;
     texCoord = texCoordAdjusted * texelSize; // normalize
+
+// single area, no wrapping
+    //fragCoord = vertTexCoord;
+    //texCoord = vertTexCoord * texelSize; // normalize
 
     texCoordXmY0 = texCoord + vec2(-texelSize.x, 0.0);
     texCoordXpY0 = texCoord + vec2(texelSize.x, 0.0);

@@ -1259,11 +1259,14 @@ async function mainScript(
   function changeViewZoom(mult) {
     viewZoom *= mult;
 
-    if (viewZoom > 30.0) {
-      viewZoom = 30.0;
+    let minZoom = 0.5;
+    let maxZoom = 25.0 * sim_aspect;
+
+    if (viewZoom > maxZoom) {
+      viewZoom = maxZoom;
       return false;
-    } else if (viewZoom < 0.5) {
-      viewZoom = 0.5;
+    } else if (viewZoom < minZoom) {
+      viewZoom = minZoom;
       return false;
     } else {
       return true;
@@ -1314,7 +1317,7 @@ async function mainScript(
 
     if (middleMousePressed) {
       // drag view position
-      viewXpos += ((mouseX - prevMouseX) / viewZoom / canvas.width) * 2.0;
+      viewXpos = mod(viewXpos + ((mouseX - prevMouseX) / viewZoom / canvas.width) * 2.0, 2.0);
       viewYpos -= ((mouseY - prevMouseY) / viewZoom / canvas.width) * 2.0;
 
       prevMouseX = mouseX;
@@ -2156,23 +2159,23 @@ async function mainScript(
   var destTF;
 
   function draw() {
-    if (leftPressed) {
-      viewXpos += 0.01 / viewZoom;  // <
+    if (leftPressed) { // <
+      viewXpos = mod(viewXpos + 0.01 / viewZoom, 2.0);
     }
-    if (upPressed) {
-      viewYpos -= 0.01 / viewZoom;  // ^
+    if (upPressed) { // ^
+      viewYpos -= 0.01 / viewZoom;  
     }
-    if (rightPressed) {
-      viewXpos -= 0.01 / viewZoom;  // >
+    if (rightPressed) { // >
+      viewXpos = mod(viewXpos - 0.01 / viewZoom, 2.0);
     }
-    if (downPressed) {
-      viewYpos += 0.01 / viewZoom;  // v
+    if (downPressed) { // v
+      viewYpos += 0.01 / viewZoom;  
     }
-    if (plusPressed) {
-      changeViewZoom(1.02);  // +
+    if (plusPressed) { // +
+      changeViewZoom(1.02);  
     }
-    if (minusPressed) {
-      changeViewZoom(0.98);  // -
+    if (minusPressed) { // -
+      changeViewZoom(0.98);  
     }
 
     var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;

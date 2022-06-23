@@ -129,9 +129,9 @@ void main()
         } else if (newPos.y < -1.0 || base[3] > 500.) { // to low or wall
 
             if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[3] > 500.) // if above cell was already wall. because of fast fall speed
-                newPos.y += texelSize.y * 2.; // move position up
+               newPos.y += texelSize.y * 2.; // move position up
 
-            feedback[2] = newMass[0]; // rain accumulation
+          //  feedback[2] = newMass[0]; // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
 
             feedback[3] = newMass[1]; // snow accumulation
 

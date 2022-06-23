@@ -248,7 +248,7 @@ void main() {
           }
           break;
           case 16:
-          if (wall[1] == 0 && wall[0] == 1 &&
+          if (wall[1] == 0 && (wall[0] == 1 || wall[0] == 3) &&
               texture(wallTex, texCoordX0Yp)[1] !=
                   0) { // if land wall and no wall above
             wall[3] += 1; // add vegetation

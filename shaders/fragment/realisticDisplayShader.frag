@@ -53,11 +53,6 @@ vec3 getWallColor(vec2 coord) {
   base = bilerpWallVis(baseTex, wallTex, coord / texelSize);
   wall = texture(wallTex, coord);
   water = bilerpWallVis(waterTex, wallTex, coord / texelSize);
-  // light = texture(lightTex, coord)[0];
-
-  //light /= max(1.0 - texCoord.y * 1500.0, 1.0); // fade light at the top
-
-  //light = pow(light, 1. / 2.2); // gamma correction
 
   switch (wall[0]) { // wall type
   case 0:            // normal wall
@@ -91,7 +86,6 @@ vec3 getWallColor(vec2 coord) {
     break;
   }
 }
-
 
 
 void main() {
@@ -186,8 +180,8 @@ void main() {
     opacity = clamp(opacity, 0.0, 1.0);
 
     if(wall[1] == 1){// next to wall, create slopes
-      float localX = mod(texCoord.x * resolution.x, 1.0);
-      float localY = mod(texCoord.y * resolution.y, 1.0);
+      float localX = fract(fragCoord.x);
+      float localY = fract(fragCoord.y);
 
 ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
@@ -210,7 +204,7 @@ if(wallX0Ym[0] == 1)
     }
     opacity = 1. - (1. - opacity) * (1. - texCol.a);                                                // alpha blending
 
-
+    // slopes
       if(texture(wallTex, texCoordXmY0)[1] == 0 ){ // wall to the left and below
     if(localX + localY < 1.0){
     opacity = 1.0;
