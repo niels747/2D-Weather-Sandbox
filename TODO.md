@@ -5,7 +5,7 @@
 - [x] Improve surface visualization
 - [x] Add tree / vegetation textures.
 - [x] Make dust blow up in dry areas.
-- [ ] Make fire spread and burn out, only in areas with vegitation.
+- [x] Make fire spread and burn out, only in areas with vegitation.
 - [ ] Add lightning effect.
 - [ ] Add plane flying mode
 
