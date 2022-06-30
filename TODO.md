@@ -7,7 +7,7 @@
 - [x] Make dust blow up in dry areas.
 - [x] Make fire spread and burn out, only in areas with vegitation.
 - [x] Improve fire visualization.
-- [ ] Fix slope(green triangle) being lit up by fire.
+- [x] Fix slope(green triangle) being lit up by fire.
 - [ ] Snowy trees.
 - [ ] Add lightning effect.
 - [ ] Add plane flying mode.
