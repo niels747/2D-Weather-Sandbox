@@ -18,6 +18,7 @@ uniform sampler2D lightTex;
 uniform sampler2D noiseTex;
 uniform sampler2D forestTex;
 uniform sampler2D forestFireTex;
+uniform sampler2D forestSnowTex;
 
 uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
@@ -65,10 +66,7 @@ vec3 getWallColor(vec2 coord) {
 
     
     if (wall[2] == 0) { // surface
-     // groundCol = mix(vec3(0.5, 0.2, 0.1), vec3(0.0, 0.7, 0.2), water[2] / 100.); // brown to green, dry earth to grass
-     // groundCol = mix(groundCol, vec3(1.0), water[3] / 100.);                     // brown/green to white, snow cover
   groundCol = getSurfaceCol();
-
       return groundCol;
 
     }else{
@@ -190,9 +188,10 @@ if(wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)){ // land or fire 
 float treeTexCoordY = mod(-texCoord.y * resolution.y,1.) - 1. + float(wallX0Ym[3]-50)/77.0; // float(wallX0Ym[3]-100)/27.0)
 
 vec4 texCol;
-if(wallX0Ym[0] == 1)
-   texCol = texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
-   else
+if(wallX0Ym[0] == 1){ // if land
+   float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
+   texCol = mix(texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), texture(forestSnowTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), snow / 100.);
+}else // fire
   texCol = texture(forestFireTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
 
     if(texCol.a > 0.5){

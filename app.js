@@ -1882,9 +1882,19 @@ async function mainScript(
 
 
 
-  imgElement = await loadImage("resources/forest3.png");
+  imgElement = await loadImage("resources/forest.png");
   const forestTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+  gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  imgElement = await loadImage("resources/forest_snow.png");
+  const forestSnowTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, forestSnowTexture);
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -2087,6 +2097,7 @@ async function mainScript(
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestTex'), 5);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestFireTex'), 6);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestSnowTex'), 7);
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
   gl.useProgram(precipitationProgram);
@@ -2478,6 +2489,8 @@ async function mainScript(
       gl.bindTexture(gl.TEXTURE_2D, forestTexture);
       gl.activeTexture(gl.TEXTURE6);
       gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
+      gl.activeTexture(gl.TEXTURE7);
+      gl.bindTexture(gl.TEXTURE_2D, forestSnowTexture);
 
       // draw background
       gl.useProgram(skyBackgroundDisplayProgram);
