@@ -185,9 +185,7 @@ void main() {
 
 ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
-if(wallX0Ym[1] == 0){ // wall  below
-
-if(wallX0Ym[0] == 1 || wallX0Ym[0] == 3 ){ // land below
+if(wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)){ // land or fire wall below
 
 float treeTexCoordY = mod(-texCoord.y * resolution.y,1.) - 1. + float(wallX0Ym[3]-50)/77.0; // float(wallX0Ym[3]-100)/27.0)
 
@@ -199,8 +197,8 @@ if(wallX0Ym[0] == 1)
 
     if(texCol.a > 0.5){
     color = texCol.rgb;
-    if(wallX0Ym[0] == 3)
-      light = 1.0;
+    if(wallX0Ym[0] == 3) // if fire wall
+      shadowLight = 1.0;
     }
     opacity = 1. - (1. - opacity) * (1. - texCol.a);                                                // alpha blending
 
@@ -209,15 +207,17 @@ if(wallX0Ym[0] == 1)
     if(localX + localY < 1.0){
     opacity = 1.0;
     color = getWallColor(texCoordX0Ym); //  - 1./resolution.y
+    shadowLight = 0.05; // fire should not light ground
         }
-      } if(texture(wallTex, texCoordXpY0)[1] == 0 ){ // wall to the right and below
+      } 
+      if(texture(wallTex, texCoordXpY0)[1] == 0 ){ // wall to the right and below
     if(localY - localX < 0.0){
     opacity = 1.0;
     color = getWallColor(texCoordX0Ym);
+    shadowLight = 0.05; // fire should not light ground
         }
       }
 }
-    } 
     }
   }
 
