@@ -8,7 +8,7 @@
 - [x] Make fire spread and burn out, only in areas with vegitation.
 - [x] Improve fire visualization.
 - [x] Fix slope(green triangle) being lit up by fire.
-- [ ] Snowy trees.
+- [x] Snowy trees.
 - [ ] Add lightning effect.
 - [ ] Add plane flying mode.
 
