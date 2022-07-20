@@ -216,7 +216,7 @@ water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
         base[3] -= evaporation * evapHeat;
 
         if(wall[3] < 10){ // Dry desert area
-            water[3] = min(water[3] + (max(abs(base[0])-0.05, 0.) * 0.05), 2.4); // Dust blowing up with wind
+            water[3] = min(water[3] + (max(abs(base[0])-0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
         }
 
       } else if (wall[0] == 2) { // water surface

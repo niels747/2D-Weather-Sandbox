@@ -1351,7 +1351,7 @@ async function mainScript(
   var lastBpressTime;
 
   document.addEventListener('keydown', (event) => {
-    if (event.keyCode == 17 || event.keyCode == 224) {
+    if (event.keyCode == 17 || event.keyCode == 91) {
       // ctrl or cmd on mac
       ctrlPressed = true;
     } else if (event.code == 'Space') {
