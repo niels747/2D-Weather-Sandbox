@@ -917,7 +917,7 @@ async function mainScript(
     init: function() {
       this.graphCanvas = document.getElementById('graphCanvas');
       this.graphCanvas.height = window.innerHeight;
-      this.graphCanvas.width = this.graphCanvas.height * 0.8;
+      this.graphCanvas.width = this.graphCanvas.height;
       this.ctx = this.graphCanvas.getContext('2d');
       var style = this.graphCanvas.style;
       if (guiControls.showGraph)
@@ -1114,7 +1114,8 @@ async function mainScript(
       function T_to_Xpos(T, y) {
         // temperature to horizontal position
 
-        var normX = T * 0.013 + 1.34 - (y / graphBottem) * 0.9;
+        //var normX = T * 0.013 + 1.34 - (y / graphBottem) * 0.9; // -30 to 40 
+        var normX = T * 0.0115 + 1.18 - (y / graphBottem) * 0.8; // -30 to 50
 
         return normX *
             this.graphCanvas
@@ -1126,7 +1127,7 @@ async function mainScript(
         c.beginPath();
         c.fillStyle = 'white';
 
-        for (var T = -80.0; T <= 40.0; T += 10.0) {
+        for (var T = -80.0; T <= 50.0; T += 10.0) {
           c.moveTo(T_to_Xpos(T, graphBottem), graphBottem);
           c.lineTo(T_to_Xpos(T, 0), 0);
 
@@ -1168,7 +1169,7 @@ async function mainScript(
     canvas_aspect = canvas.width / canvas.height;
 
     soundingGraph.graphCanvas.height = window.innerHeight;
-    soundingGraph.graphCanvas.width = window.innerHeight * 0.8;
+    soundingGraph.graphCanvas.width = window.innerHeight;
   });
 
   function logSample() {
