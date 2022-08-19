@@ -925,7 +925,7 @@ async function mainScript(
       else
         style.display = 'none';
     },
-    draw: function(simXpos, simYpos) {
+    draw: function(simXpos, simYpos) { // draw graph
       // mouse positions in sim coordinates
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
@@ -1168,6 +1168,7 @@ async function mainScript(
     canvas_aspect = canvas.width / canvas.height;
 
     soundingGraph.graphCanvas.height = window.innerHeight;
+    soundingGraph.graphCanvas.width = window.innerHeight * 0.8;
   });
 
   function logSample() {
