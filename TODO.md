@@ -9,6 +9,7 @@
 - [x] Improve fire visualization
 - [x] Fix slope(green triangle) being lit up by fire
 - [x] Snowy trees
+- [ ] Fix graph aspect ratio
 - [ ] Improve Lake/sea depth visualization
 - [ ] Extent sounding scale to 50 C
 - [ ] Improve fire
