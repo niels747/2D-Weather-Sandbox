@@ -11,12 +11,10 @@
 - [x] Snowy trees
 - [x] Fix graph aspect ratio
 - [x] Extent sounding scale to 50 C
-- [ ] Improve Lake/sea depth visualization
-- [ ] Improve fire
-- [ ] Improve precipitation spawning
+- [ ] Improve Lake/sea depth visualization and don't show gras underwater
+- [ ] Fix snow landing underwater bug
+- [ ] Fix fire buring on water bug
+- [ ] Improve fire spreading system
+- [ ] Improve precipitation spawning system
 - [ ] Add lightning effect
 - [ ] Add plane flying mode
-
-
-
-**Completed taks might not be on github yet, but I did complete and test them offline*
