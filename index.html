@@ -17,6 +17,30 @@
 			input[type="range"] {
 				width: 800px;
 			}
+
+			.icon-bar {
+  				width: 100%;
+				height: 0px;
+				padding: 0px;
+			}
+
+			.icon-bar a {
+  				float: right;
+  				width: 150px;
+				text-align: center;
+				padding: 0px;
+				transition: all 0.3s ease;
+			}
+
+			.icon-bar a img{
+				height: 70px;
+				text-align: center;
+				padding: 0px;
+			}
+
+			.icon-bar a:hover {
+				background-color: #000;
+			}
 		</style>
 	</head>
 	<body
@@ -24,6 +48,10 @@
 		style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41)">
 
 		<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
+			<div class="icon-bar">
+				<a href="https://github.com/niels747/2D-Weather-Sandbox"><img src="/resources/Github.png"></a> 
+				<a href="https://www.youtube.com/user/nielsdaemen/videos"><img src="/resources/Youtube.png"></a> 
+			  </div>
 			<h1>2D Weather Sandbox</h1>
 
 			<form

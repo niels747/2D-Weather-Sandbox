@@ -1,17 +1,20 @@
-precision highp int; // needed for chrome 97, older versions didn't need this
-                     // specified
+precision highp int;        // needed for chrome 97, older versions didn't need this specified
 precision highp isampler2D; // Not sure if the WebGL standard changed
 
+#define PI 3.1415926535897932384626433832795
 #define lightHeatingConst 0.0023 // how much a unit of light adds heat
-#define IRHeatingConst                                                         \
-  0.000002 // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
+#define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
 
 // Universal Functions
-float map_range(float value, float min1, float max1, float min2, float max2) {
+float
+map_range(float value, float min1, float max1, float min2, float max2)
+{
   return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 
-uint hash(uint x) {
+uint
+hash(uint x)
+{
   x += (x << 10u);
   x ^= (x >> 6u);
   x += (x << 3u);
@@ -19,7 +22,9 @@ uint hash(uint x) {
   x += (x << 15u);
   return x;
 }
-float random(float f) {
+float
+random(float f)
+{
   const uint mantissaMask = 0x007FFFFFu;
   const uint one = 0x3F800000u;
 
@@ -33,19 +38,33 @@ float random(float f) {
 
 // Temperature Functions
 
-float potentialToRealT(float potential) {
+float
+potentialToRealT(float potential)
+{
   return potential - texCoord.y * dryLapse;
 }
 
-float realToPotentialT(float real) { return real + texCoord.y * dryLapse; }
+float
+realToPotentialT(float real)
+{
+  return real + texCoord.y * dryLapse;
+}
 
-float CtoK(float c) { return c + 273.15; }
+float
+CtoK(float c)
+{
+  return c + 273.15;
+}
 
-float KtoC(float k) { return k - 273.15; }
+float
+KtoC(float k)
+{
+  return k - 273.15;
+}
 
-float dT_saturated(
-    float dTdry,
-    float dTl) // dTl = temperature difference because of latent heat
+float
+dT_saturated(float dTdry,
+             float dTl) // dTl = temperature difference because of latent heat
 {
   if (dTl == 0.0)
     return dTdry;
@@ -61,22 +80,32 @@ float dT_saturated(
 #define wf_pow 17.0      // 17.0						10
 // https://www.geogebra.org/calculator/jc9hkfq4
 
-float maxWater(float T) {
+float
+maxWater(float T)
+{
   return pow((T / wf_devider), wf_pow); // T in Kelvin, w in grams per m^3
 }
 
-float dewpoint(float W) {
+float
+dewpoint(float W)
+{
   if (W < 0.00001)
     return 0.0;
   else
     return wf_devider * pow(W, 1.0 / wf_pow);
 }
 
-float relativeHumd(float T, float W) { return (W / maxWater(T)); }
+float
+relativeHumd(float T, float W)
+{
+  return (W / maxWater(T));
+}
 
 // interpolation
 
-vec4 bilerp(sampler2D tex, vec2 pos) {
+vec4
+bilerp(sampler2D tex, vec2 pos)
+{
 
   vec2 st = pos - 0.5; // calc pixel coordinats
 
@@ -98,8 +127,9 @@ vec4 bilerp(sampler2D tex, vec2 pos) {
   return mix(mix(a, b, mixAB), mix(c, d, mixCD), mixAB_CD);
 }
 
-vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
-                vec2 pos) // prevents sampeling from wall cell
+vec4
+bilerpWall(sampler2D tex, isampler2D wallTex,
+           vec2 pos) // prevents sampeling from wall cell
 {
   vec2 st = pos - 0.5; // calc pixel coordinats
 
@@ -140,45 +170,24 @@ vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
 
 #define IR_constant 5.670374419 // ×10−8
 
-float IR_emitted(float T) {
+float
+IR_emitted(float T)
+{
   return pow(T * 0.01, 4.) * IR_constant; // Stefan–Boltzmann law
 }
 
-float IR_temp(float IR) // inversed Stefan–Boltzmann law
+float
+IR_temp(float IR) // inversed Stefan–Boltzmann law
 {
   return pow(IR / IR_constant, 1. / 4.) * 100.0;
 }
 
-float absHorizontalDist(float a,
-                        float b) // for wrapping around simulation border
+float
+absHorizontalDist(float a,
+                  float b) // for wrapping around simulation border
 {
   return min(min(abs(a - b), abs(1.0 + a - b)), 1.0 - a + b);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /*
 float realMod(float a, float b)
