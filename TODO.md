@@ -11,6 +11,7 @@
 - [x] Snowy trees
 - [x] Fix graph aspect ratio
 - [x] Extent sounding scale to 50 C
+- [ ] Add wind tool: move air by dragging
 - [ ] Improve Lake/sea depth visualization and don't show gras underwater
 - [ ] Fix snow landing underwater bug
 - [ ] Fix fire buring on water bug
