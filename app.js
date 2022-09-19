@@ -513,16 +513,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     UI_folder
       .add(guiControls, 'tool', {
-        Flashlight : 'TOOL_NONE',
-        Temperature : 'TOOL_TEMPERATURE',
+        'Flashlight' : 'TOOL_NONE',
+        'Temperature' : 'TOOL_TEMPERATURE',
         'Water Vapor / Cloud' : 'TOOL_WATER',
-        Land : 'TOOL_WALL_LAND',
+        'Land' : 'TOOL_WALL_LAND',
         'Lake / Sea' : 'TOOL_WALL_SEA',
-        Fire : 'TOOL_WALL_FIRE',
+        'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
-        Moisture : 'TOOL_WALL_MOIST',
-        Vegetation : 'TOOL_VEGETATION',
-        Snow : 'TOOL_WALL_SNOW',
+        'Moisture' : 'TOOL_WALL_MOIST',
+        'Vegetation' : 'TOOL_VEGETATION',
+        'Snow' : 'TOOL_WALL_SNOW',
+        'wind' : 'TOOL_WIND',
       })
       .name('Tool')
       .listen();
@@ -977,6 +978,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   canvas_aspect = canvas.width / canvas.height;
 
   var mouseXinSim, mouseYinSim;
+  var prevMouseXinSim, prevMouseYinSim;
 
   window.addEventListener('resize', function() {
     canvas.width = window.innerWidth;
@@ -1231,6 +1233,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_VEGETATION';
     } else if (event.code == 'KeyO') {
       guiControls.tool = 'TOOL_WALL_SNOW';
+    } else if (event.code == 'KeyP') {
+      guiControls.tool = 'TOOL_WIND';
     } else if (event.key == 'PageUp') {
       adjIterPerFrame(1);
     } else if (event.code == 'PageDown') {
@@ -1857,6 +1861,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       changeViewZoom(0.98);
     }
 
+    prevMouseXinSim = mouseXinSim;
+    prevMouseYinSim = mouseYinSim;
+
     var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
     var rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
     mouseXinSim = map_range(mouseX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
@@ -1896,6 +1903,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 2;
         else if (guiControls.tool == 'TOOL_SMOKE')
           inputType = 3;
+        else if (guiControls.tool == 'TOOL_WIND')
+          inputType = 4;
         else if (guiControls.tool == 'TOOL_WALL')
           inputType = 10;
         else if (guiControls.tool == 'TOOL_WALL_LAND')
@@ -1923,11 +1932,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           posXinSim = -1.0;
         }
 
+        let moveX = mouseXinSim - prevMouseXinSim;
+        let moveY = mouseYinSim - prevMouseYinSim;
+
         gl.uniform4f(gl.getUniformLocation(advectionProgram, 'userInputValues'), posXinSim, mouseYinSim, intensity, guiControls.brushSize * 0.5);
+        gl.uniform2f(gl.getUniformLocation(advectionProgram, 'userInputMove'), moveX, moveY);
       }
-      gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'),
-                   inputType); // 0 = nothing 	1 = temp	 2 = wall	3 =
-      // heating wall	4 = cooling wall
+      gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 
       if (!guiControls.paused) {
         if (guiControls.dayNightCycle)
