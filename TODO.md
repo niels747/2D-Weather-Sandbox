@@ -10,7 +10,7 @@
 - [x] Fix slope(green triangle) being lit up by fire
 - [x] Snowy trees
 - [x] Fix graph aspect ratio
-- [x] Extent sounding scale to 50 C
+- [x] Extend sounding scale to 50 C
 - [X] Add wind tool: move air by dragging
 - [ ] Improve Lake/sea depth visualization and don't show gras underwater
 - [ ] Fix snow landing underwater bug
