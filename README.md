@@ -28,7 +28,7 @@ Warm moist air is rising into the cloud on the right condensing water and releas
 The dew points and cape are very low in this example, but it's just enough to form a nice stable cell.
 ![Naamloos](https://user-images.githubusercontent.com/42830240/173365013-cdea3b40-f470-4390-a8fa-b8d93025d893.png)
 
-#The code
+# The code
 
 The simulation is based on a very simple fluid simulation topology.
 
@@ -36,7 +36,7 @@ The simulation is based on a very simple fluid simulation topology.
 
 All code was written by me (Niels Daemen) except for the libraries included
 
-##libraries
+## libraries
 
 The simulation and visualization itself is entirely custom js and glsl written by me (Niels Daemen). The sounding graph, keyboard and mouse controls are also custom code. The simulation can run and be partly controlled without any libraries. I do however use the following libraries for part of the user interface and file compression:
 
