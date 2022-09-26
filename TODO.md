@@ -5,14 +5,14 @@
 - [x] Improve surface visualization
 - [x] Add tree / vegetation textures
 - [x] Make dust blow up in dry areas
-- [x] Make fire spread and burn out, only in areas with vegitation
+- [x] Make fire spread and burn out, only in areas with vegetation
 - [x] Improve fire visualization
 - [x] Fix slope(green triangle) being lit up by fire
 - [x] Snowy trees
-- [x] Fix graph aspect ratio
+- [x] Fix sounding aspect ratio
 - [x] Extend sounding scale to 50 C
 - [X] Add wind tool: move air by dragging
-- [ ] Improve Lake/sea depth visualization and don't show gras underwater
+- [ ] Improve Lake/sea depth visualization and don't show grass underwater
 - [ ] Fix snow landing underwater bug
 - [ ] Fix fire buring on water bug
 - [ ] Improve fire spreading system
