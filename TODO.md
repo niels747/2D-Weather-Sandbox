@@ -17,5 +17,8 @@
 - [ ] Fix fire buring on water bug
 - [ ] Improve fire spreading system
 - [ ] Improve precipitation spawning system
+- [ ] Add weather stations with current conditions
+- [ ] Make weather stations show history in plots
+- [ ] Make vertical resolution variable
 - [ ] Add lightning effect
 - [ ] Add plane flying mode
