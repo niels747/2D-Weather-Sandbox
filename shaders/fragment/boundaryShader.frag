@@ -115,11 +115,8 @@ main()
 
 #define gravMult 0.0001 // 0.0002
 
-    // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 -
-    // (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) *
-    // gravMult; // 0.0005  0.0001  gravity for convection
-
-    // float ofset = sin(texCoord.x * PI) * 10.0; // to simulate high and low pressure area
+    // 0.0005  0.0001  gravity for convection with correction
+    // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) * gravMult;
 
     float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult; // 0.0005  0.0001  gravity for convection
 
@@ -128,6 +125,8 @@ main()
     gravityForce += precipFeedback[0] * gravMult; // precipitation weigth added to gravity force
 
     base[1] += gravityForce;
+
+   // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
 
     float snowCover = 0.;
 
