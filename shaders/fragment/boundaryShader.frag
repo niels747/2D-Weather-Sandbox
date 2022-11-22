@@ -37,31 +37,36 @@ uniform float iterNum; // used as seed for random function
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
-layout(location = 2) out ivec4 wall; // [0] walltype    [1] distance to nearest
-                                     // wall      [2] height above ground
-
+layout(location = 2) out ivec4 wall;
 /*
+
 base:
 [0] = vx
 [1] = vy
 [2] = p
 [3] = t
+
+wall:
+[0] walltype
+[1] manhattan distance to nearest wall
+[2] height above/below ground
+[3] vegitation
+
 */
 
 #include functions
 
-#define wallInfluence 2 // 2
-#define exchangeRate 0.001
+#define wallVerticalInfluence 2  // How many cells above the wall surface effects like heating and evaporation are applied
+#define wallManhattanInfluence 3 // How many cells from the nearest wall effects like smoothing and drag are applied
+#define exchangeRate 0.001       // Rate of smoothing near surface
 
-void
-exchangeWith(vec2 texCoord) // exchange temperature and water
+void exchangeWith(vec2 texCoord) // exchange temperature and water
 {
   base[3] -= (base[3] - texture(baseTex, texCoord)[3]) * exchangeRate;
   water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
 }
 
-void
-main()
+void main()
 {
   base = texture(baseTex, texCoord);
   water = texture(waterTex, texCoord);
@@ -126,7 +131,7 @@ main()
 
     base[1] += gravityForce;
 
-   // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
+    // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
 
     float snowCover = 0.;
 
@@ -189,21 +194,45 @@ main()
       wall[0] = nearestType; // type = type of nearest wall
     }
 
-    if (wall[1] <= wallInfluence) { // within range of wall
 
-      wall[3] = wallX0Ym[3]; // vegetation is copied from below
+    if (wall[1] <= wallManhattanInfluence) { // within manhattan range of wall
 
-      float devider = float(wallInfluence);
+      float influenceDevider = float(wallManhattanInfluence); // devide by how many cells it's aplied to
 
       // base[0] *= 0.999; // surface drag
 
       float realTemp = potentialToRealT(base[3]);
 
-      if (wall[0] == 1) {                                                                     // land surface
-        base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / devider; // sun heating land
+      // Smoothing near surface
 
-        float evaporation = max((maxWater(realTemp) - water[0]) * landEvaporation * (float(wall[3]) / 127.) / devider,
-                                0.); // water evaporating from land proportional to vegitation
+      if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallManhattanInfluence) { // above
+        exchangeWith(texCoordX0Yp);
+      }
+
+      if (wallX0Ym[1] != 0 && wallX0Ym[1] <= wallManhattanInfluence) { // below
+        exchangeWith(texCoordX0Ym);
+      }
+
+      if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
+        exchangeWith(texCoordXmY0);
+      }
+
+      if (wallXpY0[1] != 0 && wallXpY0[1] <= wallManhattanInfluence) { // right
+        exchangeWith(texCoordXpY0);
+      }
+    }
+
+    if (wall[2] <= wallVerticalInfluence) { // within vertical range of wall
+
+      float influenceDevider = float(wallVerticalInfluence); // devide by how many cells it's aplied to
+
+      wall[3] = wallX0Ym[3]; // vegetation is copied from below
+
+
+      if (wall[0] == 1) {                                                                              // land surface
+        base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
+
+        float evaporation = max((maxWater(realTemp) - water[0]) * landEvaporation * (float(wall[3]) / 127.) / influenceDevider, 0.); // water evaporating from land proportional to vegitation
 
         water[0] += evaporation;
         base[3] -= evaporation * evapHeat;
@@ -212,13 +241,12 @@ main()
           water[3] = min(water[3] + (max(abs(base[0]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
         }
 
-      } else if (wall[0] == 2) {                                           // water surface
-        base[3] += (waterTemperature - realTemp - 1.0) / devider * 0.0002; // air heated or cooled by water
+      } else if (wall[0] == 2) {                                                    // water surface
+        base[3] += (waterTemperature - realTemp - 1.0) / influenceDevider * 0.0002; // air heated or cooled by water
 
-        water[0] += max((maxWater(waterTemperature) - water[0]) * waterEvaporation / devider,
-                        0.); // water evaporating
-        // water[0] += waterEvaporation * max((0.95 - relativeHumd(realTemp,
-        // water[0])),0.0);
+        water[0] += max((maxWater(waterTemperature) - water[0]) * waterEvaporation / influenceDevider, 0.); // water evaporating
+
+
       } else if (wall[0] == 3) { // forest fire
         if (wall[2] == 1) {      // one above surface
 
@@ -229,24 +257,8 @@ main()
                                             // from burning of hydrogen and hydrocarbons
         }
       }
+    }
 
-      if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallInfluence) { // above
-        exchangeWith(texCoordX0Yp);
-      }
-
-      if (wallX0Ym[1] != 0 && wallX0Ym[1] <= wallInfluence) { // below
-        exchangeWith(texCoordX0Ym);
-      }
-
-      if (wallXmY0[1] != 0 && wallXmY0[1] <= wallInfluence) { // left
-        exchangeWith(texCoordXmY0);
-      }
-
-      if (wallXpY0[1] != 0 && wallXpY0[1] <= wallInfluence) { // right
-        exchangeWith(texCoordXpY0);
-      }
-
-    }                                                           // within range of wall
   } else {                                                      // is wall
     water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
     water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
@@ -255,7 +267,7 @@ main()
     if (wall[2] < 0) {                               // below surface
       water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
       wall[3] = wallX0Yp[3];                         // vegetation is copied from above
-    } else if (wall[2] == 0) {
+    } else if (wall[2] == 0) {                       // at surface
 
       if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
 

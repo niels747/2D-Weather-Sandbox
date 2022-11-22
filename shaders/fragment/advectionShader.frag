@@ -286,8 +286,8 @@ main()
     // the graph
   } else { // no wall
 
-    if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
-      water = vec4(0.0);
+    //  if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
+    //    water = vec4(0.0);
 
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
   }

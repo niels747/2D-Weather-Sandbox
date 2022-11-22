@@ -262,13 +262,14 @@ async function loadData() {
   } else {
     // no file, so create new simulation
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
-    sim_res_y = 70; /*parseInt(document.getElementById("simResSelY").value);*/
+    sim_res_y = 100; /*parseInt(document.getElementById("simResSelY").value);*/
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
     SETUP_MODE = true;
 
-    mainScript(null);
+    mainScript(null);  // run without initial textures
   }
-  viewYpos = -0.5 + sim_res_y / sim_res_x;  // match bottem to bottem of screen
+  // match bottem of sim area to bottem of screen
+  viewYpos = -0.5 + sim_res_y / sim_res_x;
 }
 
 function loadImage(url) {
@@ -1213,39 +1214,39 @@ async function mainScript(
     console.log('');
     console.log('Sample at:      X: ' + simXpos, '  Y: ' + simYpos);
     console.log('BASE-----------------------------------------');
-    console.log('X-vel:', baseTextureValues[0]);
-    console.log('Y-vel:', baseTextureValues[1]);
-    console.log('Press:', baseTextureValues[2]);
+    console.log('[0] X-vel:', baseTextureValues[0]);
+    console.log('[1] Y-vel:', baseTextureValues[1]);
+    console.log('[2] Press:', baseTextureValues[2]);
     console.log(
-        'Temp :',
+        '[3] Temp :',
         KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) +
             ' °C');
 
     //		console.log(simYpos);
 
     console.log('WATER-----------------------------------------');
-    console.log('water:     ', waterTextureValues[0]);
-    console.log('cloudwater:', waterTextureValues[1]);
-    console.log('rain:      ', waterTextureValues[2]);
-    console.log('Smoke/snow:     ', waterTextureValues[3]);
+    console.log('[0] water:     ', waterTextureValues[0]);
+    console.log('[1] cloudwater:', waterTextureValues[1]);
+    console.log('[2] rain:      ', waterTextureValues[2]);
+    console.log('[3] Smoke/snow:', waterTextureValues[3]);
 
     console.log('WALL-----------------------------------------');
-    console.log('walltype :     ', wallTextureValues[0]);
-    console.log('distance:', wallTextureValues[1]);
-    console.log('Vertical distance :', wallTextureValues[2]);
-    console.log('Vegitation:', wallTextureValues[3]);
+    console.log('[0] walltype :         ', wallTextureValues[0]);
+    console.log('[1] distance:          ', wallTextureValues[1]);
+    console.log('[2] Vertical distance :', wallTextureValues[2]);
+    console.log('[3] Vegitation:        ', wallTextureValues[3]);
 
     console.log('LIGHT-----------------------------------------');
-    console.log('Sunlight:  ', lightTextureValues[0]);
-    console.log('IR cooling:', lightTextureValues[1]);  // net effect of ir
+    console.log('[0] Sunlight:  ', lightTextureValues[0]);
+    console.log('[1] IR cooling:', lightTextureValues[1]);  // net effect of ir
     console.log(
-        'IR down:   ', lightTextureValues[2].toFixed(2), 'W/m²',
+        '[2] IR down:   ', lightTextureValues[2].toFixed(2), 'W/m²',
         KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + ' °C');
     console.log(
-        'IR up:     ', lightTextureValues[3].toFixed(2), 'W/m²',
+        '[3] IR up:     ', lightTextureValues[3].toFixed(2), 'W/m²',
         KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + ' °C');
     console.log(
-        'Net IR up: ',
+        'Net IR up:     ',
         (lightTextureValues[3] - lightTextureValues[2]).toFixed(2), 'W/m²');
   }
 
