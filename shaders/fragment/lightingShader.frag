@@ -29,46 +29,42 @@ out vec4 light;
 uniform float dryLapse;
 #include functions
 
-void main() {
+void main()
+{
   if (fragCoord.y > resolution.y - 1.)
     light = vec4(sunIntensity, 0, 0, 0); // at top: full sun, no IR
   else {
 
     // sunlight calculation
 
-    vec2 sunRay =
-        vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
+    vec2 sunRay = vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
     float sunlight = texture(lightTex, texCoord + sunRay)[0];
     // float sunlight = bilerp(lightTex, fragCoord + vec2(sin(sunAngle) ,
     // cos(sunAngle)))[0];
 
     float realTemp = potentialToRealT(texture(baseTex, texCoord)[3]);
     vec4 water = texture(waterTex, texCoord);
-    ivec2 wall = texture(wallTex, texCoord).xy;
+    ivec4 wall = texture(wallTex, texCoord);
 
     if (wall[1] != 0) { // is not wall
 
       float net_heating = 0.0;
 
-      float lightReflected =
-          sunlight -
-          (sunlight / (1. + water[1] * 0.025 +
-                       water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
-      float lightAbsorbed =
-          sunlight - (sunlight / (1. + water[3] * 0.010)); // smoke
+      float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
+      float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
 
       sunlight -= lightReflected + lightAbsorbed;
 
-      net_heating += lightAbsorbed * lightHeatingConst; // smoke being heated
+      net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
 
       // longwave / IR calculation
       float IR_down = texture(lightTex, texCoordX0Yp)[2];
       float IR_up;
 
-      if (wall[1] == 1) { // at surface
+      if (wall[2] == 1) { // 1 above surface
 
         if (wall[0] == 1) {             // if land, IR only affects land
-          IR_up = IR_emitted(realTemp); // emissivity = 1.0
+          IR_up = IR_emitted(realTemp); // emissivity of surface = 1.0 for simplicity
           net_heating += (IR_down - IR_up) * IRHeatingConst;
           //  net_heating *= 0.5;
         } else if (wall[0] == 2) {              // if water surface
@@ -82,22 +78,20 @@ void main() {
 
         IR_up = texture(lightTex, texCoordX0Ym)[3];
 
-        float emissivity; // how opage it is too ir, the rest is let trough, no
-                          // reflection
-        emissivity = greenhouseGases;              // 0.001 greenhouse gasses
+        float emissivity;                // how opage it is too ir, the rest is let trough, no
+                                         // reflection
+        emissivity = greenhouseGases;    // 0.001 greenhouse gasses
         emissivity += water[0] * 0.0025; // water vapor
         emissivity += water[1] * 1.5;    // cloud water
-        emissivity += water[3] * 0.0001;   // 0.01 smoke Should be prettymuch transparent to ir
+        emissivity += water[3] * 0.0001; // 0.01 smoke Should be prettymuch transparent to ir
 
         emissivity = min(emissivity, 1.0);
 
         float absorbedDown = IR_down * emissivity;
         float absorbedUp = IR_up * emissivity;
-        float emitted = IR_emitted(realTemp) *
-                        emissivity; // this amount is emitted both up and down
+        float emitted = IR_emitted(realTemp) * emissivity; // this amount is emitted both up and down
 
-        net_heating +=
-            (absorbedDown + absorbedUp - emitted * 2.0) * IRHeatingConst;
+        net_heating += (absorbedDown + absorbedUp - emitted * 2.0) * IRHeatingConst;
 
         IR_down -= absorbedDown;
         IR_down += emitted;
@@ -108,7 +102,7 @@ void main() {
 
       light = vec4(sunlight, net_heating, IR_down, IR_up);
       // light = vec4(1, 0, 0, 0);
-    } else {                                 // is wall
+    } else {                                  // is wall
       light = vec4(sunlight * 0.85, 0, 0, 0); // * 0.8 light absorbed by ground
     }
   }

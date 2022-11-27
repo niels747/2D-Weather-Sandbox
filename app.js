@@ -1842,11 +1842,11 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT,
       null);  // HALF_FLOAT before, but problems with acuracy
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  // LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(
       gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
-      gl.CLAMP_TO_EDGE);  // prevent light from shing trough at bottem or top
+      gl.CLAMP_TO_EDGE);  // prevent light from shining trough at bottem or top
   const lightFrameBuff_0 = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
   gl.framebufferTexture2D(
@@ -1857,7 +1857,7 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT,
       null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);  // LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(
       gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,

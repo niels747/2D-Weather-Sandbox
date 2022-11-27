@@ -56,8 +56,8 @@ wall:
 
 #include functions
 
-#define wallVerticalInfluence 2  // How many cells above the wall surface effects like heating and evaporation are applied
-#define wallManhattanInfluence 3 // How many cells from the nearest wall effects like smoothing and drag are applied
+#define wallVerticalInfluence 1  // 2 How many cells above the wall surface effects like heating and evaporation are applied
+#define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
 #define exchangeRate 0.001       // Rate of smoothing near surface
 
 void exchangeWith(vec2 texCoord) // exchange temperature and water
@@ -87,10 +87,6 @@ void main()
 
   wall[2] = wallX0Ym[2] + 1; // height above ground is counted
 
-  if (texCoord.y < 0.99 && wallX0Yp[1] == 0 && wallX0Yp[0] != 0 && wallX0Yp[0] != 3) { // Fill in land and sea below
-    wall[0] = wallX0Yp[0];                                                             //  set this to type above
-    wall[1] = 0;                                                                       //  set this to wall
-  }
 
   if (wall[1] != 0) { // is fluid, not wall
 
@@ -112,7 +108,7 @@ void main()
 
     water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
 
-    water[3] = max(water[3], 0.0); // smoke can't go below 0
+    water[3] = max(water[3], 0.0); // snow and smoke can't go below 0
 
     // GRAVITY
     // temperature is calculated for Vy location
@@ -137,22 +133,35 @@ void main()
 
     if (wallX0Ym[1] == 0) { // below is wall
       nextToWall = true;
+      wall[1] = 1;                                    // dist to nearest wall = 1
       wall[0] = wallX0Ym[0];                          // copy wall type from wall below
       snowCover = texture(waterTex, texCoordX0Ym)[3]; // get snow amount
       wall[2] = 1;                                    // directly above ground
     }
-    if (wallX0Yp[1] == 0) {
+
+    if (wallXmY0[1] == 0) { // left
       nextToWall = true;
-      wall[0] = wallX0Yp[0];
-    }
-    if (wallXmY0[1] == 0) {
-      nextToWall = true;
+      wall[1] = 1; // dist to nearest wall = 1
       wall[0] = wallXmY0[0];
-    }
-    if (wallXpY0[1] == 0) {
+
+      if (wallXpY0[1] == 0) // left and right is wall, make this wall to fill narrow gaps
+        wall[1] = 0;
+    } else if (wallXpY0[1] == 0) { // right
       nextToWall = true;
+      wall[1] = 1; // dist to nearest wall = 1
       wall[0] = wallXpY0[0];
     }
+    if (wallX0Yp[1] == 0) { // above is wall
+      nextToWall = true;
+      wall[1] = 1; // dist to nearest wall = 1
+      wall[0] = wallX0Yp[0];
+
+      if (texCoord.y < 0.99 && (wallX0Yp[0] == 1 || wallX0Yp[0] == 2)) { // Fill in land and sea below
+        wall[0] = wallX0Yp[0];                                           //  set this to type above
+        wall[1] = 0;                                                     //  set this to wall
+      }
+    }
+
 
     // if(abs(base.x) > 0.0040 && abs(base.y) > 0.0040){
     //  sample vorticity force
@@ -160,15 +169,11 @@ void main()
     vec2 vortForceXmY0 = texture(vortForceTex, texCoordXmY0).xy;
     vec2 vortForceX0Ym = texture(vortForceTex, texCoordX0Ym).xy;
 
-    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x,
-                    vortForceX0Y0.y + vortForceXmY0.y) * vorticity; // apply vorticity force
+    // apply vorticity force
+    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * vorticity;
     //}
 
-    if (nextToWall) {
-      // wall[0] = wallX0Ym[0]; // type = type of down wall
-      wall[1] = 1; // dist to nearest wall = 1
-
-    } else { // not next to wall
+    if (!nextToWall) { // not next to wall
 
       // find nearest wall
       int nearest = 255;
@@ -194,33 +199,33 @@ void main()
       wall[0] = nearestType; // type = type of nearest wall
     }
 
+    /*
+        if (wall[1] <= wallManhattanInfluence) { // within manhattan range of wall
 
-    if (wall[1] <= wallManhattanInfluence) { // within manhattan range of wall
+          float influenceDevider = float(wallManhattanInfluence); // devide by how many cells it's aplied to
 
-      float influenceDevider = float(wallManhattanInfluence); // devide by how many cells it's aplied to
+          // base[0] *= 0.999; // surface drag
 
-      // base[0] *= 0.999; // surface drag
+          float realTemp = potentialToRealT(base[3]);
 
-      float realTemp = potentialToRealT(base[3]);
+          // Smoothing near surface
 
-      // Smoothing near surface
+          if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallManhattanInfluence) { // above
+            exchangeWith(texCoordX0Yp);
+          }
 
-      if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallManhattanInfluence) { // above
-        exchangeWith(texCoordX0Yp);
-      }
+          if (wallX0Ym[1] != 0 && wallX0Ym[1] <= wallManhattanInfluence) { // below
+            exchangeWith(texCoordX0Ym);
+          }
 
-      if (wallX0Ym[1] != 0 && wallX0Ym[1] <= wallManhattanInfluence) { // below
-        exchangeWith(texCoordX0Ym);
-      }
+          if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
+            exchangeWith(texCoordXmY0);
+          }
 
-      if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
-        exchangeWith(texCoordXmY0);
-      }
-
-      if (wallXpY0[1] != 0 && wallXpY0[1] <= wallManhattanInfluence) { // right
-        exchangeWith(texCoordXpY0);
-      }
-    }
+          if (wallXpY0[1] != 0 && wallXpY0[1] <= wallManhattanInfluence) { // right
+            exchangeWith(texCoordXpY0);
+          }
+        }*/
 
     if (wall[2] <= wallVerticalInfluence) { // within vertical range of wall
 
@@ -246,16 +251,12 @@ void main()
 
         water[0] += max((maxWater(waterTemperature) - water[0]) * waterEvaporation / influenceDevider, 0.); // water evaporating
 
-
-      } else if (wall[0] == 3) { // forest fire
-        if (wall[2] == 1) {      // one above surface
-
-          float fireIntensity = float(wall[3]) * 0.00015;
-          base[3] += fireIntensity;         // heat
-          water[3] += fireIntensity * 2.0;  // smoke
-          water[0] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and
-                                            // from burning of hydrogen and hydrocarbons
-        }
+      } else if (wall[0] == 3 && wall[2] == 1) { // forest fire & one above surface
+        float fireIntensity = float(wall[3]) * 0.00015;
+        base[3] += fireIntensity;         // heat
+        water[3] += fireIntensity * 2.0;  // smoke
+        water[0] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and
+                                          // from burning of hydrogen and hydrocarbons
       }
     }
 
