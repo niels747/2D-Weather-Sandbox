@@ -12,13 +12,15 @@
 - [x] Fix sounding aspect ratio
 - [x] Extend sounding scale to 50 C
 - [X] Add wind tool: move air by dragging
+- [ ] Make vertical resolution configurable from 100 to 300 cells, While maintaining the same behaviour.
 - [ ] Improve Lake/sea depth visualization and don't show grass underwater
 - [ ] Fix snow landing underwater bug
 - [ ] Fix fire buring on water bug
 - [ ] Improve fire spreading system
 - [ ] Improve precipitation spawning system
+- [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry.
 - [ ] Add weather stations with current conditions
 - [ ] Make weather stations show history in plots
 - [ ] Make vertical resolution variable
 - [ ] Add lightning effect
-- [ ] Add plane flying mode
+- [ ] Add plane flying mode. Might be fun to fly trough the clouds with a plane at realistic scale and speed.
