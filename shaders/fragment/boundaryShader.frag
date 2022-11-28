@@ -92,21 +92,20 @@ void main()
 
     base[3] += light[1] * IR_rate; // IR effect
 
-    base[3] += precipFeedback[1];  // rain changes air temperature
-    water[0] += precipFeedback[2]; // rain adds water
-    water[1] = max(water[0] - maxWater(realTemp),
-                   0.0); // recalculate cloud water after changing water
+    base[3] += precipFeedback[1];  // rain cools air
+    water[0] += precipFeedback[2]; // rain adds water to air
+    // recalculate cloud water after changing total water
+    water[1] = max(water[0] - maxWater(realTemp), 0.0);
+    // 0.004 for rain visualisation
+    water[2] = max(water[2] * 0.998 - 0.00005 + -precipFeedback[0] * 0.008, 0.0);
 
-    water[2] = max(water[2] * 0.998 - 0.00005 + -precipFeedback[0] * 0.008,
-                   0.0); // 0.004 for rain visualisation
-
-    // remove smoke
+    // rain removes smoke from air
     water[3] /= 1. + max(-precipFeedback[2] * 0.3, 0.0) - precipFeedback[0] * 0.003; // rain formation in clouds removes smoke
                                                                                      // quickly , falling rain slower
     water[3] += precipFeedback[0] * 0.0002;                                          // falling rain slowly removes smoke
                                                                                      // linearly to remove last little bit
 
-    water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire
+    water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
 
     water[3] = max(water[3], 0.0); // snow and smoke can't go below 0
 
@@ -114,7 +113,7 @@ void main()
     // temperature is calculated for Vy location
     vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
 
-#define gravMult 0.0001 // 0.0002
+#define gravMult 0.0001 // 0.0001
 
     // 0.0005  0.0001  gravity for convection with correction
     // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) * gravMult;
@@ -139,17 +138,27 @@ void main()
       wall[2] = 1;                                    // directly above ground
     }
 
-    if (wallXmY0[1] == 0) { // left
+    if (wallXmY0[1] == 0) { // left is wall
       nextToWall = true;
       wall[1] = 1; // dist to nearest wall = 1
       wall[0] = wallXmY0[0];
 
+      if (wallXmY0[0] == 2) { // if left is water, build a dyke
+        wall[0] = 1;
+        wall[1] = 0;
+      }
+
       if (wallXpY0[1] == 0) // left and right is wall, make this wall to fill narrow gaps
         wall[1] = 0;
-    } else if (wallXpY0[1] == 0) { // right
+    } else if (wallXpY0[1] == 0) { // right is wall
       nextToWall = true;
       wall[1] = 1; // dist to nearest wall = 1
       wall[0] = wallXpY0[0];
+
+      if (wallXpY0[0] == 2) { // if right is water, build a dyke
+        wall[0] = 1;
+        wall[1] = 0;
+      }
     }
     if (wallX0Yp[1] == 0) { // above is wall
       nextToWall = true;
@@ -157,7 +166,6 @@ void main()
       wall[0] = wallX0Yp[0];
 
       if (texCoord.y < 0.99 && (wallX0Yp[0] == 1 || wallX0Yp[0] == 2)) { // Fill in land and sea below
-        wall[0] = wallX0Yp[0];                                           //  set this to type above
         wall[1] = 0;                                                     //  set this to wall
       }
     }
@@ -260,15 +268,23 @@ void main()
       }
     }
 
-  } else {                                                      // is wall
-    water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
-    water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
-    wall[2] = wallX0Yp[2] - 1;                                  // height below ground is counted
+  } else { // is wall
+
+    if (wallX0Yp[1] == 0 && wall[0] == 2) { // if above is wall and this is water
+      wall[0] = wallX0Yp[0];                // copy walltype from above
+    }
+
+    wall[2] = wallX0Yp[2] - 1; // height below ground is counted
 
     if (wall[2] < 0) {                               // below surface
       water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
       wall[3] = wallX0Yp[3];                         // vegetation is copied from above
     } else if (wall[2] == 0) {                       // at surface
+
+
+      water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
+      water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
+
 
       if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
 
