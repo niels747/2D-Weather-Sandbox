@@ -20,8 +20,9 @@ void drawCursor() // OFF: cursor.w < 1       Normal round: cursor.w 1 to 2      
   }
 }
 
-vec4 bilerpWallVis(sampler2D tex, isampler2D wallTex,
-                   vec2 pos) // prevents sampeling from wall cell unless nearest is wall cell
+// prevents sampling from wall cell unless nearest is wall cell
+// fixes visual quirks such as fog near walls
+vec4 bilerpWallVis(sampler2D tex, isampler2D wallTex, vec2 pos)
 {
   // return texture(tex, pos / resolution);
 
@@ -106,7 +107,7 @@ vec3 hsv2rgb(vec3 c)
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-vec3 sunColor(float scattering) // 0.0 = white   1.0 = red
+vec3 sunColor(float scattering) // 0.0 = white     0.5 = orange     1.0 = red
 {
   float val = 1.0 - scattering;
   return hsv2rgb(vec3(0.015 + val * 0.15, min(2.0 - val * 2.0, 1.), 1.));

@@ -13,15 +13,7 @@ uniform isampler2D wallTex;
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
 
-/*
-[0] = vx
-[1] = vy
-[2] = p
-[3] = t
-*/
-
-void
-main()
+void main()
 {
   base = texture(baseTex, texCoord);
   vec4 baseXmY0 = texture(baseTex, texCoordXmY0);
@@ -43,6 +35,7 @@ main()
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;
 
-  base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) *
-             0.45; // 0.05 - 0.49   was 0.40 lower multiplier dampenes pressure waves.      pressure changes proportional to the net in or outflow, to or from the cell.
+  // pressure changes proportional to the net in or outflow, to or from the cell.
+  // 0.05 - 0.49   was 0.40, lower multiplier dampenes pressure waves.
+  base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45;
 }

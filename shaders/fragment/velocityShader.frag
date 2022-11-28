@@ -23,15 +23,8 @@ uniform float initial_T[300];
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
 
-/*
-// baseTex:
-[0] = vx    Horizontal velocity
-[1] = vy    Vertical   velocity
-[2] = p     Pressure
-[3] = t     Temperature
-*/
-
-void main() {
+void main()
+{
   base = texture(baseTex, texCoord);
   vec4 baseXpY0 = texture(baseTex, texCoordXpY0);
   vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
@@ -57,9 +50,6 @@ void main() {
 
     base[0] *= 1. - dragMultiplier * 0.0002; // linear drag
     base[1] *= 1. - dragMultiplier * 0.0002;
-
-    // base[0] *= 0.9995; // linear drag
-    // base[1] *= 0.9995; // 0.99999
 
     // quadratic drag
     // base[0] -= base[0] * base[0] * base[0] * base[0] * base[0] *

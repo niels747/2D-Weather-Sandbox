@@ -42,8 +42,7 @@ uniform float initial_T[500];
 
 #include functions
 
-void
-main()
+void main()
 {
   wall = texture(wallTex, texCoord);
 
@@ -292,10 +291,3 @@ main()
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
   }
 }
-
-/*
-[0] = vx
-[1] = vy
-[2] = p
-[3] = t
-*/

@@ -38,21 +38,6 @@ uniform float iterNum; // used as seed for random function
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
-/*
-
-base:
-[0] = vx
-[1] = vy
-[2] = p
-[3] = t
-
-wall:
-[0] walltype
-[1] manhattan distance to nearest wall
-[2] height above/below ground
-[3] vegitation
-
-*/
 
 #include functions
 

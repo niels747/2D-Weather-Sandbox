@@ -1734,11 +1734,41 @@ async function mainScript(
 
   var even = true;  // used to switch between precipitation buffers
 
-  // set up framebuffers
 
-  // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); // default,
-  // so no need to set gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
-  // gl.REPEAT); // default, so no need to set
+
+  /*
+
+  TEXTURE DESCRIPTION
+
+  base texture:
+  [0] = Horizontal velocity
+  [1] = Vertical   velocity
+  [2] = Pressure
+  [3] = Temperature in air, indicator in wall
+
+  water texture:
+  [0] = total water
+  [1] = cloud water
+  [2] = precipitation in air, moisture in surface
+  [3] = smoke/dust in air, snow in surface
+
+  wall texture:
+  [0] walltype
+  [1] manhattan distance to nearest wall
+  [2] height above/below ground. Surface = 0
+  [3] vegetation
+
+  lighting texture:
+  [0] sunlight
+  [1] net heating effect of IR + sun absorbed by smoke
+  [2] IR coming down
+  [3] IR going  up
+
+  */
+
+
+
+  // Set up Textures
 
   const baseTexture_0 = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
@@ -1793,6 +1823,8 @@ async function mainScript(
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  // Set up Framebuffers
 
   const frameBuff_0 = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
