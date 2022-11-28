@@ -10,10 +10,11 @@
 - [x] Fix slope(green triangle) being lit up by fire
 - [x] Snowy trees
 - [x] Fix sounding aspect ratio
-- [x] Extend sounding scale to 50 C
+- [x] Extend sounding scale to 50°C
 - [X] Add wind tool: move air by dragging
+- [ ] Improve Lake/Sea editing
 - [ ] Make vertical resolution configurable from 100 to 300 cells, While maintaining the same behaviour.
-- [ ] Improve Lake/sea depth visualization and don't show grass underwater
+- [ ] Improve Lake/Sea depth visualization and don't show grass underwater
 - [ ] Fix snow landing underwater bug
 - [ ] Fix fire buring on water bug
 - [ ] Improve fire spreading system
