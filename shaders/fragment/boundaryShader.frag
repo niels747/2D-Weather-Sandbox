@@ -256,7 +256,7 @@ void main()
   } else { // is wall
 
     if (wallX0Yp[1] == 0 && wall[0] == 2) { // if above is wall and this is water
-      wall[0] = wallX0Yp[0];                // copy walltype from above
+      wall[0] = wallX0Yp[0];                // land can't be over water. copy walltype from above
     }
 
     wall[2] = wallX0Yp[2] - 1; // height below ground is counted
@@ -266,11 +266,12 @@ void main()
       wall[3] = wallX0Yp[3];                         // vegetation is copied from above
     } else if (wall[2] == 0) {                       // at surface
 
+      if (wall[0] == 1) {                                           // land
+        water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
+        water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
+      }
 
-      water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
-      water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
-
-
+      // CHANGE TO FIXED INTERVAL!
       if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
 
         // if (wallXmY0[1] == 0) {
@@ -280,7 +281,7 @@ void main()
 
         if (wall[0] == 3) {
 
-          wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegitation
+          wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
           if (wall[3] < 25)
             wall[0] = 1; // turn off fire
         }

@@ -220,6 +220,7 @@ void main()
           break;
         case 12:
           wall[0] = 2; // lake / sea
+          wall[2] = 0; // No vegetation
           setWall = true;
           break;
         case 13:

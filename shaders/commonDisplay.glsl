@@ -3,7 +3,7 @@ const vec3 tempColorPalette[] = vec3[](vec3(1., 0.7, 1.), vec3(1., 0.5, 1.), vec
 
 
 // functions for display shaders
-void drawCursor() // OFF: cursor.w < 1       Normal round: cursor.w 1 to 2         WHOLE WIDTH: cursor.w >= 2
+void drawCursor(/*vec4 cursor*/) // OFF: cursor.w < 1       Normal round: cursor.w 1 to 2         WHOLE WIDTH: cursor.w >= 2
 {
   if (cursor.w >= 1.) { // draw cursor enabled
     float distFromMouseF;

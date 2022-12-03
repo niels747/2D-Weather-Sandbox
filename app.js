@@ -53,7 +53,7 @@ const guiControls_default = {
   month: 6.67,  // Nothern himisphere solstice
   sunAngle: 9.9,
   dayNightCycle: true,
-  exposure: 1.5,
+  exposure: 1.0,
   greenhouseGases: 0.001,
   IR_rate: 1.0,
   tool: 'TOOL_NONE',
@@ -262,7 +262,7 @@ async function loadData() {
   } else {
     // no file, so create new simulation
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
-    sim_res_y = 100; /*parseInt(document.getElementById("simResSelY").value);*/
+    sim_res_y = 70; /*parseInt(document.getElementById("simResSelY").value);*/
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
     SETUP_MODE = true;
 
@@ -2170,7 +2170,9 @@ async function mainScript(
   gl.uniform1i(
       gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
 
+  // console.time('Set uniforms');
   setGuiUniforms();  // all uniforms changed by gui
+                     // console.timeEnd('Set uniforms')
 
   gl.bindVertexArray(fluidVao);
 
@@ -2208,7 +2210,12 @@ async function mainScript(
   var destVAO;
   var destTF;
 
-  function draw() {
+  // preload uniform locations for tiny performance gain
+
+  var uniformLocation_boundaryProgram_iterNum =
+      gl.getUniformLocation(boundaryProgram, 'iterNum');
+
+  function draw() {  // Runs for every frame
     if (leftPressed) {
       // <
       viewXpos = mod(viewXpos + 0.01 / viewZoom, 2.0);
@@ -2327,7 +2334,7 @@ async function mainScript(
       gl.uniform1i(
           gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 
-      if (!guiControls.paused) {
+      if (!guiControls.paused) {  // Simulation part
         if (guiControls.dayNightCycle)
           updateSunlight(
               0.0001 *
@@ -2336,7 +2343,7 @@ async function mainScript(
         gl.viewport(0, 0, sim_res_x, sim_res_y);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
-        for (var i = 0; i < guiControls.IterPerFrame; i++) {
+        for (var i = 0; i < guiControls.IterPerFrame; i++) {  // Simulation loop
           // calc and apply velocity
           gl.useProgram(velocityProgram);
           gl.activeTexture(gl.TEXTURE0);
@@ -2365,8 +2372,7 @@ async function mainScript(
 
           // apply vorticity, boundary conditions and user input
           gl.useProgram(boundaryProgram);
-          gl.uniform1f(
-              gl.getUniformLocation(boundaryProgram, 'iterNum'), IterNum);
+          gl.uniform1f(uniformLocation_boundaryProgram_iterNum, IterNum);
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
           gl.activeTexture(gl.TEXTURE1);
@@ -2457,17 +2463,22 @@ async function mainScript(
           gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
           gl.endTransformFeedback();
 
+          // sample to count number of inactive droplets
           if (IterNum % 600 == 0) {
             gl.readBuffer(gl.COLOR_ATTACHMENT0);
             var sampleValues = new Float32Array(4);
+            // console.time('cnt');
             gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
-            // console.log(sampleValues[3]); // number of inactive droplets
+            // console.timeEnd('cnt')         // 1 - 100 ms huge variation
+            // console.log(sampleValues[0]);  // number of inactive droplets
             guiControls.inactiveDroplets = sampleValues[0];
             gl.useProgram(precipitationProgram);
             gl.uniform1f(
                 gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'),
                 sampleValues[0]);
           }
+
+
 
           gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
           gl.disable(gl.BLEND);
@@ -2728,8 +2739,8 @@ async function mainScript(
         guiControls.sunAngle = 180.0 - guiControls.sunAngle;
       }
     }
-    let sunAngleForShaders =
-        (guiControls.sunAngle - 90) * degToRad;  // centered around 0
+    let sunAngleForShaders = (guiControls.sunAngle - 90) *
+        degToRad;  // Solar zenith angle centered around 0
     // Calculations visualized: https://www.desmos.com/calculator/kzr76zj5hq
     if (Math.abs(sunAngleForShaders) < 1.54) {
       sunIsUp = true;
@@ -2883,7 +2894,9 @@ async function mainScript(
 
       const shader = gl.createShader(shaderType);
       gl.shaderSource(shader, shaderSource);
+      // console.time('compileShader');
       gl.compileShader(shader);
+      // console.timeEnd('compileShader')
 
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         // Compile error

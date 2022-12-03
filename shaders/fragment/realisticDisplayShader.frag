@@ -43,57 +43,38 @@ float light;
 vec3 color;
 float opacity = 1.0;
 
-vec3 getSurfaceCol()
+vec3 getWallColor(float depth)
 {
-  //vec3 soilCol = mix(vec3(0.5, 0.2, 0.1), vec3(0.0, 0.7, 0.2), water[2] / 100.); // brown to green, dry earth to grass`
-  vec3 soilCol = mix(vec3(0.5, 0.2, 0.1), vec3(0.0, 0.7, 0.2), float(wall[3]) / 100.); // brown to green, dry earth to grass
-  return mix(soilCol, vec3(1.0), water[3] / 100.);                     // brown/green to white, snow cover
+  vec3 earthCol = vec3(0.5, 0.2, 0.1);
+  vec3 grassCol = vec3(0.0, 0.7, 0.2);
+
+  vec3 surfCol = mix(earthCol, grassCol, float(wall[3]) / 100.);
+
+  const vec3 groundCol = vec3(0.70); // gray rock
+
+  vec3 color = mix(surfCol, groundCol, clamp(depth * 0.35, 0., 1.)); // * 0.15
+
+
+  color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb; // add noise texture
+
+  // add snow at surface
+  color = mix(color, vec3(1.0), clamp(water[3] / 100. - max(depth * 0.3, 0.), 0.0, 1.0)); // mix in white for snow cover
+
+  return color;
 }
 
-vec3 getWallColor(vec2 coord) {
-  base = bilerpWallVis(baseTex, wallTex, coord / texelSize);
-  wall = texture(wallTex, coord);
-  water = bilerpWallVis(waterTex, wallTex, coord / texelSize);
-
-  switch (wall[0]) { // wall type
-  case 0:            // normal wall
-    return vec3(0, 0, 0);
-    break;
-  case 3: // Fire wall
-  case 1: // land wall
-
-    vec3 groundCol;
-
-    
-    if (wall[2] == 0) { // surface
-  groundCol = getSurfaceCol();
-      return groundCol;
-
-    }else{
-       groundCol = vec3(0.10);                                               // not at surface  dark gray rock
-       return vec3((groundCol + texture(noiseTex, vec2(texCoord.x, texCoord.y * (resolution.y / resolution.x)) * 0.2).rgb * 0.2));
-
-    //  vec3 surfCol = getWallColor(vec2(coord.x, coord.y + float(-wall[2]) * texelSize.y ));
-  //return surfCol;
-    }
-    
-    
-    break;
-  case 2: // water wall
-    return vec3(0, 0.5, 1.0);
-    break;
-  }
-}
+#define minShadowLight 0.15 // 0.05
 
 
-void main() {
-  vec2 bndFragCoord = vec2(fragCoord.x, clamp(fragCoord.y, 0., resolution.y));
+void main()
+{
+  vec2 bndFragCoord = vec2(fragCoord.x, clamp(fragCoord.y, 0., resolution.y)); // bound y within range
   base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
-  wall = texture(wallTex, bndFragCoord*texelSize); // texCoord
+  wall = texture(wallTex, bndFragCoord * texelSize); // texCoord
   water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
-  light = texture(lightTex, bndFragCoord*texelSize)[0];
+  light = texture(lightTex, bndFragCoord * texelSize)[0];
 
-  float shadowLight = 0.05;
+  float shadowLight = minShadowLight;
 
   // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
 
@@ -101,60 +82,43 @@ void main() {
 
   if (texCoord.y < 0.) { // < texelSize.y below simulation area
 
-    vec3 groundCol = vec3((vec3(0.10) + texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb * 0.2));   // dark gray rock
+    vec3 groundCol = vec3(0.70); // gray rock
 
-    vec3 surfCol = getSurfaceCol();
+    // ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
+    // ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
 
-  ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
-  ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+    float depth = float(-wall[2]) - fragCoord.y; // -1.0?
 
-  float depth = float(-wall[2]) -fragCoord.y - 1.0;
+    color = getWallColor(depth);
 
-  color = mix(surfCol, groundCol, clamp(depth * 0.15, 0., 1.));
-
-  light = texture(lightTex, vec2(texCoord.x, texelSize.y))[0];
-
-  light /= 1. + max(-fragCoord.y, 0.)*0.70; // deeper is darker
+    light = texture(lightTex, vec2(texCoord.x, texelSize.y))[0]; // sample lowest part of sim area
+    light *= pow(0.5, -fragCoord.y);                             // 0.5 should be same as in lightingshader deeper is darker
 
   } else if (texCoord.y > 1.0) { // above simulation area
-    color = vec3(0);
-    opacity = 0.0; // completely transparent
+    // color = vec3(0); // no need to set
+    opacity = 0.0;           // completely transparent
   } else if (wall[1] == 0) { // is wall
-    //color = getWallColor(texCoord);
- switch (wall[0]) { // wall type
-  // case 0:            // normal wall
-  //   color = vec3(0, 0, 0);
-  //   break;
-    case 3: // Fire wall
-  case 1: // land wall
+                             // color = getWallColor(texCoord);
+    switch (wall[0]) {       // wall type
+                             // case 0:            // normal wall
+                             //   color = vec3(0, 0, 0);
+                             //   break;
+    case 3:                  // Fire wall
+    case 1:                  // land wall
 
-    vec3 groundCol;
+      ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
+      ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+      // horizontally interpolate depth value
+      float interpDepth = mix(mix(float(-wallXmY0[2]), float(-wall[2]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[2]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
+      float depth = interpDepth - fract(fragCoord.y); // - 1.0 ?
 
-    if (wall[2] == 0) {  // surface
+      color = getWallColor(depth);
 
-      groundCol = getSurfaceCol();
-      color = groundCol;
-
-    }else{ // not surface
-      groundCol = vec3((vec3(0.10) + texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb * 0.2));   // dark gray rock
-
-      vec3 surfCol = getSurfaceCol();
-
-  ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
-  ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
-
-    float interpDepth = mix(mix(float(-wallXmY0[2]), float(-wall[2]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[2]), clamp(fract(fragCoord.x)-0.5, 0., 0.5));
-
-    float depth = interpDepth - fract(fragCoord.y) -1.0;
-
-  color = mix(surfCol, groundCol, clamp(depth * 0.15, 0., 1.));
+      break;
+    case 2: // water wall
+      color = vec3(0, 0.5, 1.0);
+      break;
     }
-    
-    break;
-  case 2: // water wall
-    color = vec3(0, 0.5, 1.0);
-    break;
-  }
 
   } else { // air
 
@@ -168,7 +132,7 @@ void main() {
     vec3 fireCol = vec3(1.0, 0.7, 0.0);
 
     float smokeOpacity = clamp(1. - (1. / (water[3] + 1.)), 0.0, 1.0);
-    float fireIntensity = clamp((smokeOpacity -0.8) *25. , 0.0, 1.0);
+    float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
     vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
     shadowLight += fireIntensity;
@@ -177,53 +141,58 @@ void main() {
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
     opacity = clamp(opacity, 0.0, 1.0);
 
-    if(wall[1] == 1){// next to wall, create slopes
+    if (wall[1] == 1) { // adjacent to wall cell
       float localX = fract(fragCoord.x);
       float localY = fract(fragCoord.y);
 
-ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+      ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
-if(wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)){ // land or fire wall below
+      if (wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)) { // land or fire wall below
 
-float treeTexCoordY = mod(-texCoord.y * resolution.y,1.) - 1. + float(wallX0Ym[3]-50)/77.0; // float(wallX0Ym[3]-100)/27.0)
+        float treeTexCoordY = mod(-texCoord.y * resolution.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0; // float(wallX0Ym[3]-100)/27.0)
 
-vec4 texCol;
-if(wallX0Ym[0] == 1){ // if land
-   float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
-   texCol = mix(texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), texture(forestSnowTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), snow / 100.);
-}else // fire
-  texCol = texture(forestFireTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
+        vec4 texCol;
+        if (wallX0Ym[0] == 1) {                            // if land
+          float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
+          texCol = mix(texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), texture(forestSnowTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), snow / 100.);
+        } else // fire
+          texCol = texture(forestFireTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
 
-    if(texCol.a > 0.5){
-    color = texCol.rgb;
-    if(wallX0Ym[0] == 3) // if fire wall
-      shadowLight = 1.0;
-    }
-    opacity = 1. - (1. - opacity) * (1. - texCol.a);                                                // alpha blending
-
-    // slopes
-      if(texture(wallTex, texCoordXmY0)[1] == 0 ){ // wall to the left and below
-    if(localX + localY < 1.0){
-    opacity = 1.0;
-    color = getWallColor(texCoordX0Ym); //  - 1./resolution.y
-    shadowLight = 0.05; // fire should not light ground
+        if (texCol.a > 0.5) {
+          color = texCol.rgb;
+          if (wallX0Ym[0] == 3) // if fire wall
+            shadowLight = 1.0;
         }
-      } 
-      if(texture(wallTex, texCoordXpY0)[1] == 0 ){ // wall to the right and below
-    if(localY - localX < 0.0){
-    opacity = 1.0;
-    color = getWallColor(texCoordX0Ym);
-    shadowLight = 0.05; // fire should not light ground
+        opacity = 1. - (1. - opacity) * (1. - texCol.a); // alpha blending
+
+        // draw 45° slopes
+        if (texture(wallTex, texCoordXmY0)[1] == 0) { // wall to the left and below
+          if (localX + localY < 1.0) {
+            opacity = 1.0;
+            water = texture(waterTex, texCoordX0Ym);
+            color = getWallColor(-0.6);
+            shadowLight = minShadowLight; // fire should not light ground
+          }
+        }
+        if (texture(wallTex, texCoordXpY0)[1] == 0) { // wall to the right and below
+          if (localY - localX < 0.0) {
+            opacity = 1.0;
+            water = texture(waterTex, texCoordX0Ym);
+            color = getWallColor(-0.6);
+            shadowLight = minShadowLight; // fire should not light ground
+          }
         }
       }
-}
     }
   }
 
-  float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
+  // float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
+
+  float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
+
   light = pow(light, 1. / 2.2); // gamma correction
-  vec3 lightCol = sunColor(scatering) * light;
-  
+  vec3 finalLight = sunColor(scatering) * light;
+
 
   if (fract(cursor.w) > 0.5) { // enable flashlight
     vec2 vecFromMouse = cursor.xy - texCoord;
@@ -232,9 +201,9 @@ if(wallX0Ym[0] == 1){ // if land
     shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
 
-  lightCol += vec3(shadowLight);
+  finalLight += vec3(shadowLight);
 
-  fragmentColor = vec4(clamp(color * lightCol * exposure, 0., 1.), opacity);
+  fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
 
   drawCursor(); // over everything else
 }

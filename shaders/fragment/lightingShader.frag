@@ -102,8 +102,11 @@ void main()
 
       light = vec4(sunlight, net_heating, IR_down, IR_up);
       // light = vec4(1, 0, 0, 0);
-    } else {                                  // is wall
-      light = vec4(sunlight * 0.85, 0, 0, 0); // * 0.8 light absorbed by ground
+    } else {                                    // is wall
+      if (wall[0] == 2)                         // water
+        light = vec4(sunlight * 0.80, 0, 0, 0); // * 0.95 light absorbed by water
+      else                                      // land
+        light = vec4(sunlight * 0.5, 0, 0, 0);  // * 0.85 light absorbed by ground
     }
   }
 }
