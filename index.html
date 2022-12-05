@@ -1,220 +1,196 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="utf-8" />
-		<title>2D Weather Sandbox</title>
-		<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
-		<script type="text/javascript" src="libraries/pako.min.js"></script>
-		<script type="text/javascript" src="app.js"></script>
-		<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-		<style>
-			canvas {
-				position: absolute;
-				top: 0;
-				left: 0;
-			}
 
-			input[type="range"] {
-				width: 800px;
-			}
+<head>
+	<meta charset="utf-8" />
+	<title>2D Weather Sandbox</title>
+	<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
+	<script type="text/javascript" src="libraries/pako.min.js"></script>
+	<script type="text/javascript" src="app.js"></script>
+	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+	<style>
+		canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+		}
 
-			.icon-bar {
-  				width: 100%;
-				height: 0px;
-				padding: 0px;
-			}
+		input[type="range"] {
+			width: 800px;
+		}
 
-			.icon-bar a {
-  				float: right;
-  				width: 150px;
-				text-align: center;
-				padding: 0px;
-				transition: all 0.3s ease;
-			}
+		.icon-bar {
+			width: 100%;
+			height: 0px;
+			padding: 0px;
+		}
 
-			.icon-bar a img{
-				height: 70px;
-				text-align: center;
-				padding: 0px;
-			}
+		.icon-bar a {
+			float: right;
+			width: 150px;
+			text-align: center;
+			padding: 0px;
+			transition: all 0.3s ease;
+		}
 
-			.icon-bar a:hover {
-				background-color: #000;
-			}
-		</style>
-	</head>
-	<body
-		id="body"
-		style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41)">
+		.icon-bar a img {
+			height: 70px;
+			text-align: center;
+			padding: 0px;
+		}
 
-		<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
-			<div class="icon-bar">
-				<a href="https://github.com/niels747/2D-Weather-Sandbox"><img src="resources/Github.png"></a> 
-				<a href="https://www.youtube.com/user/nielsdaemen/videos"><img src="resources/Youtube.png"></a> 
-			  </div>
-			<h1>2D Weather Sandbox</h1>
+		.icon-bar a:hover {
+			background-color: #000;
+		}
+	</style>
+</head>
 
-			<form
-				id="startBtn"
-				oninput="simResShowX.value=parseInt(simResSelX.value);"
-			>
-				<p>
-					Choose a resolution. The higher the resolution, the slower it will
-					run
-				</p>
-				<table>
-					<tr>
-						<td>
-							<b>Horizontal resolution</b>
-						</td>
-						<td>
-							<input
-								type="range"
-								min="100"
-								max="6000"
-								value="2500"
-								step="10"
-								id="simResSelX"
-							/>
-							<output name="simResShowX">2500</output>
-						</td>
-					</tr>
-					<tr>
-						<td>
-							<b>Vertical resolution</b>
-						</td>
-						<td>
-							<!--<input type="range" min="100" max="300" value="300" step="2" id="simResSelY" />-->
-							<output name="simResShowY">300</output>
-						</td>
-					</tr>
-				</table>
-				<input
-					type="button"
-					value="Create New Simulation"
-					onclick="loadData()"
-				/>
-				<i
-					>Move the mouse until you see a terrain you like, then just click to
-					start.</i
-				>
-			</form>
+<body id="body" style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41)">
 
-			<p>
-				<label for="fileInput">Load Save File:</label>
-				<input
-					type="file"
-					id="fileInput"
-					name="fileInput"
-					accept=".weathersandbox"
-					onchange="loadData()"
-				/>
-			</p>
-			<p style="font-size: 20px">
-				<i>Save files from older versions won't work!</i>
-			</p>
-			<h3>Example Saves</h3>
-			<p>
-				<a style="color: white" href="./saves/Demo.weathersim4"
-					>Demo world, showing mountains, lakes, fire, smoke and snow.</a
-				>
-			</p>
-
-			<h2>New Features</h2>
-			<li>Random Terrain Generator</li>
-			<li>Settings saved to save file</li>
-			<li>Visualisation wrapped horizontally, so it feels infinite</li>
-			<li>
-				Realistic sun angle for any latitude, time of year and time of day
-			</li>
-			<li>More control keys</li>
-			<li>More settings</li>
-			<li>Imperial units for Americans</li>
-			<li>Better visuals</li>
-
-			<div id="help" style="margin: 15px">
-				<h2>Controls</h2>
-				<h3>Mouse</h3>
-				<li>Middle mouse button to drag the simulation area around</li>
-				<li>
-					Mouse wheel to zoom in and out, Or to change brush size while holding
-					down B
-				</li>
-				<li>
-					Left mouse button to use selected tool. Hold down Ctrl (command on
-					mac) to perform the inverted action
-				</li>
-				<li>Touchscreen input is not supported yet</li>
-				<h3>Keys</h3>
-				<table style="width: 1000px">
-					<tr>
-						<td>1 - 8</td>
-						<td>Display Modes</td>
-					</tr>
-					<tr>
-						<td>Q - Y</td>
-						<td>Tools</td>
-					</tr>
-					<tr>
-						<td>~</td>
-						<td>No tool, click to use flashlight</td>
-					</tr>
-					<tr>
-						<td>Arrows ◄ ▲ ▼ ►</td>
-						<td>Move View</td>
-					</tr>
-					<tr>
-						<td>+ -</td>
-						<td>Zoom In / Out</td>
-					</tr>
-					<tr>
-						<td>Space Bar</td>
-						<td>Pause / Resume</td>
-					</tr>
-					<tr>
-						<td>D</td>
-						<td>Show / Hide Droplets</td>
-					</tr>
-					<tr>
-						<td>G</td>
-						<td>Show / Hide Sounding Graph</td>
-					</tr>
-					<tr>
-						<td>H</td>
-						<td>Show / Hide GUI</td>
-					</tr>
-					<tr>
-						<td>V</td>
-						<td>Reset View</td>
-					</tr>
-					<tr>
-						<td>B</td>
-						<td>Change Brush Size By Scrolling</td>
-					</tr>
-					<tr>
-						<td>B x 2</td>
-						<td>Toggle Whole Width Brush</td>
-					</tr>
-				</table>
-
-				<br />
-				<i>By Niels Daemen</i>
-			</div>
+	<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
+		<div class="icon-bar">
+			<a href="https://github.com/niels747/2D-Weather-Sandbox"><img src="resources/Github.png"></a>
+			<a href="https://www.youtube.com/user/nielsdaemen/videos"><img src="resources/Youtube.png"></a>
 		</div>
-		<canvas id="graphCanvas" style="z-index: -1; display: none"></canvas>
-		<canvas
-			id="mainCanvas"
-			style="
+		<h1>2D Weather Sandbox</h1>
+
+		<form id="startBtn"
+			oninput="simResShowX.value=parseInt(simResSelX.value);simResShowY.value=parseInt(simResSelY.value);">
+			<p>
+				Choose a resolution. The higher the resolution, the slower it will
+				run
+			</p>
+			<table>
+				<tr>
+					<td>
+						<b>Horizontal resolution</b>
+					</td>
+					<td>
+						<input type="range" min="100" max="6000" value="2500" step="100" id="simResSelX" />
+						<output name="simResShowX">2500</output>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<b>Vertical resolution</b>
+					</td>
+					<td>
+						<input type="range" min="100" max="300" value="300" step="10" id="simResSelY" />
+						<output name="simResShowY">300</output>
+					</td>
+				</tr>
+			</table>
+			<input type="button" value="Create New Simulation" onclick="loadData()" />
+			<i>Move the mouse until you see a terrain you like, then just click to
+				start.</i>
+		</form>
+
+		<p>
+			<label for="fileInput">Load Save File:</label>
+			<input type="file" id="fileInput" name="fileInput" accept=".weathersandbox" onchange="loadData()" />
+		</p>
+		<p style="font-size: 20px">
+			<i>Save files from older versions won't work!</i>
+		</p>
+		<h3>Example Saves</h3>
+		<p>
+			<a style="color: white" href="./saves/Demo.weathersim4">Demo world, showing mountains, lakes, fire, smoke
+				and snow.</a>
+		</p>
+
+		<h2>New Features</h2>
+		<li>Random Terrain Generator</li>
+		<li>Settings saved to save file</li>
+		<li>Visualisation wrapped horizontally, so it feels infinite</li>
+		<li>
+			Realistic sun angle for any latitude, time of year and time of day
+		</li>
+		<li>More control keys</li>
+		<li>More settings</li>
+		<li>Imperial units for Americans</li>
+		<li>Better visuals</li>
+
+		<div id="help" style="margin: 15px">
+			<h2>Controls</h2>
+			<h3>Mouse</h3>
+			<li>Middle mouse button to drag the simulation area around</li>
+			<li>
+				Mouse wheel to zoom in and out, Or to change brush size while holding
+				down B
+			</li>
+			<li>
+				Left mouse button to use selected tool. Hold down Ctrl (command on
+				mac) to perform the inverted action
+			</li>
+			<li>Touchscreen input is not supported yet</li>
+			<h3>Keys</h3>
+			<table style="width: 1000px">
+				<tr>
+					<td>1 - 8</td>
+					<td>Display Modes</td>
+				</tr>
+				<tr>
+					<td>Q - Y</td>
+					<td>Tools</td>
+				</tr>
+				<tr>
+					<td>~</td>
+					<td>No tool, click to use flashlight</td>
+				</tr>
+				<tr>
+					<td>Arrows ◄ ▲ ▼ ►</td>
+					<td>Move View</td>
+				</tr>
+				<tr>
+					<td>+ -</td>
+					<td>Zoom In / Out</td>
+				</tr>
+				<tr>
+					<td>Space Bar</td>
+					<td>Pause / Resume</td>
+				</tr>
+				<tr>
+					<td>D</td>
+					<td>Show / Hide Droplets</td>
+				</tr>
+				<tr>
+					<td>G</td>
+					<td>Show / Hide Sounding Graph</td>
+				</tr>
+				<tr>
+					<td>H</td>
+					<td>Show / Hide GUI</td>
+				</tr>
+				<tr>
+					<td>V</td>
+					<td>Reset View</td>
+				</tr>
+				<tr>
+					<td>B</td>
+					<td>Change Brush Size By Scrolling</td>
+				</tr>
+				<tr>
+					<td>B x 2</td>
+					<td>Toggle Whole Width Brush</td>
+				</tr>
+			</table>
+
+			<br />
+			<i>By Niels Daemen</i>
+		</div>
+	</div>
+	<canvas id="graphCanvas" style="z-index: -1; display: none"></canvas>
+	<canvas id="mainCanvas" style="
 				position: fixed;
 				user-select: none;
 				-webkit-user-select: none;
 				-moz-user-select: none;
 				z-index: -2;
 				display: none;
-			"
-		>
-			Your browser does not support HTML5, you must be using a really old
-			browser!
-		</canvas>
-	</body>
+			">
+		Your browser does not support HTML5, you must be using a really old
+		browser!
+	</canvas>
+</body>
+
 </html>

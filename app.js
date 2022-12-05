@@ -262,7 +262,7 @@ async function loadData() {
   } else {
     // no file, so create new simulation
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
-    sim_res_y = 70; /*parseInt(document.getElementById("simResSelY").value);*/
+    sim_res_y = parseInt(document.getElementById('simResSelY').value);
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
     SETUP_MODE = true;
 
