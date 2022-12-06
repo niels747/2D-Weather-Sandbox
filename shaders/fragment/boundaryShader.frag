@@ -271,20 +271,21 @@ void main()
         water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
       }
 
-      // CHANGE TO FIXED INTERVAL!
-      if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
+      if (wall[0] == 1) { // land wall
 
-        // if (wallXmY0[1] == 0) {
-        if (wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5) // if left or right is on fire or fire is blowing over
-          wall[0] = 3;                                                                        // spread fire
-                                                                                              //   }
+        // if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
+        if (int(iterNum) % 700 == 0) { // fire spread at fixed rate
 
-        if (wall[0] == 3) {
-
-          wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
-          if (wall[3] < 25)
-            wall[0] = 1; // turn off fire
+          if (wall[3] >= 20 && wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5) // if left or right is on fire or fire is blowing over
+            wall[0] = 3;                                                                                         // spread fire
         }
+
+      } else if (wall[0] == 3 && int(iterNum) % 100 == 0) {
+
+        // wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
+        wall[3] -= 1; // reduce vegetation
+        if (wall[3] < 20)
+          wall[0] = 1; // turn off fire
       }
     }
   }
