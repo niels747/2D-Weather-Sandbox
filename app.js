@@ -531,7 +531,7 @@ async function mainScript(
 
     var fluidParams_folder = datGui.addFolder('Fluid');
 
-    fluidParams_folder.add(guiControls, 'vorticity', 0.0, 0.015, 0.001)
+    fluidParams_folder.add(guiControls, 'vorticity', 0.0, 0.010, 0.001)
         .onChange(function() {
           gl.useProgram(boundaryProgram);
           gl.uniform1f(

@@ -98,12 +98,13 @@ void main()
     // temperature is calculated for Vy location
     vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
 
-#define gravMult 0.0001 // 0.0001
+#define gravMult 0.0001 // 0.0001 0.0005
 
-    // 0.0005  0.0001  gravity for convection with correction
-    // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) * gravMult;
+    // gravity for convection interpolated between this and above cell to fix wierd waves
+    // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
+    float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) * gravMult;
 
-    float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult; // 0.0005  0.0001  gravity for convection
+    // float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult;
 
     gravityForce -= water[1] * gravMult * waterWeight; // cloud water weight added to gravity force
 
