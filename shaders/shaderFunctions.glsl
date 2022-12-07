@@ -2,14 +2,27 @@ precision highp int;        // needed for chrome 97, older versions didn't need 
 precision highp isampler2D; // Not sure if the WebGL standard changed
 
 #define PI 3.1415926535897932384626433832795
-#define lightHeatingConst 0.0023 // how much a unit of light adds heat
-#define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
-
 #define rad2deg 57.2958
 #define deg2rad 0.0174533
 
+
+#define lightHeatingConst 0.0023 // how much heat a unit of light adds per iteration
+#define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
+
+#define snowMeltRate 0.0003
+#define ALBEDO_SNOW 0.85
+/*
+#define ALBEDO_DRYSOIL 0.35
+#define ALBEDO_WETSOIL 0.15
+#define ALBEDO_GRASS 0.20
+#define ALBEDO_FOREST 0.10
+*/
+
+
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
+
+float map_rangeC(float value, float min1, float max1, float min2, float max2) { return clamp(map_range(value, min1, max1, min2, max2), min2, max2); }
 
 uint hash(uint x)
 {

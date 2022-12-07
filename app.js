@@ -1738,31 +1738,32 @@ async function mainScript(
 
   /*
 
-  TEXTURE DESCRIPTION
+  TEXTURE DESCRIPTIONS
 
   base texture:
-  [0] = Horizontal velocity
-  [1] = Vertical   velocity
-  [2] = Pressure
+  [0] = Horizontal velocity                              -1.0 to 1.0
+  [1] = Vertical   velocity                              -1.0 to 1.0
+  [2] = Pressure                                          >= 0
   [3] = Temperature in air, indicator in wall
 
   water texture:
-  [0] = total water
-  [1] = cloud water
-  [2] = precipitation in air, moisture in surface
-  [3] = smoke/dust in air, snow in surface
+  [0] = total water                                        >= 0
+  [1] = cloud water                                        >= 0
+  [2] = precipitation in air, moisture in surface          >= 0
+  [3] = smoke/dust in air, snow in surface                 >= 0 for smoke/dust
+  0 to 100 for snow
 
   wall texture:
   [0] walltype
-  [1] manhattan distance to nearest wall
-  [2] height above/below ground. Surface = 0
-  [3] vegetation
+  [1] manhattan distance to nearest wall                   0 to 127
+  [2] height above/below ground. Surface = 0               -127 to 127
+  [3] vegetation                                           0 to 100
 
   lighting texture:
-  [0] sunlight
+  [0] sunlight                                             0 to 1.0
   [1] net heating effect of IR + sun absorbed by smoke
-  [2] IR coming down
-  [3] IR going  up
+  [2] IR coming down                                       >= 0
+  [3] IR going  up                                         >= 0
 
   */
 

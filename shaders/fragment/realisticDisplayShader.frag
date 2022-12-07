@@ -149,7 +149,9 @@ void main()
 
       if (wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)) { // land or fire wall below
 
-        float treeTexCoordY = mod(-texCoord.y * resolution.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0; // float(wallX0Ym[3]-100)/27.0)
+        // float treeTexCoordY = mod(-texCoord.y * resolution.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0; // float(wallX0Ym[3]-100)/27.0)
+
+        float treeTexCoordY = mod(-fragCoord.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0;
 
         vec4 texCol;
         if (wallX0Ym[0] == 1) {                            // if land

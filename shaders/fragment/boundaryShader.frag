@@ -227,8 +227,15 @@ void main()
       wall[3] = wallX0Ym[3]; // vegetation is copied from below
 
 
-      if (wall[0] == 1) {                                                                              // land surface
-        base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
+      if (wall[0] == 1) { // land surface
+        // base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
+
+        float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
+
+        // lightPower *= map_rangeC(snowCover, 0., 100.0, 1., 0.);
+        lightPower *= map_rangeC(snowCover, 100., 0.0, 1. - ALBEDO_SNOW, 1.);
+
+        base[3] += lightPower / influenceDevider; // sun heating land
 
         float evaporation = max((maxWater(realTemp) - water[0]) * landEvaporation * (float(wall[3]) / 127.) / influenceDevider, 0.); // water evaporating from land proportional to vegitation
 
