@@ -21,15 +21,15 @@ Since May 2022:
 Newest Release:
 - [x] Improve Lake/Sea editing
 - [x] Improve sky visuals
-- [x] Improve surface visuals
+- [x] Improve lighting and surface visuals
 - [x] Make vertical resolution configurable from 100 to 300 cells
 - [x] don't show grass underwater
 - [x] Fix snow landing underwater bug
 - [x] Fix fire buring on water bug
 - [x] Improve fire spreading system
 - [x] Fix snow albedo
+- [x] Scale tree height with vertical resolution
 - [.] Improve Lake/Sea depth visualization
-- [.] Scale tree height with vertical resolution
 - [ ] Improve precipitation spawning system and fix related bugs
 - [ ] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix different behavior
 

@@ -1757,7 +1757,8 @@ async function mainScript(
   [0] walltype
   [1] manhattan distance to nearest wall                   0 to 127
   [2] height above/below ground. Surface = 0               -127 to 127
-  [3] vegetation                                           0 to 100
+  [3] vegetation                                           0 to 127     grass
+  from 0 to 50, trees from 50 to 127
 
   lighting texture:
   [0] sunlight                                             0 to 1.0
@@ -2000,6 +2001,8 @@ async function mainScript(
         realToPotentialT(CtoK(realTemp), y);  // initial temperature profile
   }
 
+  var cellHeight = guiControls.simHeight / sim_res_y;  // in meters
+
   // Set uniforms
   gl.useProgram(setupProgram);
   gl.uniform2f(
@@ -2146,6 +2149,10 @@ async function mainScript(
       gl.getUniformLocation(realisticDisplayProgram, 'forestSnowTex'), 7);
   gl.uniform1f(
       gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
+
+  gl.uniform1f(
+      gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
+
   gl.useProgram(precipitationProgram);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'waterTex'), 1);

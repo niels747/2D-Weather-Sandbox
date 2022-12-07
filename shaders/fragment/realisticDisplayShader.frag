@@ -23,6 +23,8 @@ uniform sampler2D forestSnowTex;
 uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
 
+uniform float cellHeight;
+
 uniform float dryLapse;
 uniform float sunAngle;
 
@@ -48,7 +50,7 @@ vec3 getWallColor(float depth)
   vec3 earthCol = vec3(0.5, 0.2, 0.1);
   vec3 grassCol = vec3(0.0, 0.7, 0.2);
 
-  vec3 surfCol = mix(earthCol, grassCol, float(wall[3]) / 100.);
+  vec3 surfCol = mix(earthCol, grassCol, min(float(wall[3]) / 50., 1.));
 
   const vec3 groundCol = vec3(0.70); // gray rock
 
@@ -82,7 +84,7 @@ void main()
 
   if (texCoord.y < 0.) { // < texelSize.y below simulation area
 
-    vec3 groundCol = vec3(0.70); // gray rock
+    vec3 groundCol = vec3(0.75); // gray rock
 
     // ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
     // ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
@@ -149,18 +151,23 @@ void main()
 
       if (wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)) { // land or fire wall below
 
-        // float treeTexCoordY = mod(-texCoord.y * resolution.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0; // float(wallX0Ym[3]-100)/27.0)
+#define maxTreeHeight 40.0   // meters
+#define treeTexAspect 0.2855 // height/ width
 
-        float treeTexCoordY = mod(-fragCoord.y, 1.) - 1. + float(wallX0Ym[3] - 50) / 77.0;
+        float treeSizeMult = maxTreeHeight / cellHeight;
+
+        float treeTexCoordY = (treeSizeMult - mod(fragCoord.y, 1.)) / treeSizeMult; // -1
+                                                                                    // treeTexCoordY += map_range(float(wallX0Ym[3]), 50., 127., 0., treeSizeMult);
+        float treeTexCoordX = fragCoord.x * treeTexAspect / treeSizeMult;
 
         vec4 texCol;
         if (wallX0Ym[0] == 1) {                            // if land
           float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
-          texCol = mix(texture(forestTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), texture(forestSnowTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY)), snow / 100.);
+          texCol = mix(texture(forestTex, vec2(treeTexCoordX, treeTexCoordY)), texture(forestSnowTex, vec2(treeTexCoordX, treeTexCoordY)), snow / 100.);
         } else // fire
-          texCol = texture(forestFireTex, vec2(texCoord.x * resolution.x * 0.2, treeTexCoordY));
+          texCol = texture(forestFireTex, vec2(treeTexCoordX, treeTexCoordY));
 
-        if (texCol.a > 0.5) {
+        if (texCol.a > 0.5) { // if not transparent
           color = texCol.rgb;
           if (wallX0Ym[0] == 3) // if fire wall
             shadowLight = 1.0;
