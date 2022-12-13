@@ -1,5 +1,5 @@
 Since May 2022:
-- [x] Added controls for global drying
+- [x] Add controls for global drying and heating/cooling
 - [x] Prevent whole width brush without tool
 - [x] Add fire
 - [x] Add smoke
@@ -9,7 +9,7 @@ Since May 2022:
 - [x] Make land evaporation proportional to amount of vegitation
 - [x] Improve surface visualization
 - [x] Add tree / vegetation textures
-- [x] Make dust blow up in dry areas
+- [x] Make dust blow up with wind in areas without vegetation
 - [x] Make fire spread and burn out, only in areas with vegetation
 - [x] Improve fire visualization
 - [x] Fix slope(green triangle) being lit up by fire
@@ -23,15 +23,17 @@ Newest Release:
 - [x] Improve sky visuals
 - [x] Improve lighting and surface visuals
 - [x] Make vertical resolution configurable from 100 to 300 cells
-- [x] don't show grass underwater
+- [x] Don't show grass underwater
 - [x] Fix snow landing underwater bug
 - [x] Fix fire buring on water bug
 - [x] Improve fire spreading system
 - [x] Fix snow albedo
 - [x] Scale tree height with vertical resolution
-- [.] Improve Lake/Sea depth visualization
+- [x] Add vector field velocity indicator
+- [x] Make trees wave with the wind
+- [ ] Improve Lake/Sea depth visualization
 - [ ] Improve precipitation spawning system and fix related bugs
-- [ ] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix different behavior
+- [ ] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 
 Next Release:
 - [ ] Make soil and vegitation color change with soil moisture
@@ -44,5 +46,6 @@ Future:
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
+- [ ] Add weather balloons
 
-... Submit your ideas!
+... Submit your ideas in the discussions tab!

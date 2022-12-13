@@ -151,14 +151,24 @@ void main()
 
       if (wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)) { // land or fire wall below
 
-#define maxTreeHeight 40.0   // meters
-#define treeTexAspect 0.2855 // height/ width
+#define maxTreeHeight 40.0   // height in meters when vegetation max = 127
+#define treeTexAspect 0.2855 // height / width of tree texture
 
-        float treeSizeMult = maxTreeHeight / cellHeight;
+        float treeTexHeightNorm = maxTreeHeight / cellHeight; // example: 40 / 120 = 0.333
 
-        float treeTexCoordY = (treeSizeMult - mod(fragCoord.y, 1.)) / treeSizeMult; // -1
-                                                                                    // treeTexCoordY += map_range(float(wallX0Ym[3]), 50., 127., 0., treeSizeMult);
-        float treeTexCoordX = fragCoord.x * treeTexAspect / treeSizeMult;
+        float localY = mod(fragCoord.y, 1.); // bottem = 0 top = 1
+
+        float treeTexCoordY = localY / treeTexHeightNorm; // full height trees
+
+        treeTexCoordY += map_rangeC(float(wallX0Ym[3]), 127., 50., 0., 1.0); // apply trees height depending on vegetation
+
+        float treeTexCoordX = fragCoord.x * treeTexAspect / treeTexHeightNorm; // static scaled trees
+
+        float heightAboveGround = localY / treeTexHeightNorm;
+
+        treeTexCoordX -= base.x * heightAboveGround * 2.5; // 2.5  trees waving with the wind effect
+
+        treeTexCoordY = 1. - treeTexCoordY; // texture is upside down
 
         vec4 texCol;
         if (wallX0Ym[0] == 1) {                            // if land
@@ -214,5 +224,7 @@ void main()
 
   fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
 
+
+  drawVectorField(base.xy);
   drawCursor(); // over everything else
 }
