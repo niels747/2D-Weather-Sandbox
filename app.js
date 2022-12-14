@@ -70,6 +70,8 @@ const guiControls_default = {
   imperialUnits: false,  // only for display.  false = metric
 };
 
+var displayVectorField = false;
+
 var sunIsUp = true;
 
 var saveFileName = '';
@@ -1391,6 +1393,9 @@ async function mainScript(
       // G
       guiControls.showGraph = !guiControls.showGraph;
       hideOrShowGraph();
+    } else if (event.code == 'Tab') {
+      // TAB
+      displayVectorField = !displayVectorField;
     } else if (event.code == 'KeyS') {
       // S: log sample at mouse location
       logSample();
@@ -2580,6 +2585,11 @@ async function mainScript(
           gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim,
           mouseYinSim, guiControls.brushSize * 0.5, cursorType);
 
+      gl.uniform1f(
+          gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'),
+          displayVectorField);
+
+
       if (SETUP_MODE)
         gl.uniform1f(
             gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 10.0);
@@ -2612,6 +2622,11 @@ async function mainScript(
         gl.uniform4f(
             gl.getUniformLocation(temperatureDisplayProgram, 'cursor'),
             mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+        gl.uniform1f(
+            gl.getUniformLocation(
+                temperatureDisplayProgram, 'displayVectorField'),
+            displayVectorField);
+
       } else if (guiControls.displayMode == 'DISP_IRDOWNTEMP') {
         gl.useProgram(IRtempDisplayProgram);
         gl.uniform2f(

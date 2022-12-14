@@ -30,7 +30,9 @@ uniform float sunAngle;
 
 uniform float exposure;
 uniform vec3 view;   // Xpos  Ypos    Zoom
-uniform vec4 cursor; // xpos   Ypos  Size   type
+uniform vec4 cursor; // Xpos   Ypos  Size   type
+
+uniform float displayVectorField;
 
 out vec4 fragmentColor;
 
@@ -203,6 +205,9 @@ void main()
         }
       }
     }
+    float arrow = vectorField(base.xy, displayVectorField);
+    color -= vec3(arrow);
+    opacity += arrow;
   }
 
   // float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
@@ -225,6 +230,5 @@ void main()
   fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
 
 
-  drawVectorField(base.xy);
   drawCursor(); // over everything else
 }

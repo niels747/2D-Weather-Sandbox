@@ -24,6 +24,27 @@ void drawCursor(/*vec4 cursor*/) // OFF: cursor.w < 1       Normal round: cursor
   }
 }
 
+// Derived from etale_cohomology on shadertoy: https://www.shadertoy.com/view/4tXyDn
+float m_stretch(float point, float stretch) { return (sign(point) * stretch - point) * (sign(abs(point) - stretch) + 1.); }
+
+float sdf_arrow(vec2 uv, float len, float angle, float head_height, float stem_width)
+{
+  uv = vec2(cos(angle) * uv.x + sin(angle) * uv.y, -sin(angle) * uv.x + cos(angle) * uv.y);
+
+  len -= head_height; // Make sure the norm INCLUDES the arrow head
+  uv.x -= len;        // Place the arrow's origin at the stem's base!
+
+  uv.y = abs(uv.y);
+  float head = max(dot(uv, vec2(1., 1.)) - head_height, -uv.x);
+
+  uv.x = m_stretch(2. * uv.x + len, len);
+  uv.y = m_stretch(2. * uv.y, stem_width);
+  float stem = length(uv);
+
+  return min(head, stem); // Join head and stem!
+}
+
+
 void drawDirLines(vec2 vel)
 {
   vec2 localcoord = vec2(-1.0, 0.0);
@@ -47,8 +68,8 @@ void drawIsoBars(float press)
     fragmentColor = vec4(vec3(0), 1.);
 }
 
-
-void drawVectorField(vec2 vel)
+/*
+void drawVectorField(vec2 vel) // looks like bombs...
 {
   vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
   float centerDist = length(localcoord); // distance from center of cell
@@ -65,6 +86,33 @@ void drawVectorField(vec2 vel)
 
   if (relAngle < (90. * deg2rad) - pow(centerDist * sizeMult, 0.2))
     fragmentColor = vec4(vec3(0), 1.);
+}*/
+
+float vectorField(vec2 vel, float intensity)
+{
+  vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
+  localcoord *= 2.5;
+
+  float velMag = length(vel);
+
+#define sizeMult 10.0
+
+  float size = sqrt(velMag) * sizeMult;
+
+  float velAngle = atan(vel.y, vel.x);
+
+  localcoord += vel * sizeMult * 2.0; // keep the arrow centered
+
+  // sdf_arrow(vec2 uv, float len, float angle, float head_height, float stem_width)
+  float arrow = sdf_arrow(localcoord, size, velAngle, 0.2 * size, 0.1 * size);
+  return smoothstep(0.1, 0.0, arrow) * intensity;
+}
+
+void drawVectorField(vec2 vel, float intensity)
+{
+  float arrow = vectorField(vel, intensity);
+  fragmentColor.xyz -= vec3(arrow);
+  fragmentColor.w += arrow; // make it not transparent
 }
 
 
@@ -72,7 +120,7 @@ void drawVectorField(vec2 vel)
 // fixes visual quirks such as fog near walls
 vec4 bilerpWallVis(sampler2D tex, isampler2D wallTex, vec2 pos)
 {
-  // return texture(tex, pos / resolution);
+  // return texture(tex, pos / resolution); // direct sample for debugging
 
   vec2 st = pos - vec2(0.5); // calc pixel coordinats
 
