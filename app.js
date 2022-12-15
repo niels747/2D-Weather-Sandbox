@@ -1395,6 +1395,7 @@ async function mainScript(
       hideOrShowGraph();
     } else if (event.code == 'Tab') {
       // TAB
+      event.preventDefault();
       displayVectorField = !displayVectorField;
     } else if (event.code == 'KeyS') {
       // S: log sample at mouse location
@@ -1429,6 +1430,7 @@ async function mainScript(
     } else if (event.key == '-') {
       minusPressed = true;  // -
     } else if (event.code == 'Backquote') {
+      event.preventDefault();  // prevent anoying ` apearing when typing after
       guiControls.tool = 'TOOL_NONE';
       guiControls.wholeWidth = false;  // flashlight can't be whole width
     } else if (event.code == 'KeyQ') {

@@ -35,6 +35,8 @@ void main()
     light = vec4(sunIntensity, 0, 0, 0); // at top: full sun, no IR
   else {
 
+    float cellHeightCompensation = 300. / resolution.y; // 300 cells = 1.0     100 cells = 3.0
+
     // sunlight calculation
 
     vec2 sunRay = vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
@@ -50,8 +52,12 @@ void main()
 
       float net_heating = 0.0;
 
-      float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
-      float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
+      // old lighting system:
+      // float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
+      // float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
+
+      float lightReflected = sunlight * (water[1] * 0.040 + water[2] * 0.040) * cellHeightCompensation;
+      float lightAbsorbed = sunlight * water[3] * 0.025 * cellHeightCompensation;
 
       sunlight -= lightReflected + lightAbsorbed;
 
@@ -85,7 +91,9 @@ void main()
         emissivity += water[1] * 1.5;    // cloud water
         emissivity += water[3] * 0.0001; // 0.01 smoke Should be prettymuch transparent to ir
 
-        emissivity = min(emissivity, 1.0);
+        emissivity *= cellHeightCompensation; // compensate for the height of the cell
+
+        emissivity = min(emissivity, 1.0); // limit to 1.0
 
         float absorbedDown = IR_down * emissivity;
         float absorbedUp = IR_up * emissivity;
