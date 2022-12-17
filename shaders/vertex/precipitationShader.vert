@@ -54,8 +54,8 @@ float newDensity;
 void disableDroplet()
 {
   gl_PointSize = 1.;
-  newMass[0] = -10. + dropPosition.x; // disable droplet and save position as seed for spawning
-  newMass[1] = dropPosition.y;
+  newMass[0] = -2. - dropPosition.x; // disable droplet by making it negative and save position as seed for spawning
+  newMass[1] = dropPosition.y;       // save position as seed for random function when spawning later
 }
 
 void main()
@@ -89,12 +89,15 @@ void main()
       thresHold = subZeroThreshold;
 
     if (water[1] > thresHold && base[3] < 500.) { // if cloudwater above thresHold and not wall
-      // float spawnChance = (water[1] - thresHold) / inactiveDroplets;
-      // if(spawnChance > random()){
-      if ((water[1] - thresHold) / inactiveDroplets * resolution.x * resolution.y * spawnChanceMult > random(mass[0] * 0.3724 + frameNum + random(mass[1]))) { // spawn
-        newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.);                                                                                       // convert texture coordinate (0 to 1) to position (-1 to 1)
+                                                  // float spawnChance = (water[1] - thresHold) * 1000.0 / inactiveDroplets;
+                                                  // if (spawnChance > rand2d(mass.xy)) {
+      float spawnChance = (water[1] - thresHold) / inactiveDroplets * resolution.x * resolution.y * spawnChanceMult;
 
-        if (realTemp < CtoK(0.0)) {
+      float nrmRand = random(mass[0] * 0.3724 + frameNum + random(mass[1])); // normalized random value
+      if (spawnChance > nrmRand) {                                           // spawn
+        newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.);     // convert texture coordinate (0 to 1) to position (-1 to 1)
+
+        if (realTemp < CtoK(0.0)) {                // freezing
           newMass[0] = 0.0;                        // enable
           newMass[1] = initalMass;                 // snow
           feedback[1] += newMass[1] * meltingHeat; // add heat of freezing
@@ -136,7 +139,7 @@ void main()
     } else if (newPos.y < -1.0 || base[3] > 500.) { // to low or wall
 
       if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[3] > 500.) // if above cell was already wall. because of fast fall speed
-        newPos.y += texelSize.y * 2.;                                             // move position up
+        newPos.y += texelSize.y * 1.;                                             // *2. ? move position up so that the water/snow is correcty added to the ground
 
       //  feedback[2] = newMass[0]; // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
 

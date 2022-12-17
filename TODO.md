@@ -1,4 +1,4 @@
-Since May 2022:
+# Since May 2022:
 - [x] Add controls for global drying and heating/cooling
 - [x] Prevent whole width brush without tool
 - [x] Add fire
@@ -18,7 +18,7 @@ Since May 2022:
 - [x] Extend sounding scale to 50°C
 - [X] Add wind tool: move air by dragging
 
-December 17, 2022 Release:
+# December 18, 2022 Release:
 - [x] Improve Lake/Sea editing
 - [x] Improve sky visuals
 - [x] Improve lighting and surface visuals
@@ -34,14 +34,14 @@ December 17, 2022 Release:
 - [.] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Improve precipitation spawning system and fix related bugs
 
-Next Release:
+# Next Release:
 - [ ] Make soil and vegitation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization
 - [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
 - [ ] Add weather stations with current conditions
 
-Future:
+# Future:
 - [ ] Make weather stations show history in plots
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed

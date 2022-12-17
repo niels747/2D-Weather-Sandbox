@@ -56,8 +56,11 @@ void main()
       // float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
       // float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
 
-      float lightReflected = sunlight * (water[1] * 0.040 + water[2] * 0.040) * cellHeightCompensation;
-      float lightAbsorbed = sunlight * water[3] * 0.025 * cellHeightCompensation;
+      float reflection = min((water[1] * 0.035 + water[2] * 0.035) * cellHeightCompensation, 1.); // 0.040 cloud + 0.40 precipitation
+      float absorbtion = min(water[3] * 0.020 * cellHeightCompensation, 1.);                      // 0.025 dust/smoke
+
+      float lightReflected = sunlight * reflection;
+      float lightAbsorbed = sunlight * absorbtion;
 
       sunlight -= lightReflected + lightAbsorbed;
 
