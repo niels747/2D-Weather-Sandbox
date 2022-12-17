@@ -2588,9 +2588,18 @@ async function mainScript(
           gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim,
           mouseYinSim, guiControls.brushSize * 0.5, cursorType);
 
-      gl.uniform1f(
-          gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'),
-          displayVectorField);
+      // Don't display vectors when zoomed out because you would just see noise
+      if (viewZoom / sim_res_x > 0.003) {
+        gl.uniform1f(
+            gl.getUniformLocation(
+                realisticDisplayProgram, 'displayVectorField'),
+            displayVectorField);
+      } else {
+        gl.uniform1f(
+            gl.getUniformLocation(
+                realisticDisplayProgram, 'displayVectorField'),
+            0.0);
+      }
 
 
       if (SETUP_MODE)
