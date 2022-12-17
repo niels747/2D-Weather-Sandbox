@@ -92,7 +92,8 @@ var viewYpos = 0.0;
 var viewZoom = 1.0001;
 
 var NUM_DROPLETS;
-const NUM_DROPLETS_DEVIDER = 25;  // number of droplets relative to resolution
+// NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
+const NUM_DROPLETS_DEVIDER = 25;  // 25
 
 function download(filename, data) {
   var url = URL.createObjectURL(data);
@@ -477,7 +478,7 @@ async function mainScript(
         gl.getUniformLocation(precipitationProgram, 'subZeroThreshold'),
         guiControls.subZeroThreshold);
     gl.uniform1f(
-        gl.getUniformLocation(precipitationProgram, 'spawnChance'),
+        gl.getUniformLocation(precipitationProgram, 'spawnChanceMult'),
         guiControls.spawnChance);
     gl.uniform1f(
         gl.getUniformLocation(precipitationProgram, 'snowDensity'),
@@ -767,7 +768,7 @@ async function mainScript(
         .onChange(function() {
           gl.useProgram(precipitationProgram);
           gl.uniform1f(
-              gl.getUniformLocation(precipitationProgram, 'spawnChance'),
+              gl.getUniformLocation(precipitationProgram, 'spawnChanceMult'),
               guiControls.spawnChance);
         })
         .name('Spawn Rate');
@@ -2459,7 +2460,7 @@ async function mainScript(
 
           gl.drawBuffers([gl.COLOR_ATTACHMENT0]);  // calc light
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
+          // HUGE PERFORMANCE BOTTLENECK!
           // move precipitation
           gl.useProgram(precipitationProgram);
           gl.uniform1f(

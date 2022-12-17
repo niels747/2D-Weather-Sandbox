@@ -18,7 +18,7 @@ Since May 2022:
 - [x] Extend sounding scale to 50°C
 - [X] Add wind tool: move air by dragging
 
-Newest Release:
+December 17, 2022 Release:
 - [x] Improve Lake/Sea editing
 - [x] Improve sky visuals
 - [x] Improve lighting and surface visuals
@@ -31,13 +31,13 @@ Newest Release:
 - [x] Scale tree height with vertical resolution
 - [x] Add vector field velocity indicator
 - [x] Make trees wave with the wind
-- [ ] Improve Lake/Sea depth visualization
+- [.] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Improve precipitation spawning system and fix related bugs
-- [ ] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 
 Next Release:
 - [ ] Make soil and vegitation color change with soil moisture
-- [ ] Add realistic albedo's for defferent surface types
+- [ ] Improve Lake/Sea depth visualization
+- [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
 - [ ] Add weather stations with current conditions
 
@@ -47,5 +47,6 @@ Future:
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
 - [ ] Add weather balloons
+- [ ] Support mobile devices
 
 ... Submit your ideas in the discussions tab!

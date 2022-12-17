@@ -90,18 +90,17 @@ void drawVectorField(vec2 vel) // looks like bombs...
 
 float vectorField(vec2 vel, float intensity)
 {
+#define sizeMult 10.0
+
   vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
   localcoord *= 2.5;
+  localcoord += vel * sizeMult * 2.0; // keep the arrow centered
 
   float velMag = length(vel);
-
-#define sizeMult 10.0
 
   float size = sqrt(velMag) * sizeMult;
 
   float velAngle = atan(vel.y, vel.x);
-
-  localcoord += vel * sizeMult * 2.0; // keep the arrow centered
 
   // sdf_arrow(vec2 uv, float len, float angle, float head_height, float stem_width)
   float arrow = sdf_arrow(localcoord, size, velAngle, 0.2 * size, 0.1 * size);

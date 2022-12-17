@@ -206,10 +206,22 @@ void main()
       }
     }
     float arrow = vectorField(base.xy, displayVectorField);
-    color -= vec3(arrow);
-    opacity += arrow;
-  }
 
+    if (arrow > 0.5) {
+      fragmentColor = vec4(vec3(1., 1., 0.), 1.);
+      return; // exit shader
+    }
+
+    // color.rg += vec2(arrow);
+    // color.b -= arrow;
+    // opacity += arrow;
+    // light += arrow;
+  }
+  /*
+    light = min(light, 1.);
+    opacity = min(opacity, 1.);
+    color = min(color, vec3(1.));
+  */
   // float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
 
   float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
