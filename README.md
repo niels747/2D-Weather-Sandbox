@@ -27,3 +27,19 @@ Warm moist air is rising into the cloud on the right condensing water and releas
 ![Schermopname (92)_LI](https://user-images.githubusercontent.com/42830240/173361271-23383858-f0d3-485d-91b9-21e0d3c75211.jpg)
 The dew points and cape are very low in this example, but it's just enough to form a nice stable cell.
 ![Naamloos](https://user-images.githubusercontent.com/42830240/173365013-cdea3b40-f470-4390-a8fa-b8d93025d893.png)
+
+# The code
+
+The simulation is based on a very simple fluid simulation topology.
+
+<insert explanation>
+
+All code was written by me (Niels Daemen) except for the libraries included
+
+## libraries
+
+The simulation and visualization itself is entirely custom js and glsl written by me (Niels Daemen). The sounding graph, keyboard and mouse controls are also custom code. The simulation can run and be partly controlled without any libraries. I do however use the following libraries for part of the user interface and file compression:
+
+DatGui: Used for the user interface because it's very easy to add more controllable variables. It is however getting a bit cluttered and other options should be evaluated. Building a custom interface is also an option.
+
+Pako: Only used for data compression to reduce save file sizes. Size reduction can be 2-4 times depending on the state of the simulation. Not essential. Downside is that it takes longer to save and load files.
