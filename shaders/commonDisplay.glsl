@@ -18,8 +18,11 @@ void drawCursor(/*vec4 cursor*/) // OFF: cursor.w < 1       Normal round: cursor
       vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
       distFromMouseF = length(vecFromMouse);
     }
-    if (abs(distFromMouseF - cursor.z * texelSize.y) < 0.00001 / view[2] * resolution.x) { // draw brush
-      fragmentColor = vec4(0.5, 0.5, 0.5, 1.0);                                            // gray line
+
+    // float distance
+
+    if (abs(distFromMouseF - cursor[2] * texelSize.y) < 0.000005 * resolution.x / view[2]) { // draw brush
+      fragmentColor = vec4(0.5, 0.5, 0.5, 1.0);                                              // gray line
     }
   }
 }

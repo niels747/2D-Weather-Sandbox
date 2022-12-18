@@ -31,10 +31,11 @@
 - [x] Scale tree height with vertical resolution
 - [x] Add vector field velocity indicator
 - [x] Make trees wave with the wind
-- [.] Make behaviour of IR radiation and precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
-- [ ] Improve precipitation spawning system and fix related bugs
+- [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 
 # Next Release:
+- [ ] Improve precipitation spawning system
+- [ ] Make behaviour of precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Make soil and vegitation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization
 - [ ] Add realistic albedo's for different surface types
