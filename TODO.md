@@ -31,19 +31,21 @@
 - [x] Scale tree height with vertical resolution
 - [x] Add vector field velocity indicator
 - [x] Make trees wave with the wind
-- [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
+- [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolutions lower than 300
 
 # Next Release:
 - [ ] Improve precipitation spawning system
-- [ ] Make behaviour of precipitation scale with vertical resolution to fix unrealistic behavior at resolution lower than 300
-- [ ] Make soil and vegitation color change with soil moisture
-- [ ] Improve Lake/Sea depth visualization
+- [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
+- [ ] Make soil and vegetation color change with soil moisture
+- [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
+- [ ] Add urban surface type with building textures
 - [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
 - [ ] Add weather stations with current conditions
 
 # Future:
 - [ ] Make weather stations show history in plots
+- [ ] Allow editing while simulation paused
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
