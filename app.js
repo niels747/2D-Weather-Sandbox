@@ -264,6 +264,7 @@ async function loadData() {
     }
   } else {
     // no file, so create new simulation
+    // texture resolution limit on most gpus: 16384
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
     sim_res_y = parseInt(document.getElementById('simResSelY').value);
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
@@ -2634,10 +2635,20 @@ async function mainScript(
         gl.uniform4f(
             gl.getUniformLocation(temperatureDisplayProgram, 'cursor'),
             mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
-        gl.uniform1f(
-            gl.getUniformLocation(
-                temperatureDisplayProgram, 'displayVectorField'),
-            displayVectorField);
+
+        // Don't display vectors when zoomed out because you would just see
+        // noise
+        if (viewZoom / sim_res_x > 0.003) {
+          gl.uniform1f(
+              gl.getUniformLocation(
+                  temperatureDisplayProgram, 'displayVectorField'),
+              displayVectorField);
+        } else {
+          gl.uniform1f(
+              gl.getUniformLocation(
+                  temperatureDisplayProgram, 'displayVectorField'),
+              0.0);
+        }
 
       } else if (guiControls.displayMode == 'DISP_IRDOWNTEMP') {
         gl.useProgram(IRtempDisplayProgram);
