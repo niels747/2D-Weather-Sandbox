@@ -1933,8 +1933,12 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(
+      gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
   // gl.texParameteri(
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,
   //     gl.REPEAT);  // default, so no need to set
@@ -1948,9 +1952,11 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // NEAREST_MIPMAP_LINEAR create wierd effects
 
   imgElement = await loadImage('resources/forest_snow.png');
   const forestSnowTexture = gl.createTexture();
@@ -1958,6 +1964,7 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -1968,6 +1975,7 @@ async function mainScript(
   gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0,
       gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
