@@ -1216,7 +1216,10 @@ async function mainScript(
 
     console.log('');
     console.log('');
-    console.log('Sample at:      X: ' + simXpos, '  Y: ' + simYpos);
+    console.log(
+        'Sample at:      X: ' + simXpos + ' (' + simXpos * cellHeight / 1000 +
+            ' km)',
+        '  Y: ' + simYpos + ' (' + simYpos * cellHeight / 1000 + ' km)');
     console.log('BASE-----------------------------------------');
     console.log('[0] X-vel:', baseTextureValues[0]);
     console.log('[1] Y-vel:', baseTextureValues[1]);
