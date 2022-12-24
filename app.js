@@ -753,7 +753,7 @@ async function mainScript(
               gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'),
               guiControls.aboveZeroThreshold);
         })
-        .name('Precipitation Threshhold +°C');
+        .name('Precipitation Threshold +°C');
 
     precipitation_folder.add(guiControls, 'subZeroThreshold', 0.0, 2.0, 0.01)
         .onChange(function() {
@@ -762,7 +762,7 @@ async function mainScript(
               gl.getUniformLocation(precipitationProgram, 'subZeroThreshold'),
               guiControls.subZeroThreshold);
         })
-        .name('Precipitation Threshhold -°C');
+        .name('Precipitation Threshold -°C');
 
     precipitation_folder
         .add(guiControls, 'spawnChance', 0.00001, 0.0001, 0.00001)
