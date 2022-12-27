@@ -1289,6 +1289,11 @@ async function mainScript(
     }
   }
 
+  function changeViewXpos(change) {
+    viewXpos = mod(viewXpos + change + 1.0, 2.0) - 1.0;
+    console.log(viewXpos);
+  }
+
   // EVENT LISTENERS
 
   window.addEventListener('wheel', function(event) {
@@ -1319,7 +1324,7 @@ async function mainScript(
                 canvas.height) *
                2.0) /
               canvas_aspect;
-          viewXpos -= mousePositionZoomCorrectionX;
+          changeViewXpos(-mousePositionZoomCorrectionX);
           viewYpos += mousePositionZoomCorrectionY;
         }
       }
@@ -1332,10 +1337,7 @@ async function mainScript(
     mouseY = event.clientY - rect.top;
 
     if (middleMousePressed) {
-      // drag view position
-      viewXpos = mod(
-          viewXpos + ((mouseX - prevMouseX) / viewZoom / canvas.width) * 2.0,
-          2.0);
+      changeViewXpos(((mouseX - prevMouseX) / viewZoom / canvas.width) * 2.0);
       viewYpos -= ((mouseY - prevMouseY) / viewZoom / canvas.width) * 2.0;
 
       prevMouseX = mouseX;
@@ -2243,18 +2245,19 @@ async function mainScript(
   var uniformLocation_boundaryProgram_iterNum =
       gl.getUniformLocation(boundaryProgram, 'iterNum');
 
+
   function draw() {  // Runs for every frame
     if (leftPressed) {
       // <
-      viewXpos = mod(viewXpos + 0.01 / viewZoom, 2.0);
+      changeViewXpos(0.01 / viewZoom);
+    }
+    if (rightPressed) {
+      // >
+      changeViewXpos(-0.01 / viewZoom);
     }
     if (upPressed) {
       // ^
       viewYpos -= 0.01 / viewZoom;
-    }
-    if (rightPressed) {
-      // >
-      viewXpos = mod(viewXpos - 0.01 / viewZoom, 2.0);
     }
     if (downPressed) {
       // v
