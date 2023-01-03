@@ -47,7 +47,7 @@ float sdf_arrow(vec2 uv, float len, float angle, float head_height, float stem_w
   return min(head, stem); // Join head and stem!
 }
 
-
+/*
 void drawDirLines(vec2 vel)
 {
   vec2 localcoord = vec2(-1.0, 0.0);
@@ -64,6 +64,7 @@ void drawDirLines(vec2 vel)
   if (mod(relAngle, 0.50) < 0.01)
     fragmentColor = vec4(vec3(0), 1.);
 }
+*/
 
 void drawIsoBars(float press)
 {
@@ -93,19 +94,24 @@ void drawVectorField(vec2 vel) // looks like bombs...
 
 float vectorField(vec2 vel, float intensity)
 {
-#define sizeMult 10.0
-
-  vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
-  localcoord *= 2.5;
-  localcoord += vel * sizeMult * 2.0; // keep the arrow centered
+#define sizeMult 2.00
 
   float velMag = length(vel);
 
-  float size = sqrt(velMag) * sizeMult;
+  velMag = min(velMag, 0.10); // limit to prevent arrows becoming to large
+
+  vec2 limvel = normalize(vel) * velMag; // velocity vector with limited magnitude
+
+  vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
+
+  localcoord += limvel * 2.0; // keep the arrow centered
+
+  localcoord /= sqrt(velMag) * sizeMult;
+
+  const float size = 1.0;
 
   float velAngle = atan(vel.y, vel.x);
 
-  // sdf_arrow(vec2 uv, float len, float angle, float head_height, float stem_width)
   float arrow = sdf_arrow(localcoord, size, velAngle, 0.2 * size, 0.1 * size);
   return smoothstep(0.1, 0.0, arrow) * intensity;
 }
