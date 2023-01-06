@@ -34,6 +34,8 @@
 - [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolutions lower than 300
 
 # Next Release:
+- [ ] Square brush for placing lake / sea
+- [ ] Configurable simulation height
 - [ ] Improve precipitation spawning system
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Make soil and vegetation color change with soil moisture
@@ -41,10 +43,11 @@
 - [ ] Add urban surface type with building textures
 - [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
-- [ ] Add weather stations with current conditions
+- [ ] Add weather stations showing current conditions
 
 # Future:
 - [ ] Make weather stations show history in plots
+- [ ] Better terain generation
 - [ ] Allow editing while simulation paused
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
