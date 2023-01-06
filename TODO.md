@@ -33,9 +33,12 @@
 - [x] Make trees wave with the wind
 - [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolutions lower than 300
 
-# Next Release:
-- [ ] Square brush for placing lake / sea
+# Small changes:
+- [x] Improve droplet display
+- [x] Lock vertical brush position when drawing lake / sea
 - [ ] Configurable simulation height
+
+# Next Release
 - [ ] Improve precipitation spawning system
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Make soil and vegetation color change with soil moisture

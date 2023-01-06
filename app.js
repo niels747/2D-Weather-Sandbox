@@ -1333,6 +1333,8 @@ async function mainScript(
   window.addEventListener('mousemove', function(event) {
     var rect = canvas.getBoundingClientRect();
     mouseX = event.clientX - rect.left;
+
+    if(!(guiControls.tool == 'TOOL_WALL_SEA' && leftMousePressed)) // lock y pos while drawing lake / sea
     mouseY = event.clientY - rect.top;
 
     if (middleMousePressed) {
