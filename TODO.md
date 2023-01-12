@@ -39,7 +39,7 @@
 - [ ] Configurable simulation height
 - [x] Add Touch Screen Input for using tools
 - [ ] Add Touch Screen Input for changing view
-- [ ] Add wind speed to sounding display
+- [x] Add wind speed gauge to sounding display
 
 # Next Release
 - [ ] Improve precipitation spawning system

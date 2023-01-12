@@ -168,7 +168,7 @@ void main()
 
         float heightAboveGround = localY / treeTexHeightNorm;
 
-        treeTexCoordX -= base.x * heightAboveGround * 2.5; // 2.5  trees waving with the wind effect
+        treeTexCoordX -= base.x * heightAboveGround * 1.00; // 2.5  trees waving with the wind effect
 
         treeTexCoordY = 1. - treeTexCoordY; // texture is upside down
 

@@ -91,6 +91,8 @@ var viewXpos = 0.0;
 var viewYpos = 0.0;
 var viewZoom = 1.0001;
 
+const timePerIteration = 0.00008; // in hours
+
 var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25;  // 25
@@ -920,6 +922,14 @@ async function mainScript(
       return meters.toFixed() + ' m';
   }
 
+  function printVelocity(kmh) {
+    if (guiControls.imperialUnits) {
+      let mph = kmh * 0.621371;
+      return mph.toFixed() + ' mph';
+    } else
+      return kmh.toFixed() + ' km/h';
+  }
+
   var soundingGraph = {
     graphCanvas: null,
     ctx: null,
@@ -1013,8 +1023,13 @@ async function mainScript(
       c.beginPath();
       for (var y = surfaceLevel; y < sim_res_y; y++) {
         var dewPoint = dewpoint(waterTextureValues[4 * y]) - 273.15;
-
         var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
+
+        var velocity = Math.sqrt(Math.pow(baseTextureValues[4 * y], 2) + Math.pow(baseTextureValues[4 * y + 1], 2));
+        // Raw velocity is in cells/iteration
+        velocity /= timePerIteration; // convert to cells per hour
+        velocity *= cellHeight; // convert to meters per hour
+        velocity /= 1000.0; // convert to km per hour
 
         c.font = '15px Arial';
         c.fillStyle = 'white';
@@ -1026,6 +1041,15 @@ async function mainScript(
                   printAltitude(Math.round(map_range(
                       y - 1, 0, sim_res_y, 0, guiControls.simHeight))),
               5, scrYpos + 5);
+
+              
+
+              c.fillText(
+                '' +
+                printVelocity(velocity),
+                this.graphCanvas.width - 70, scrYpos + 5);
+
+
           c.strokeStyle = '#FFF';
           c.lineWidth = 1.0;
           c.strokeRect(
@@ -2400,9 +2424,7 @@ async function mainScript(
 
       if (!guiControls.paused) {  // Simulation part
         if (guiControls.dayNightCycle)
-          updateSunlight(
-              0.0001 *
-              guiControls.IterPerFrame);  // increase solar time 0.00010
+          updateSunlight(timePerIteration * guiControls.IterPerFrame);  // increase solar time
 
         gl.viewport(0, 0, sim_res_x, sim_res_y);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
