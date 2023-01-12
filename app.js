@@ -1369,6 +1369,38 @@ async function mainScript(
     }
   });
 
+
+
+  canvas.addEventListener('touchstart', function(event) 
+  {
+    event.preventDefault();
+    leftMousePressed = true;
+
+    mouseX = event.changedTouches[0].clientX;
+    mouseY = event.changedTouches[0].clientY;
+
+  }, {passive:false});
+
+  canvas.addEventListener('touchend', function(event) 
+  {
+    event.preventDefault();
+    leftMousePressed = false;
+  }, {passive:false});
+
+  canvas.addEventListener('touchmove', function(event) 
+  {
+    event.preventDefault();
+
+    const touches = event.changedTouches;
+
+    console.log(touches[0].pageX);
+
+    mouseX = touches[0].pageX;
+    mouseY = touches[0].pageY;
+  }, {passive:false});
+
+
+
   var lastBpressTime;
 
   document.addEventListener('keydown', (event) => {

@@ -37,6 +37,9 @@
 - [x] Improve droplet display
 - [x] Lock vertical brush position when drawing lake / sea
 - [ ] Configurable simulation height
+- [x] Add Touch Screen Input for using tools
+- [ ] Add Touch Screen Input for changing view
+- [ ] Add wind speed to sounding display
 
 # Next Release
 - [ ] Improve precipitation spawning system
