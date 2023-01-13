@@ -922,12 +922,15 @@ async function mainScript(
       return meters.toFixed() + ' m';
   }
 
-  function printVelocity(kmh) {
+  function printVelocity(ms) {
+    let msStr = ms.toFixed() + ' m/s   ';
     if (guiControls.imperialUnits) {
-      let mph = kmh * 0.621371;
-      return mph.toFixed() + ' mph';
-    } else
-      return kmh.toFixed() + ' km/h';
+      let mph = ms * 2.23694;
+      return msStr + mph.toFixed() + ' mph';
+    } else{
+      let kmh = ms * 3.6;
+      return msStr + kmh.toFixed() + ' km/h';
+    }
   }
 
   var soundingGraph = {
@@ -1029,7 +1032,7 @@ async function mainScript(
         // Raw velocity is in cells/iteration
         velocity /= timePerIteration; // convert to cells per hour
         velocity *= cellHeight; // convert to meters per hour
-        velocity /= 1000.0; // convert to km per hour
+        velocity /= 3600.0; // convert to m/s
 
         c.font = '15px Arial';
         c.fillStyle = 'white';
@@ -1042,12 +1045,10 @@ async function mainScript(
                       y - 1, 0, sim_res_y, 0, guiControls.simHeight))),
               5, scrYpos + 5);
 
-              
-
               c.fillText(
                 '' +
                 printVelocity(velocity),
-                this.graphCanvas.width - 70, scrYpos + 5);
+                this.graphCanvas.width - 120, scrYpos + 5);
 
 
           c.strokeStyle = '#FFF';
