@@ -29,8 +29,10 @@ void main()
   // if(wall[1] == 0) // if this is wall
   //    base[0] = 0.; // set velocity to 0
 
-  // if(texCoord.y > 0.99) // keep pressure at top close to 0
-  //    base[2] *= 0.995; // 0.999
+  //  if(texCoord.y > 0.99){ // keep pressure at top close to 0
+  //     base[2] *= 0.995; // 0.999
+  //     base[2] -= 0.001;
+// }
 
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;

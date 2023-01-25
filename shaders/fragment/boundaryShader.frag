@@ -42,6 +42,7 @@ layout(location = 2) out ivec4 wall;
 #include functions
 
 #define wallVerticalInfluence 1  // 2 How many cells above the wall surface effects like heating and evaporation are applied
+/*
 #define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
 #define exchangeRate 0.001       // Rate of smoothing near surface
 
@@ -50,7 +51,7 @@ void exchangeWith(vec2 texCoord) // exchange temperature and water
   base[3] -= (base[3] - texture(baseTex, texCoord)[3]) * exchangeRate;
   water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
 }
-
+*/
 void main()
 {
   base = texture(baseTex, texCoord);
@@ -72,7 +73,6 @@ void main()
 
   wall[2] = wallX0Ym[2] + 1; // height above ground is counted
 
-
   if (wall[1] != 0) { // is fluid, not wall
 
     base[3] += light[1] * IR_rate; // IR effect
@@ -82,12 +82,12 @@ void main()
     // recalculate cloud water after changing total water
     water[1] = max(water[0] - maxWater(realTemp), 0.0);
     // 0.004 for rain visualisation
-    water[2] = max(water[2] * 0.998 - 0.00005 + -precipFeedback[0] * 0.008, 0.0);
+    water[2] = max(water[2] * 0.998 - 0.00005 + precipFeedback[0] * 0.008, 0.0);
 
     // rain removes smoke from air
-    water[3] /= 1. + max(-precipFeedback[2] * 0.3, 0.0) - precipFeedback[0] * 0.003; // rain formation in clouds removes smoke
+    water[3] /= 1. + max(-precipFeedback[2] * 0.3, 0.0) + precipFeedback[0] * 0.003; // rain formation in clouds removes smoke
                                                                                      // quickly , falling rain slower
-    water[3] += precipFeedback[0] * 0.0002;                                          // falling rain slowly removes smoke
+    water[3] -= precipFeedback[0] * 0.0002;                                          // falling rain slowly removes smoke
                                                                                      // linearly to remove last little bit
 
     water[3] -= max((water[3] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
@@ -108,7 +108,7 @@ void main()
 
     gravityForce -= water[1] * gravMult * waterWeight; // cloud water weight added to gravity force
 
-    gravityForce += precipFeedback[0] * gravMult; // precipitation weigth added to gravity force
+    gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
 
     base[1] += gravityForce;
 
@@ -227,6 +227,9 @@ void main()
 
       wall[3] = wallX0Ym[3]; // vegetation is copied from below
 
+      //base[2] *= 0.995; // 0.999
+
+      //base[2]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
 
       if (wall[0] == 1) { // land surface
         // base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
@@ -272,7 +275,7 @@ void main()
     if (wall[2] < 0) {                               // below surface
       water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
       wall[3] = wallX0Yp[3];                         // vegetation is copied from above
-    } else if (wall[2] == 0) {                       // at surface
+    } else if (wall[2] == 0) {                       // at/in surface layer
 
       if (wall[0] == 1) {                                           // land
         water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation

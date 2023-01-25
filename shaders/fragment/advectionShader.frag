@@ -70,15 +70,20 @@ void main()
 
     // ADVECT AIR:
 
-    // vec4 prevBase = texture(baseTex, texCoord);
+    // base = bilerp(baseTex, fragCoord - cellX0Y0.xy); // old simple advection
 
     base[0] = bilerp(baseTex, fragCoord - velAtVx)[0]; // Vx
     base[1] = bilerp(baseTex, fragCoord - velAtVy)[1]; // Vy
+   // base[0] = bilerpWall(baseTex, wallTex, fragCoord - velAtVx)[0]; // Vx
+   // base[1] = bilerpWall(baseTex, wallTex, fragCoord - velAtVy)[1]; // Vy
 
-    // base = bilerp(baseTex, fragCoord - cellX0Y0.xy);
 
-    base[2] = bilerp(baseTex, fragCoord - velAtP)[2];              // centered
-    base[3] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[3]; // centered
+
+    //base[2] = bilerp(baseTex, fragCoord - velAtP)[2];
+    //base[3] = bilerp(baseTex, fragCoord - velAtP)[3];
+
+    base[2] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[2];
+    base[3] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[3];
 
     water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
 
@@ -86,7 +91,7 @@ void main()
     // // precipitation visualization
     water.z = texture(waterTex, texCoord).z; // precipitation visualization
 
-    vec2 backTracedPos = fragCoord - velAtP; // advect / flow
+    //vec2 backTracedPos = fragCoord - velAtP; // advect / flow
 
     // vec2 backTracedPos = texCoord; // no flow
 
@@ -161,9 +166,7 @@ void main()
         float evaporation = max((maxWater(CtoK(tempC)) - water[0]) * 0.00001, 0.);
         water[2] -= evaporation;
       }
-    } /* else {             // cell above is also wall
-       water[2] = -999.0; // indicate non surface layer
-     }*/
+    }
   }
 
   // USER INPUT:

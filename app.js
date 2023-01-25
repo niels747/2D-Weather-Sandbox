@@ -30,11 +30,11 @@ const guiControls_default = {
   globalDrying: 0.00001,
   globalHeating: 0.0,
   sunIntensity: 1.0,
-  waterTemperature: 25,  // only in degrees C, Sorry americans
+  waterTemperature: 25,  // only in degrees C, sorry Americans
   landEvaporation: 0.00005,
   waterEvaporation: 0.0001,
-  evapHeat: 1.9,     // 1.9
-  meltingHeat: 0.6,  // 0.281
+  evapHeat: 1.9,     // 1.9    Real: 2260 J/g
+  meltingHeat: 0.6,  // 0.281  Real:  334 J/g
   waterWeight: 0.5,  // 0.50
   inactiveDroplets: 0,
   aboveZeroThreshold: 1.0,  // PRECIPITATION Parameters
@@ -50,7 +50,7 @@ const guiControls_default = {
   displayMode: 'DISP_REAL',
   timeOfDay: 9.9,
   latitude: 45.0,
-  month: 6.67,  // Nothern himisphere solstice
+  month: 6.67,  // Northern himisphere solstice
   sunAngle: 9.9,
   dayNightCycle: true,
   exposure: 1.0,
@@ -65,8 +65,8 @@ const guiControls_default = {
   paused: false,
   IterPerFrame: 10,
   auto_IterPerFrame: true,
-  dryLapseRate: 10.0,    // 9.81 degrees / km
-  simHeight: 12000,      // meters
+  dryLapseRate: 10.0,    // Real: 9.81 degrees / km
+  simHeight: 12000,      // meters 
   imperialUnits: false,  // only for display.  false = metric
 };
 
@@ -91,7 +91,7 @@ var viewXpos = 0.0;
 var viewYpos = 0.0;
 var viewZoom = 1.0001;
 
-const timePerIteration = 0.00008; // in hours
+const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
 
 var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
@@ -472,9 +472,6 @@ async function mainScript(
         gl.getUniformLocation(precipitationProgram, 'meltingHeat'),
         guiControls.meltingHeat);
     gl.uniform1f(
-        gl.getUniformLocation(precipitationProgram, 'waterWeight'),
-        guiControls.waterWeight);
-    gl.uniform1f(
         gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'),
         guiControls.aboveZeroThreshold);
     gl.uniform1f(
@@ -738,10 +735,6 @@ async function mainScript(
           gl.useProgram(boundaryProgram);
           gl.uniform1f(
               gl.getUniformLocation(boundaryProgram, 'waterWeight'),
-              guiControls.waterWeight);
-          gl.useProgram(precipitationProgram);
-          gl.uniform1f(
-              gl.getUniformLocation(precipitationProgram, 'waterWeight'),
               guiControls.waterWeight);
         })
         .name('Water Weight');
@@ -3007,6 +3000,8 @@ async function mainScript(
         shaderSource = shaderSource.replace(
             '#include "commonDisplay.glsl"', commonDisplaySource);
       }
+
+      // try shader optimization step here
 
       const shader = gl.createShader(shaderType);
       gl.shaderSource(shader, shaderSource);

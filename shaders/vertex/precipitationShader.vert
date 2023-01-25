@@ -11,7 +11,7 @@ out vec2 mass_out;
 out float density_out;
 
 // to fragmentshader for feedback to fluid
-// feedback[0] droplet weigth / number of inactive droplets count
+// feedback[0] droplet mass / number of inactive droplets count
 // feedback[1] heat exchange with fluid
 // feedback[2] water exchange with fluid / rain accumulation on ground
 // feedback[3] snow acumulation on ground
@@ -31,7 +31,6 @@ uniform float inactiveDroplets; // used to maintain constant spawnrate
 
 uniform float evapHeat;
 uniform float meltingHeat;
-uniform float waterWeight;
 
 // prcipitation settings:
 uniform float aboveZeroThreshold; // 1.0
@@ -196,12 +195,22 @@ void main()
       feedback[1] -= subli * meltingHeat;
 
       // Update position
-      newPos += base.xy / resolution * 2.;                                // move with air       * 2 because -1. to 1.
+      // move with air    * 2. because droplet position goes from -1. to 1
+      newPos += base.xy / resolution * 2.;                                
       newPos.y -= fallSpeed * newDensity * sqrt(totalMass / surfaceArea); // fall speed relative to air
+/*
+ // falling at fixed speed:
+float cellHeight = texelSize.y * 12000.0; // in meters
+float realSecPerIter = 0.288;
+float metersPerSec = 6.0; 
+float cellsPerSec = metersPerSec / cellHeight; 
+float cellsPerIter = cellsPerSec * realSecPerIter;
+newPos.y -= cellsPerIter * 2. * texelSize.y;
+*/
 
-      newPos.x = mod(newPos.x + 1., 2.) - 1.; // wrap horizontal position around edges
+      newPos.x = mod(newPos.x + 1., 2.) - 1.; // wrap horizontal position around map edges
 
-      feedback[0] = -totalMass * waterWeight;
+      feedback[0] = totalMass;
 
 #define pntSize 16.                         // 8
       float pntSurface = pntSize * pntSize; // suface area
