@@ -38,13 +38,15 @@
 - [x] Lock vertical brush position when drawing lake / sea
 - [x] Add Touch Screen Input for using tools
 - [x] Add wind speed gauge to sounding display
+- [x] Add Touch Screen Input for changing view
+- [x] Add different colors for droplet display
+- [ ] Add realistic hail formation and improve precipitation in general
 - [ ] Option to reset atmosphere while keeping terain
 - [ ] Improve precipitation spawning system
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
-# Next Release
 
+# Next Release
 - [ ] Configurable simulation height
-- [ ] Add Touch Screen Input for changing view
 - [ ] Make soil and vegetation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add urban surface type with building textures
