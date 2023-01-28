@@ -907,6 +907,14 @@ async function mainScript(
       return tempC.toFixed(1) + '°C';
   }
 
+  function printDistance(km) {
+    if (guiControls.imperialUnits) {
+      let miles = km * 0.62137;
+      return miles.toFixed(1) + ' miles';
+    } else
+      return km.toFixed(1) + ' km';
+  }
+
   function printAltitude(meters) {
     if (guiControls.imperialUnits) {
       let feet = meters * 3.281;
@@ -969,6 +977,12 @@ async function mainScript(
 
       var reachedAir = false;
       var surfaceLevel;
+
+      c.fillText(
+        '' +
+        printDistance(map_range(
+          simXpos, 0, sim_res_y, 0, guiControls.simHeight / 1000.0)),
+        5, 40);
 
       // Draw temperature line
       c.beginPath();
@@ -1034,8 +1048,8 @@ async function mainScript(
         if (y == simYpos) {
           c.fillText(
             '' +
-            printAltitude(Math.round(map_range(
-              y - 1, 0, sim_res_y, 0, guiControls.simHeight))),
+            printAltitude(map_range(
+              y - 1, 0, sim_res_y, 0, guiControls.simHeight)),
             5, scrYpos + 5);
 
           c.fillText(
