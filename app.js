@@ -2110,17 +2110,7 @@ async function mainScript(
   for (var y = 0; y < sim_res_y + 1; y++) {
     var realTemp = Math.max(
       map_range(y, 0, sim_res_y + 1, 15.0, -70.0),
-      -60);  // almost standard atmosphere
-    //	if (y < sim_res_y * 0.15) {
-    //		realTemp = map_range(y, (sim_res_y + 1) * 0.15, 0, 4, 20);
-    //	}
-
-    // var realTemp = Math.max(map_range(y, 0, sim_res_y+1, 5.0, -65.0), -55.0);
-    // // cold atmosphere if (y < sim_res_y * 0.45) { 	realTemp = map_range(y,
-    // (sim_res_y+1) * 0.15, 0, -10, 5);
-    // }
-
-    // var realTemp = Math.max(map_range(y, 0, sim_res_y, 10.0, 10.0), 10.0);
+      -60);
 
     initial_T[y] =
       realToPotentialT(CtoK(realTemp), y);  // initial temperature profile
