@@ -27,7 +27,8 @@ uniform float greenhouseGases;
 out vec4 light;
 
 uniform float dryLapse;
-#include functions
+
+#include "common.glsl"
 
 void main()
 {

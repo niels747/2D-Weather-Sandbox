@@ -36,7 +36,7 @@ uniform float displayVectorField;
 
 out vec4 fragmentColor;
 
-#include functions
+#include "common.glsl"
 
 #include "commonDisplay.glsl"
 

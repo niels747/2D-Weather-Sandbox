@@ -28,7 +28,12 @@ uniform float waterTemperature;
 uniform float waterEvaporation;
 uniform float landEvaporation;
 uniform float waterWeight;
-uniform float initial_T[300];
+uniform vec4 initial_Tv[76];
+
+float getInitialT(int y)
+{
+    return initial_Tv[y/4][y%4];
+}
 
 uniform float IR_rate;
 uniform float sunAngle;
@@ -39,7 +44,7 @@ layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
 
-#include functions
+#include "common.glsl"
 
 #define wallVerticalInfluence 1  // 2 How many cells above the wall surface effects like heating and evaporation are applied
 /*
@@ -102,7 +107,7 @@ void main()
 
     // gravity for convection interpolated between this and above cell to fix wierd waves
     // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
-    float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (initial_T[int(fragCoord.y)] + initial_T[int(fragCoord.y) + 1]) * 0.5) * gravMult;
+    float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
 
     // float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult;
 

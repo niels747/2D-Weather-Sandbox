@@ -65,7 +65,7 @@ uniform float freezingRate;       // 0.0002
 uniform float meltingRate;        // 0.0015
 uniform float evapRate;           // 0.0005
 
-#include functions
+#include "common.glsl"
 
 vec2 newPos;
 vec2 newMass;

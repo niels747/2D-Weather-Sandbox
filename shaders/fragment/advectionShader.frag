@@ -38,9 +38,14 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform float initial_T[500];
+uniform vec4 initial_Tv[76];
 
-#include functions
+float getInitialT(int y)
+{
+    return initial_Tv[y/4][y%4];
+}
+
+#include "common.glsl"
 
 void main()
 {
@@ -269,7 +274,7 @@ void main()
             base[0] = 0.0; // reset all properties to prevent NaN bug
             base[1] = 0.0;
             base[2] = 0.0;
-            base[3] = initial_T[int(texCoord.y * (1.0 / texelSize.y))];
+            base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));
             water[0] = 0.0;
             water[1] = 0.0;
             water[2] = 0.0;

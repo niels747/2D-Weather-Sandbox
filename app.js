@@ -1424,6 +1424,10 @@ async function mainScript(
       //   }else if(event.touches.length == 1){
       wasTwoFingerTouchBefore = false;
       previousTouches = null;
+
+      if (SETUP_MODE) {
+        startSimulation();
+      }
     }
   }, { passive: false });
 
@@ -1604,7 +1608,7 @@ async function mainScript(
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   // load shaders
-  var shaderFunctionsSource = loadSourceFile('shaders/shaderFunctions.glsl');
+  var commonSource = loadSourceFile('shaders/common.glsl');
   var commonDisplaySource = loadSourceFile('shaders/commonDisplay.glsl');
 
   const simVertexShader = await loadShader('simShader.vert');
@@ -2105,7 +2109,7 @@ async function mainScript(
 
   // generate Initial temperature profile
 
-  var initial_T = new Float32Array(sim_res_y + 1);
+  var initial_T = new Float32Array(304); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
     var realTemp = Math.max(
@@ -2125,7 +2129,9 @@ async function mainScript(
   gl.uniform2f(
     gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
-  gl.uniform1fv(gl.getUniformLocation(setupProgram, 'initial_T'), initial_T);
+  // gl.uniform1fv(gl.getUniformLocation(setupProgram, 'initial_T'), initial_T);
+
+  gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(advectionProgram);
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'baseTex'), 0);
@@ -2137,8 +2143,9 @@ async function mainScript(
   gl.uniform2f(
     gl.getUniformLocation(advectionProgram, 'resolution'), sim_res_x,
     sim_res_y);
-  gl.uniform1fv(
-    gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
+  // gl.uniform1fv(
+  // gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(pressureProgram);
@@ -2155,7 +2162,8 @@ async function mainScript(
     gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX,
     texelSizeY);
 
-  gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
+  // gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
+  gl.uniform4fv(gl.getUniformLocation(velocityProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(vorticityProgram);
   gl.uniform2f(
@@ -2183,7 +2191,8 @@ async function mainScript(
     gl.getUniformLocation(boundaryProgram, 'waterTemperature'),
     CtoK(guiControls.waterTemperature));  // can be changed by GUI input
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dryLapse'), dryLapse);
-  gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
+  //gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
+  gl.uniform4fv(gl.getUniformLocation(boundaryProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(curlProgram);
   gl.uniform2f(
@@ -3033,9 +3042,9 @@ async function mainScript(
 
     var shaderSource = loadSourceFile(filename);
     if (shaderSource) {
-      if (shaderSource.includes('#include functions')) {
+      if (shaderSource.includes('#include "common.glsl"')) {
         shaderSource =
-          shaderSource.replace('#include functions', shaderFunctionsSource);
+          shaderSource.replace('#include "common.glsl"', commonSource);
       }
 
       if (shaderSource.includes('#include "commonDisplay.glsl"')) {

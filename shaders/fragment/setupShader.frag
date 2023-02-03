@@ -9,12 +9,17 @@ uniform float dryLapse;
 uniform float seed;
 uniform float heightMult;
 
-uniform float initial_T[300];
+uniform vec4 initial_Tv[76];
+
+float getInitialT(int y)
+{
+    return initial_Tv[y/4][y%4];
+}
 
 in vec2 texCoord;
 in vec2 fragCoord;
 
-#include functions
+#include "common.glsl"
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
@@ -72,7 +77,7 @@ void main()
         }
     } else { // not wall
         wall[1] = 255; // reset distance to wall
-        base[3] = initial_T[int(texCoord.y * (1.0 / texelSize.y))]; // set temperature
+        base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y))); // set temperature
 
         float realTemp = potentialToRealT(base[3]);
 

@@ -20,7 +20,7 @@ uniform vec4 cursor; // xpos   Ypos  Size   type
 
 out vec4 fragmentColor;
 
-#include functions
+#include "common.glsl"
 
 #include "commonDisplay.glsl"
 
