@@ -1345,6 +1345,19 @@ async function mainScript(
 
   // EVENT LISTENERS
 
+  //window.onbeforeunload = function () {
+  // addEventListener('beforeunload', function (event) {
+  //   preventDefault();
+  //   confirm("Are you sure you want to quit without saving?");
+  // });
+
+  addEventListener('beforeunload', (event) => {
+    event.preventDefault();
+    // custom message not working for some reason
+    confirm("Are you sure you want to quit without saving?");
+    event.returnValue = ''; // Google Chrome requires returnValue to be set.
+  });
+
   window.addEventListener('wheel', function (event) {
     var delta = 0.1;
     if (event.deltaY > 0) delta *= -1;
