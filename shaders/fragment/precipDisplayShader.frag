@@ -25,11 +25,10 @@ fragmentColor = vec4(0.0, 1.0, 1.0, 1.0); // rain
 
 float opacity = (mass_out[0] + mass_out[1]) * 0.3;
 
-
 if(mass_out[1] > 0.){ // has ice
 if(mass_out[0] == 0.){ // has no liquid water, pure ice
-    if(density_out < 0.5) // snow
-        fragmentColor = vec4(1.0, 1.0, 1.0, opacity); // oldscool
+    if(density_out < 1.0) // snow
+        fragmentColor = vec4(1.0, 1.0, 1.0, opacity); // snow
        // fragmentColor = vec4(1.0, 1.0, 1.0, 0.05); // realisic
     else
         fragmentColor = vec4(1.0, 1.0, 0.0, opacity); // hail

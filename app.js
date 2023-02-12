@@ -769,7 +769,7 @@ async function mainScript(
       })
       .name('Spawn Rate');
 
-    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 1.0, 0.01)
+    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 0.9, 0.01)
       .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(
@@ -1345,17 +1345,11 @@ async function mainScript(
 
   // EVENT LISTENERS
 
-  //window.onbeforeunload = function () {
-  // addEventListener('beforeunload', function (event) {
-  //   preventDefault();
-  //   confirm("Are you sure you want to quit without saving?");
-  // });
-
   addEventListener('beforeunload', (event) => {
     event.preventDefault();
-    // custom message not working for some reason
-    confirm("Are you sure you want to quit without saving?");
-    event.returnValue = ''; // Google Chrome requires returnValue to be set.
+    // custom message not showing for some reason
+    confirm('Are you sure you want to quit without saving?');
+    event.returnValue = 0; // Google Chrome requires returnValue to be set.
   });
 
   window.addEventListener('wheel', function (event) {
