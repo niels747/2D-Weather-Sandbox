@@ -117,7 +117,7 @@ void main()
       if (spawnChance > nrmRand) {                                           // spawn
         newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.);     // convert texture coordinate (0 to 1) to position (-1 to 1)
 
-        if (realTemp < CtoK(0.0)) {                // freezing
+        if (realTemp < CtoK(0.0)) {                // below 0 C
           newMass[WATER] = 0.0;                        // enable
           newMass[ICE] = initalMass;                 // snow
           feedback[HEAT] += newMass[ICE] * meltingHeat; // add heat of freezing
