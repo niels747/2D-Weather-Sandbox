@@ -32,7 +32,7 @@ uniform float dryLapse;
 
 void main()
 {
-  if (fragCoord.y > resolution.y - 1.)
+  if (fragCoord.y >= resolution.y - 1.)
     light = vec4(sunIntensity, 0, 0, 0); // at top: full sun, no IR
   else {
 
@@ -57,6 +57,7 @@ void main()
       // float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
       // float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
 
+if(fragCoord.y < resolution.y - 2.){ // prevent shadow bug above simulation area
       float reflection = min((water[1] * 0.035 + water[2] * 0.035) * cellHeightCompensation, 1.); // 0.040 cloud + 0.40 precipitation
       float absorbtion = min(water[3] * 0.020 * cellHeightCompensation, 1.);                      // 0.025 dust/smoke
 
@@ -66,6 +67,7 @@ void main()
       sunlight -= lightReflected + lightAbsorbed;
 
       net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
+}
 
       // longwave / IR calculation
       float IR_down = texture(lightTex, texCoordX0Yp)[2];

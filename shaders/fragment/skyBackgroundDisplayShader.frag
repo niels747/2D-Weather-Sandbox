@@ -6,6 +6,9 @@ precision highp isampler2D;
 in vec2 fragCoord;
 in vec2 texCoord;
 
+uniform vec2 resolution;
+uniform vec2 texelSize;
+
 uniform sampler2D lightTex;
 
 out vec4 fragmentColor;
@@ -21,7 +24,7 @@ vec3 hsv2rgb(vec3 c)
 
 void main()
 {
-  vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y, 0.995)); // limit virtical sample to top of simulation
+  vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
 
   float light = texture(lightTex, lightTexCoord)[0];
 
