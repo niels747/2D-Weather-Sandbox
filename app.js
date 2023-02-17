@@ -70,6 +70,8 @@ const guiControls_default = {
   imperialUnits: false,  // only for display.  false = metric
 };
 
+var guiControls;
+
 var displayVectorField = false;
 
 var sunIsUp = true;
@@ -81,6 +83,7 @@ var datGui;
 
 var sim_res_x;
 var sim_res_y;
+var sim_aspect; //  = sim_res_x / sim_res_y
 
 var frameNum = 0;
 var lastFrameNum = 0;
@@ -96,6 +99,34 @@ const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
 var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25;  // 25
+
+function screenToSimX(screenX) {
+  let leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
+  let rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
+  return map_range(screenX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
+}
+
+function screenToSimY(screenY) {
+  let topEdge = canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+  let bottemEdge = canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+  return map_range(screenY, bottemEdge, topEdge, 0.0, 1.0) - (viewYpos / 2.0) * sim_aspect;
+}
+
+function simToScreenX(simX) {
+  simX += 0.5;
+  simX /= sim_res_x;
+  let leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
+  let rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
+  return map_range(simX + viewXpos / 2.0, 0.0, 1.0, leftEdge, rightEdge);
+}
+
+function simToScreenY(simY) {
+  simY += 0.5; // center in cell
+  simY /= sim_res_y;
+  let topEdge = canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+  let bottemEdge = canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+  return map_range(simY + (viewYpos / 2.0) * sim_aspect, 0.0, 1.0, bottemEdge, topEdge);
+}
 
 function download(filename, data) {
   var url = URL.createObjectURL(data);
@@ -183,6 +214,43 @@ function dewpoint(W) {
 
 function relativeHumd(T, W) {
   return (W / maxWater(T)) * 100.0;
+}
+
+// Print funtions:
+
+function printTemp(tempC) {
+  if (guiControls.imperialUnits) {
+    let tempF = tempC * 1.8 + 32.0;
+    return tempF.toFixed(1) + '°F';
+  } else
+    return tempC.toFixed(1) + '°C';
+}
+
+function printDistance(km) {
+  if (guiControls.imperialUnits) {
+    let miles = km * 0.62137;
+    return miles.toFixed(1) + ' miles';
+  } else
+    return km.toFixed(1) + ' km';
+}
+
+function printAltitude(meters) {
+  if (guiControls.imperialUnits) {
+    let feet = meters * 3.281;
+    return feet.toFixed() + ' ft';
+  } else
+    return meters.toFixed() + ' m';
+}
+
+function printVelocity(ms) {
+  let msStr = ms.toFixed() + ' m/s   ';
+  if (guiControls.imperialUnits) {
+    let mph = ms * 2.23694;
+    return msStr + mph.toFixed() + ' mph';
+  } else {
+    let kmh = ms * 3.6;
+    return msStr + kmh.toFixed() + ' km/h';
+  }
 }
 
 async function loadData() {
@@ -363,6 +431,18 @@ class LoadingBar {
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 function setLoadingBar() {
   return new Promise((resolve) => {
     var element = document.getElementById('IntroScreen');
@@ -381,6 +461,8 @@ function setLoadingBar() {
 async function mainScript(
   initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops) {
   await setLoadingBar();
+
+  document.body.style.overflow = 'hidden'; // prevent scrolling bar from apearing
 
   canvas = document.getElementById('mainCanvas');
 
@@ -404,7 +486,6 @@ async function mainScript(
   }
 
   // SETUP GUI
-  var guiControls;
 
   if (guiControlsFromSaveFile == null) {
     setupDatGui(JSON.stringify(guiControls_default));  // use default settings
@@ -603,6 +684,7 @@ async function mainScript(
         'Vegetation': 'TOOL_VEGETATION',
         'Snow': 'TOOL_WALL_SNOW',
         'wind': 'TOOL_WIND',
+        'weather station': 'TOOL_STATION',
       })
       .name('Tool')
       .listen();
@@ -899,41 +981,6 @@ async function mainScript(
     datGui.show();  // unhide
   }
 
-  function printTemp(tempC) {
-    if (guiControls.imperialUnits) {
-      let tempF = tempC * 1.8 + 32.0;
-      return tempF.toFixed(1) + '°F';
-    } else
-      return tempC.toFixed(1) + '°C';
-  }
-
-  function printDistance(km) {
-    if (guiControls.imperialUnits) {
-      let miles = km * 0.62137;
-      return miles.toFixed(1) + ' miles';
-    } else
-      return km.toFixed(1) + ' km';
-  }
-
-  function printAltitude(meters) {
-    if (guiControls.imperialUnits) {
-      let feet = meters * 3.281;
-      return feet.toFixed() + ' ft';
-    } else
-      return meters.toFixed() + ' m';
-  }
-
-  function printVelocity(ms) {
-    let msStr = ms.toFixed() + ' m/s   ';
-    if (guiControls.imperialUnits) {
-      let mph = ms * 2.23694;
-      return msStr + mph.toFixed() + ' mph';
-    } else {
-      let kmh = ms * 3.6;
-      return msStr + kmh.toFixed() + ' km/h';
-    }
-  }
-
   var soundingGraph = {
     graphCanvas: null,
     ctx: null,
@@ -1032,7 +1079,7 @@ async function mainScript(
       // Draw Dew point line
       c.beginPath();
       for (var y = surfaceLevel; y < sim_res_y; y++) {
-        var dewPoint = dewpoint(waterTextureValues[4 * y]) - 273.15;
+        var dewPoint = KtoC(dewpoint(waterTextureValues[4 * y]));
         var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
 
         var velocity = Math.sqrt(Math.pow(baseTextureValues[4 * y], 2) + Math.pow(baseTextureValues[4 * y + 1], 2));
@@ -1194,7 +1241,96 @@ async function mainScript(
   await loadingBar.set(6, 'Setting up eventlisteners');
   // END OF GRAPH
 
-  const sim_aspect = sim_res_x / sim_res_y;
+
+
+
+
+  class Weatherstation {
+    #width = 70; // display size
+    #height = 35;
+    #canvas;
+    #c; // 2d canvas context
+    #x; // position in simulation
+    #y;
+
+    #temperature = 0;
+    #dewpoint = 0;
+
+
+    constructor(xIn, yIn) {
+      this.#x = Math.floor(xIn);
+      this.#y = Math.floor(yIn);
+      this.#canvas = document.createElement('canvas');
+      document.body.appendChild(this.#canvas);
+      this.#canvas.height = this.#height;
+      this.#canvas.width = this.#width;
+      this.#c = this.#canvas.getContext('2d');
+
+      this.#canvas.style.position = "absolute";
+
+      let thisObj = this;
+      this.#canvas.onclick = function () { if (guiControls.tool == 'TOOL_STATION') { thisObj.destroy() } };
+    }
+
+    destroy() {
+      this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
+      let index = weatherStations.indexOf(this);
+      weatherStations.splice(index, 1); //remove object from array
+    }
+
+    measure() {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);  // basetexture
+      var baseTextureValues = new Float32Array(4);
+      gl.readPixels(
+        this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT,
+        baseTextureValues);
+
+      this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
+
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+      gl.readBuffer(gl.COLOR_ATTACHMENT1);  // watertexture
+      var waterTextureValues = new Float32Array(4);
+      gl.readPixels(
+        this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT,
+        waterTextureValues);
+
+      this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
+    }
+
+    updateCanvas() {
+      let screenX = simToScreenX(this.#x) - this.#width / 2;
+      let screenY = simToScreenY(this.#y) - this.#height;
+
+      //if (screenX > 0 && screenX < canvas.width && screenY > 0 && screenY < canvas.height) {
+
+      this.#canvas.style.left = screenX + 'px';
+      this.#canvas.style.top = screenY + 'px';
+      let c = this.#c;
+      c.clearRect(0, 0, this.#width, this.#height);
+      c.fillStyle = '#00000000';
+      c.fillRect(0, 0, this.#width, this.#height);
+
+      c.font = '15px Arial';
+      c.fillStyle = '#FFFFFF';
+      c.fillText(printTemp(this.#temperature), 10, 15);
+      //c.fillStyle = '#FFFFFF';
+      //c.fillText(printTemp(this.#dewpoint), 10, 35);
+
+      c.beginPath();
+      c.moveTo(this.#width / 2, this.#height * 0.75);
+      c.lineTo(this.#width / 2, this.#height);
+      c.strokeStyle = 'white';
+      c.stroke();
+      //  }
+    }
+  }
+
+  let weatherStations = []; // array holding all weather stations
+
+  // weatherStations.push(new Weatherstation(1, 1)); // test station
+
+  sim_aspect = sim_res_x / sim_res_y;
 
   var canvas_aspect;
 
@@ -1391,10 +1527,22 @@ async function mainScript(
   });
 
   canvas.addEventListener('mousedown', function (event) {
-    if (event.button == 0) {
+    event.preventDefault();
+    if (event.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
         startSimulation();
+      } else if (guiControls.tool == 'TOOL_STATION') {
+        let simXpos = mouseXinSim * sim_res_x;
+        let simYpos = mouseYinSim * sim_res_y;
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+        gl.readBuffer(gl.COLOR_ATTACHMENT2);  // walltexture
+        var wallTextureValues = new Int8Array(4);
+        gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+
+        if (wallTextureValues[1] > 0) // only place if cell is not wall
+          weatherStations.push(new Weatherstation(simXpos, simYpos));
       }
     } else if (event.button == 1) {
       // middle mouse button
@@ -1574,6 +1722,8 @@ async function mainScript(
       guiControls.tool = 'TOOL_WALL_SNOW';
     } else if (event.code == 'KeyP') {
       guiControls.tool = 'TOOL_WIND';
+    } else if (event.code == 'KeyM') {
+      guiControls.tool = 'TOOL_STATION';
     } else if (event.key == 'PageUp') {
       adjIterPerFrame(1);
     } else if (event.code == 'PageDown') {
@@ -2341,19 +2491,16 @@ async function mainScript(
   await loadingBar.set(100, 'Loading complete');  // loading complete
   await loadingBar.remove();
 
-  setInterval(calcFps, 1000);  // log fps
-
-  requestAnimationFrame(draw);
-
   var srcVAO;
   var destVAO;
   var destTF;
 
   // preload uniform locations for tiny performance gain
-
   var uniformLocation_boundaryProgram_iterNum =
     gl.getUniformLocation(boundaryProgram, 'iterNum');
 
+  setInterval(calcFps, 1000);  // log fps
+  requestAnimationFrame(draw);
 
   function draw() {  // Runs for every frame
     if (leftPressed) {
@@ -2384,17 +2531,20 @@ async function mainScript(
     prevMouseXinSim = mouseXinSim;
     prevMouseYinSim = mouseYinSim;
 
-    var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
-    var rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
-    mouseXinSim =
-      map_range(mouseX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
+    // var leftEdge = canvas.width / 2.0 - (canvas.width * viewZoom) / 2.0;
+    // var rightEdge = canvas.width / 2.0 + (canvas.width * viewZoom) / 2.0;
+    // mouseXinSim =
+    //   map_range(mouseX, leftEdge, rightEdge, 0.0, 1.0) - viewXpos / 2.0;
 
-    var topEdge =
-      canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
-    var bottemEdge =
-      canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
-    mouseYinSim = map_range(mouseY, bottemEdge, topEdge, 0.0, 1.0) -
-      (viewYpos / 2.0) * sim_aspect;
+    mouseXinSim = screenToSimX(mouseX);
+    mouseYinSim = screenToSimY(mouseY);
+
+    // var topEdge =
+    //   canvas.height / 2.0 - ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+    // var bottemEdge =
+    //   canvas.height / 2.0 + ((canvas.width / sim_aspect) * viewZoom) / 2.0;
+    // mouseYinSim = map_range(mouseY, bottemEdge, topEdge, 0.0, 1.0) -
+    //   (viewYpos / 2.0) * sim_aspect;
 
     if (SETUP_MODE) {
       gl.disable(gl.BLEND);
@@ -2614,9 +2764,11 @@ async function mainScript(
             gl.uniform1f(
               gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'),
               sampleValues[0]);
+
+            for (i = 0; i < weatherStations.length; i++) {
+              weatherStations[i].measure();
+            }
           }
-
-
 
           gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
           gl.disable(gl.BLEND);
@@ -2630,6 +2782,7 @@ async function mainScript(
           Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x))),
           Math.floor(mouseYinSim * sim_res_y));
       }
+
     }  // END OF NOT SETUP
 
     let cursorType = 1.0;  // normal circular brush
@@ -2637,7 +2790,7 @@ async function mainScript(
       cursorType = 2.0;  // cursor whole width brush
     } else if (
       SETUP_MODE ||
-      (inputType <= 0 && !bPressed && guiControls.tool == 'TOOL_NONE')) {
+      (inputType <= 0 && !bPressed && (guiControls.tool == 'TOOL_NONE' || guiControls.tool == 'TOOL_STATION'))) {
       cursorType = 0;  // cursor off sig
     }
 
@@ -2744,6 +2897,7 @@ async function mainScript(
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
         gl.bindVertexArray(fluidVao);  // set screenfilling rect again
       }
+
     } else {
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
         gl.useProgram(temperatureDisplayProgram);
@@ -2862,6 +3016,10 @@ async function mainScript(
       //	gl.bindTexture(gl.TEXTURE_2D, curlTexture);
       //	gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);  // draw to canvas
+    }
+
+    for (i = 0; i < weatherStations.length; i++) {
+      weatherStations[i].updateCanvas(); // update weather stations
     }
 
     frameNum++;
