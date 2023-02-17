@@ -18,7 +18,7 @@ out vec2 texCoordX0Yp; // up
 out vec2 texCoordX0Ym; // down
 
 const float Xmult = 3.0; // how often the simulation is repeated horizontally
-const float Ymult = 4.;  // 4.0
+const float Ymult = 5.;  // 4.0
 
 void main()
 {

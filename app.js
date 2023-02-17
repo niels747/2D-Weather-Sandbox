@@ -1256,7 +1256,6 @@ async function mainScript(
     #temperature = 0;
     #dewpoint = 0;
 
-
     constructor(xIn, yIn) {
       this.#x = Math.floor(xIn);
       this.#y = Math.floor(yIn);

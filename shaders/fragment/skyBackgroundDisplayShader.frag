@@ -36,16 +36,17 @@ void main()
 
   float hue = 0.6;
   float sat = map_range(texCoord.y, 0., 2.5, 0.5, 1.0);
-  float val = pow(map_range(texCoord.y, 0., 2.5, 1.0, 0.1), 3.0); // pow 3 map 1.0 to 0.3
+
+
+  float val = pow(map_range(texCoord.y, 0., 3.2, 1.0, 0.1), 5.0); // pow 3 map 1.0 to 0.3
+
+
   val = pow(val, 1. / 2.2);                                       // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
 
 
-  // if (texCoord.y > 2.49 && texCoord.x > 0.5) // show top
-  //   mixedCol.r = 1.;
+   //if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top
+  
 
-
-  fragmentColor = vec4(mixedCol * (light * 0.7 + 0.3), 1.0);
-
-  // fragmentColor = vec4(bottemBackgroundCol, 1.0);
+  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3), 1.0);
 }
