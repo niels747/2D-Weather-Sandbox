@@ -334,7 +334,7 @@ async function loadData() {
     }
   } else {
     // no file, so create new simulation
-    // texture resolution limit on most gpus: 16384
+    // texture resolution limit on most GPU's: 16384
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
     sim_res_y = parseInt(document.getElementById('simResSelY').value);
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
@@ -1266,6 +1266,7 @@ async function mainScript(
       this.#c = this.#canvas.getContext('2d');
 
       this.#canvas.style.position = "absolute";
+      this.#canvas.style.zIndex = '-2';
 
       let thisObj = this;
       this.#canvas.onclick = function () { if (guiControls.tool == 'TOOL_STATION') { thisObj.destroy() } };
@@ -3138,7 +3139,7 @@ async function mainScript(
         ];
         let blob =
           new Blob(saveDataArray);  // combine everything into a single blob
-        let arrBuff = await blob.arrayBuffer();  // turn into array
+        let arrBuff = await blob.arrayBuffer();  // turn into array for pako
         let arr = new Uint8Array(arrBuff);
         let compressed = window.pako.deflate(arr);  // compress
         let compressedBlob =
