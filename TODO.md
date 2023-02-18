@@ -33,36 +33,36 @@
 - [x] Make trees wave with the wind
 - [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolutions lower than 300
 
-# Small changes:
+# Recent changes:
 - [x] Improve droplet display
 - [x] Lock vertical brush position when drawing lake / sea
 - [x] Add Touch Screen Input for using tools
 - [x] Add wind speed gauge to sounding display
 - [x] Add Touch Screen Input for changing view
 - [x] Add different colors for droplet display
+- [x] Add weather stations showing current conditions
+
+# In Progress
 - [ ] Add realistic hail formation and improve precipitation in general
-- [ ] Option to reset atmosphere while keeping terain
+- [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Improve precipitation spawning system
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
-
-# Next Release
-- [ ] Configurable simulation height
+- [ ] Make simulation height configurable 
 - [ ] Make soil and vegetation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add urban surface type with building textures
 - [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
-- [ ] Add weather stations showing current conditions
 
 # Future:
 - [ ] Make weather stations show history in plots
-- [ ] Better terain generation
+- [ ] Improve terain generation
 - [ ] Allow editing while simulation paused
+- [ ] Make precipitation work on mobile devices
 - [ ] Add sounds
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
 - [ ] Add weather balloons
-- [ ] Support mobile devices
 
 ... Submit your ideas in the discussions tab!
