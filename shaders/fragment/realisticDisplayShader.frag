@@ -127,13 +127,14 @@ void main()
   } else { // air
 
     vec3 cloudCol = vec3(1.0 / (cloudwater * 0.1 + 1.0)); // white to black
-    float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
+    //vec3 cloudCol = vec3(1.0); // white
 
-    cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
+    float cloudOpacity = clamp(cloudwater * 4.0 /* + water[2] * 1.0*/, 0.0, 1.0);
+     cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
 
-    vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
-    vec3 smokeThickCol = vec3(0., 0., 0.);
-    vec3 fireCol = vec3(1.0, 0.7, 0.0);
+    const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
+    const vec3 smokeThickCol = vec3(0., 0., 0.);
+    const vec3 fireCol = vec3(1.0, 0.7, 0.0);
 
     float smokeOpacity = clamp(1. - (1. / (water[3] + 1.)), 0.0, 1.0);
     float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);

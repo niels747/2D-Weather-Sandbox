@@ -18,7 +18,7 @@ precision highp float;
 // feedback
 #define MASS 0
 #define HEAT 1
-//#define RAIN 2
+#define VAPOR 2
 //#define SNOW 3
 
 
@@ -127,11 +127,11 @@ void main()
           newMass[ICE] = 0.0;
           newDensity = 1.0;
         }
-        feedback[RAIN] -= initalMass;
+        feedback[VAPOR] -= initalMass;
       }
     }
 
-    if (feedback[RAIN] < 0.0) { // is taking water from texture so has spawned
+    if (feedback[VAPOR] < 0.0) { // is taking water from texture so has spawned
       gl_PointSize = 1.0;
       gl_Position = vec4(newPos, 0.0, 1.0);
     } else {                                                                    // still inactive
@@ -152,7 +152,7 @@ void main()
     if (totalMass < 0.04) { // 0.00001   to small
 
       feedback[HEAT] = totalMass * evapHeat; // evaporation of residual droplet
-      feedback[RAIN] = totalMass;            // evaporation of residual droplet
+      feedback[VAPOR] = totalMass;            // evaporation of residual droplet
 
       disableDroplet();
 
@@ -173,10 +173,19 @@ void main()
 
       float growthRate = clamp(map_range(realTemp, CtoK(0.0), CtoK(-30.0), growthRate0C, growthRate_30C), growthRate0C, growthRate_30C); // the colder it gets the easier ice starts to form
 
-      float growth = water[CLOUD] * growthRate * surfaceArea;
-      feedback[RAIN] -= growth * 1.0;
 
-      if (realTemp < CtoK(0.0)) { // freezing
+      float growth = water[CLOUD] * growthRate * surfaceArea;
+
+      // Hail growth enhancement:
+      if (realTemp < CtoK(0.0) && density == 1.0) { // below freezing
+          growth += surfaceArea * water[RAIN] * 0.0030; // rain freezing onto hail
+      }
+
+      feedback[VAPOR] -= growth * 1.0; // takes water from the air
+            
+
+      if (realTemp < CtoK(0.0)) { // below freezing
+
         newMass[ICE] += growth;     // ice growth
         feedback[HEAT] += growth * meltingHeat;
 
@@ -185,16 +194,16 @@ void main()
         newMass[ICE] += freezing;
         feedback[HEAT] += freezing * meltingHeat;
 
-      } else {                // melting
+      } else {            // above freezing
         newMass[WATER] += growth; // water growth
 
-        float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea / newDensity, newMass[ICE]); // 0.0002 snow / hail melting
+        float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea/* / newDensity */, newMass[ICE]); // 0.0002 snow / hail melting
         newMass[ICE] -= melting;
         newMass[WATER] += melting;
         feedback[HEAT] -= melting * meltingHeat;
 
         newDensity = min(newDensity + (melting / totalMass) * 1.00,
-                         1.0); // density increases upto 1.0
+                         1.0); // density increases upto 1.0 as snow melts
       }
 
       float dropletTemp = potentialToRealT(base[TEMP]); // should be wetbulb temperature...
@@ -210,8 +219,8 @@ void main()
       newMass[WATER] -= evap;  // water evaporation
       newMass[ICE] -= subli; // ice sublimation
 
-      feedback[RAIN] += evap; // added to water vapor in air
-      feedback[RAIN] += subli;
+      feedback[VAPOR] += evap; // added to water vapor in air
+      feedback[VAPOR] += subli;
       feedback[HEAT] -= evap * evapHeat; // heat cost extracted from air
       feedback[HEAT] -= subli * evapHeat;
       feedback[HEAT] -= subli * meltingHeat;
@@ -234,12 +243,12 @@ newPos.y -= cellsPerIter * 2. * texelSize.y;
 
       feedback[MASS] = totalMass;
 
-#define pntSize 16.                         // 8
+#define pntSize 12.                         // 16
       float pntSurface = pntSize * pntSize; // suface area
 
       feedback[MASS] /= pntSurface;
       feedback[HEAT] /= pntSurface;
-      feedback[RAIN] /= pntSurface;
+      feedback[VAPOR] /= pntSurface;
 
       gl_PointSize = pntSize;
     } // update

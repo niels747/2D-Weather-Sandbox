@@ -40,12 +40,12 @@ const guiControls_default = {
   aboveZeroThreshold: 1.0,  // PRECIPITATION Parameters
   subZeroThreshold: 0.01,   // 0.05
   spawnChance: 0.00002,     // 0.0005
-  snowDensity: 0.3,
+  snowDensity: 0.2, // 0.3
   fallSpeed: 0.0003,
   growthRate0C: 0.0001,   // 0.0005
   growthRate_30C: 0.001,  // 0.01
-  freezingRate: 0.0035,
-  meltingRate: 0.0035,
+  freezingRate: 0.0025,
+  meltingRate: 0.0025,
   evapRate: 0.0005,  // END OF PRECIPITATION
   displayMode: 'DISP_REAL',
   timeOfDay: 9.9,
