@@ -756,7 +756,7 @@ async function mainScript(
 
     var water_folder = datGui.addFolder('Water');
 
-    water_folder.add(guiControls, 'waterTemperature', 0.0, 35.0, 0.1)
+    water_folder.add(guiControls, 'waterTemperature', 0.0, 50.0, 0.1)
       .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(
@@ -768,7 +768,7 @@ async function mainScript(
           CtoK(guiControls.waterTemperature));
       })
       .name('Lake / Sea Temp (°C)');
-    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
+    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0006, 0.00001)
       .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(
@@ -776,7 +776,7 @@ async function mainScript(
           guiControls.landEvaporation);
       })
       .name('Land Evaporation');
-    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0004, 0.00001)
+    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0008, 0.00001)
       .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(
@@ -842,7 +842,7 @@ async function mainScript(
       .name('Precipitation Threshold -°C');
 
     precipitation_folder
-      .add(guiControls, 'spawnChance', 0.00001, 0.0001, 0.00001)
+      .add(guiControls, 'spawnChance', 0.00001, 0.0003, 0.00001)
       .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(
@@ -851,7 +851,7 @@ async function mainScript(
       })
       .name('Spawn Rate');
 
-    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 0.9, 0.01)
+    precipitation_folder.add(guiControls, 'snowDensity', 0.1, 2.9, 0.01)
       .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(
@@ -908,7 +908,7 @@ async function mainScript(
       })
       .name('Melting Rate');
 
-    precipitation_folder.add(guiControls, 'evapRate', 0.0001, 0.005, 0.0001)
+    precipitation_folder.add(guiControls, 'evapRate', 0.0001, 0.010, 0.0001)
       .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(
