@@ -1254,8 +1254,6 @@ async function mainScript(
 
 
 
-
-
   class Weatherstation {
     #width = 70; // display size
     #height = 55;
