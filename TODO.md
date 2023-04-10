@@ -44,6 +44,7 @@
 - [x] Add hail formation
 
 # In Progress
+- [ ] Save Weather Stations to Save File
 - [ ] Make simulation height adjustable from 5000m to 15000m
 - [ ] Make horizontal resolution adjustable from 100 to 500
 - [ ] Improve realistic hail formation and improve precipitation in general
