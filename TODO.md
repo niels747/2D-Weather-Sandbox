@@ -41,20 +41,22 @@
 - [x] Add Touch Screen Input for changing view
 - [x] Add different colors for droplet display
 - [x] Add weather stations showing current conditions
+- [x] Add hail formation
 
 # In Progress
-- [ ] Add realistic hail formation and improve precipitation in general
-- [ ] Add Option to reset atmosphere while keeping terain
+- [ ] Make simulation height adjustable from 5000m to 15000m
+- [ ] Make horizontal resolution adjustable from 100 to 500
+- [ ] Improve realistic hail formation and improve precipitation in general
 - [ ] Improve precipitation spawning system
+- [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
-- [ ] Make simulation height configurable 
+
+# Future:
 - [ ] Make soil and vegetation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add urban surface type with building textures
 - [ ] Add realistic albedo's for different surface types
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
-
-# Future:
 - [ ] Make weather stations show history in plots
 - [ ] Improve terain generation
 - [ ] Allow editing while simulation paused
