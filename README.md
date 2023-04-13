@@ -48,9 +48,9 @@ Pako: Only used for data compression to reduce save file sizes. Size reduction c
 # How to run it locally and modify code
   1. Install VS code: https://code.visualstudio.com/
   2. Install VS Code extensions:
-  a. Live Server
-  b. GLSL lint
-  c. Clang-Format, requires installing CLANG/LLVM: https://github.com/llvm/llvm-project/releases/tag/llvmorg-16.0.0
+   * Live Server
+   * GLSL lint
+   * Clang-Format, requires installing CLANG/LLVM: https://github.com/llvm/llvm-project/releases/tag/llvmorg-16.0.0
   
   3. Clone project with GIT or just download ZIP
   4. Open project folder
