@@ -52,7 +52,7 @@ Pako: Only used for data compression to reduce save file sizes. Size reduction c
    * GLSL lint
    * Clang-Format, requires installing CLANG/LLVM: https://github.com/llvm/llvm-project/releases/tag/llvmorg-16.0.0
   
-  3. Clone project with GIT or just download ZIP
-  4. Open project folder
+  3. Clone project using GIT, or just download ZIP
+  4. Open project folder in VS Code
   5. Start live server
   6. Automatically opens in browser
