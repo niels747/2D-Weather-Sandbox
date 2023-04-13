@@ -44,3 +44,15 @@ The simulation and visualization itself is entirely custom js and glsl written b
 DatGui: Used for the user interface because it's very easy to add more controllable variables. It is however getting a bit cluttered and other options should be evaluated. Building a custom interface is also an option.
 
 Pako: Only used for data compression to reduce save file sizes. Size reduction can be 2-4 times depending on the state of the simulation. Not essential. Downside is that it takes longer to save and load files.
+  
+# How to run it locally and modify code
+  1. Install VS code: https://code.visualstudio.com/
+  2. Install VS Code extensions:
+  a. Live Server
+  b. GLSL lint
+  c. Clang-Format, requires installing CLANG/LLVM: https://github.com/llvm/llvm-project/releases/tag/llvmorg-16.0.0
+  
+  3. Clone project with GIT or just download ZIP
+  4. Open project folder
+  5. Start live server
+  6. Automatically opens in browser
