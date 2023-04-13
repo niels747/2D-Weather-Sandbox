@@ -40,10 +40,7 @@ vec2 texelSize;
 
 uniform vec4 initial_Tv[76];
 
-float getInitialT(int y)
-{
-    return initial_Tv[y/4][y%4];
-}
+float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
 #include "common.glsl"
 
@@ -71,7 +68,7 @@ void main()
                        (cellX0Ym.y + cellX0Y0.y) / 2.);                                        // center of cell
     vec2 velAtVx = vec2(cellX0Y0.x, (cellX0Ym.y + cellXpY0.y + cellX0Y0.y + cellXpYm.y) / 4.); // midle of right edge of cell
     vec2 velAtVy = vec2((cellXmY0.x + cellX0Yp.x + cellXmYp.x + cellX0Y0.x) / 4.,
-                        cellX0Y0.y); // midle of top edge of cell
+                        cellX0Y0.y);                                                           // midle of top edge of cell
 
     // ADVECT AIR:
 
@@ -79,13 +76,12 @@ void main()
 
     base[0] = bilerp(baseTex, fragCoord - velAtVx)[0]; // Vx
     base[1] = bilerp(baseTex, fragCoord - velAtVy)[1]; // Vy
-   // base[0] = bilerpWall(baseTex, wallTex, fragCoord - velAtVx)[0]; // Vx
-   // base[1] = bilerpWall(baseTex, wallTex, fragCoord - velAtVy)[1]; // Vy
+                                                       // base[0] = bilerpWall(baseTex, wallTex, fragCoord - velAtVx)[0]; // Vx
+                                                       // base[1] = bilerpWall(baseTex, wallTex, fragCoord - velAtVy)[1]; // Vy
 
 
-
-    //base[2] = bilerp(baseTex, fragCoord - velAtP)[2];
-    //base[3] = bilerp(baseTex, fragCoord - velAtP)[3];
+    // base[2] = bilerp(baseTex, fragCoord - velAtP)[2];
+    // base[3] = bilerp(baseTex, fragCoord - velAtP)[3];
 
     base[2] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[2];
     base[3] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[3];
@@ -96,7 +92,7 @@ void main()
     // // precipitation visualization
     water.z = texture(waterTex, texCoord).z; // precipitation visualization
 
-    //vec2 backTracedPos = fragCoord - velAtP; // advect / flow
+    // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
 
     // vec2 backTracedPos = texCoord; // no flow
 
@@ -104,10 +100,10 @@ void main()
 
     realTemp = potentialToRealT(base[3]);
 
-    float newCloudWater = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
+    float newCloudWater = max(water[0] - maxWater(realTemp), 0.0);            // calculate cloud water
 
-    float dT = (newCloudWater - water[1]) * evapHeat; // how much that water phase change would change the
-                                                      // temperature
+    float dT = (newCloudWater - water[1]) * evapHeat;                         // how much that water phase change would change the
+                                                                              // temperature
 
     float dWt = max(water[0] - maxWater(realTemp + dT), 0.0) - newCloudWater; // how much that temperature change would change
                                                                               // the amount of liquid water
@@ -136,9 +132,9 @@ void main()
     // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
     // drying !
 
-    water[0] = max(water[0], 0.0); // prevent water from going negative
+    water[0] = max(water[0], 0.0);     // prevent water from going negative
 
-  } else { // this is wall
+  } else {                             // this is wall
 
     base = texture(baseTex, texCoord); // pass trough
 
@@ -160,7 +156,7 @@ void main()
 
       float tempC = KtoC(potentialToRealT(baseX0Yp[3])); // temperature of cell above
 
-      if (water[3] > 0.0 && tempC > 0.0) { // snow melting on ground
+      if (water[3] > 0.0 && tempC > 0.0) {               // snow melting on ground
         float melting = min(tempC * snowMeltRate, water[3]);
         water[3] -= melting;
         base[3] += melting * meltingHeat; // signal snow melting, will be applied in pressure shader
@@ -176,13 +172,13 @@ void main()
 
   // USER INPUT:
 
-  bool inBrush = false; // if cell is in brush area
-  float weight = 1.0;   // 1.0 at center, 0.0 at border
+  bool inBrush = false;           // if cell is in brush area
+  float weight = 1.0;             // 1.0 at center, 0.0 at border
 
   if (userInputValues.x < -0.5) { // whole width brush
     if (abs(userInputValues.y - texCoord.y) < userInputValues[3] * texelSize.y)
       inBrush = true;
-  } else { // circular brush
+  } else {                                       // circular brush
     vec2 vecFromMouse = vec2(absHorizontalDist(userInputValues.x, texCoord.x), userInputValues.y - texCoord.y);
     vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
 
@@ -196,7 +192,7 @@ void main()
   }
 
   if (inBrush) {
-    if (userInputType == 1) { // temperature
+    if (userInputType == 1) {        // temperature
       base[3] += userInputValues[2];
     } else if (userInputType == 2) { // water
       water[0] += userInputValues[2];
@@ -205,10 +201,13 @@ void main()
       water[3] += userInputValues[2];
       water[3] = max(water[3], 0.0);
 
-    } else if (userInputType == 4) { // drag/move air
+    } else if (userInputType == 4) {                                   // drag/move air
 
-      base.xy += userInputMove * 1.0 * weight * userInputValues[2];
-
+      if (userInputValues.x < -0.5) {                                  // whole width brush
+        base.x += userInputMove.x * 1.0 * weight * userInputValues[2]; // only move horizontally
+      } else {
+        base.xy += userInputMove * 1.0 * weight * userInputValues[2];
+      }
     } else if (userInputType >= 10) { // wall
       if (userInputValues[2] > 0.0) { // build wall if positive value else remove wall
 
@@ -216,7 +215,7 @@ void main()
 
         switch (userInputType) { // set wall type
         case 10:
-          wall[0] = 0; // normal wall
+          wall[0] = 0;           // normal wall
           setWall = true;
           break;
         case 11:
@@ -252,7 +251,7 @@ void main()
         }
 
         if (setWall) {
-          wall[1] = 0; // set wall
+          wall[1] = 0;      // set wall
           water = vec4(0.0);
           base[3] = 1000.0; // indicate this is wall and no snow cooling
         }
@@ -270,8 +269,8 @@ void main()
             wall[3] = max(wall[3] - 1, 0);       // remove vegetation
           } else if (texCoord.y > texelSize.y) { // remove wall
 
-            wall[1] = 255; // remove wall
-            base[0] = 0.0; // reset all properties to prevent NaN bug
+            wall[1] = 255;                       // remove wall
+            base[0] = 0.0;                       // reset all properties to prevent NaN bug
             base[1] = 0.0;
             base[2] = 0.0;
             base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));
