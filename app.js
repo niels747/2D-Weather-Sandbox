@@ -69,6 +69,8 @@ const guiControls_default = {
   imperialUnits : false, // only for display.  false = metric
 };
 
+var realDewPoint = true;
+
 var guiControls;
 
 var displayVectorField = false;
@@ -913,6 +915,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       c.beginPath();
       for (var y = surfaceLevel; y < sim_res_y; y++) {
         var dewPoint = KtoC(dewpoint(waterTextureValues[4 * y]));
+
+        var temp = baseTextureValues[4 * y + 3] - ((y / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0 - 273.15;
+        if (realDewPoint) {
+          dewPoint = Math.min(temp, dewPoint);
+        }
+
         var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
 
         var velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[4 * y], 2) + Math.pow(baseTextureValues[4 * y + 1], 2)));
@@ -929,11 +937,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
           c.strokeStyle = '#FFF';
           c.lineWidth = 1.0;
+
+
           c.strokeRect(T_to_Xpos(dewPoint, scrYpos) - 10, scrYpos, 10,
                        1); // vertical position indicator
           c.fillText('' + printTemp(dewPoint), T_to_Xpos(dewPoint, scrYpos) - 70, scrYpos + 5);
         }
-        c.lineTo(T_to_Xpos(dewPoint, scrYpos), scrYpos); // temperature
+
+        c.lineTo(T_to_Xpos(dewPoint, scrYpos), scrYpos); // draw line segment
       }
 
       c.lineWidth = 2.0; // 3
@@ -941,7 +952,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       c.stroke();
 
       // Draw rising parcel temperature line
-
       var water = waterTextureValues[4 * simYpos];
       var potentialTemp = baseTextureValues[4 * simYpos + 3];
       var initialTemperature = potentialTemp - ((simYpos / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0;
@@ -1104,6 +1114,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
 
       this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
+
+      if (realDewPoint) {
+        this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
+      }
     }
 
     updateCanvas()
