@@ -9,10 +9,28 @@ This projects aims to produce a semirealistic two-dimensional, realtime, interac
 Simulating clouds and precipitation are the main objectives of this project.
 All the equations relating to water phase change are simplified versions of the real ones, to improve performance and ease programming.
 Precipitation is simulated using discrete particles but can be viualized as both partiles and smooth realistic looking curtains.
-![Bui](https://user-images.githubusercontent.com/42830240/160260531-03ecaee1-244b-4eb1-a758-284728e9d9e7.PNG)
+
+Forming Cell:
+![Screenshot (7)](https://user-images.githubusercontent.com/42830240/232745061-25c860c3-8c52-4704-86af-bcba13f74cd6.png)
+
+Mature Cell 1:
+![Screenshot (23)](https://user-images.githubusercontent.com/42830240/232744315-5207396b-57e4-4aaa-968a-e85cd9283f3d.png)
+Mature Cell 1 with Precipitation Particles:
+![Screenshot (26)](https://user-images.githubusercontent.com/42830240/232744406-ba1c7230-a8b2-492a-85bb-c1c57c1c8a81.png)
+
+
+Mature Cell 2:
+![Screenshot (10)](https://user-images.githubusercontent.com/42830240/232746561-341b867e-9fcd-4d34-b200-61c403695d5a.png)
+
+
+Mature Cell 3 zoomed out:
+![Screenshot (17)](https://user-images.githubusercontent.com/42830240/232746022-dcb4755a-219c-474e-8ae6-8a6ebfadbd0e.png)
+
 
 Sunlight with realistic colors makes clouds and precipitation look real
-![Bui2](https://user-images.githubusercontent.com/42830240/160260597-12e4772e-717b-411d-a3e2-f946fb5c5c3f.PNG)
+![Screenshot (31)](https://user-images.githubusercontent.com/42830240/232749322-d4602f66-015e-4405-9da7-2e4969473c55.png)
+![Screenshot (32)](https://user-images.githubusercontent.com/42830240/232749511-1e5c2010-e65a-44eb-bbfe-f9e9b87f5c10.png)
+
 
 
 ![Bui5](https://user-images.githubusercontent.com/42830240/160260713-32ffee8a-18a2-45bc-98be-b4396793b466.PNG)
