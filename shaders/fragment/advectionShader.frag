@@ -124,9 +124,9 @@ void main()
       water[0] -= globalDrying;             // drying 0.00001
       base[3] += globalHeating;
 
-      if (texCoord.y > 0.9) {
-        base[3] -= (KtoC(realTemp) - -60.0) * 0.001; // tropopause temperature stabilization
-      }
+      // if (texCoord.y > 0.9) {
+      //   base[3] -= (KtoC(realTemp) - -60.0) * 0.001; // tropopause temperature stabilization
+      // }
     }
 
     // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
