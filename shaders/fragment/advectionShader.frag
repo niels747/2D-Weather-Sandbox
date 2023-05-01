@@ -38,9 +38,9 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform vec4 initial_Tv[76];
+// uniform vec4 initial_Tv[76];
 
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
+// float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
 #include "common.glsl"
 
@@ -49,8 +49,6 @@ void main()
   wall = texture(wallTex, texCoord);
 
   texelSize = vec2(1) / resolution;
-
-  float actualTempChange = 0.0, realTemp;
 
   if (wall[1] != 0) { // not wall
 
@@ -98,25 +96,20 @@ void main()
 
     // water.xy = bilerp(waterTex, backTracedPos).xy;
 
-    realTemp = potentialToRealT(base[3]);
 
-    float newCloudWater = max(water[0] - maxWater(realTemp), 0.0);            // calculate cloud water
+    float newCloudWater = max(water[0] - maxWater(base[3]), 0.0);            // calculate cloud water
 
-    float dT = (newCloudWater - water[1]) * evapHeat;                         // how much that water phase change would change the
-                                                                              // temperature
-
-    float dWt = max(water[0] - maxWater(realTemp + dT), 0.0) - newCloudWater; // how much that temperature change would change
-                                                                              // the amount of liquid water
-
-    actualTempChange = dT_saturated(dT, dWt * evapHeat);
+    float dT = (newCloudWater - water[1]) * evapHeat;                        // how much that water phase change would change the
+                                                                             // temperature
+    float dWt = max(water[0] - maxWater(base[3] + dT), 0.0) - newCloudWater; // how much that temperature change would change
+                                                                             // the amount of liquid water
+    float actualTempChange = dT_saturated(dT, dWt * evapHeat);
 
     base[3] += actualTempChange; // APPLY LATENT HEAT!
 
-    realTemp += actualTempChange;
 
-    float tempC = KtoC(realTemp);
-
-    float relHum = relativeHumd(realTemp, water[0]);
+    // float tempC = KtoC(realTemp);
+    // float relHum = relativeHumd(realTemp, water[0]);
 
     // Radiative cooling and heating effects
 
@@ -207,6 +200,7 @@ void main()
         base.x += userInputMove.x * 1.0 * weight * userInputValues[2]; // only move horizontally
       } else {
         base.xy += userInputMove * 1.0 * weight * userInputValues[2];
+        base[2] = 0.5;
       }
     } else if (userInputType >= 10) { // wall
       if (userInputValues[2] > 0.0) { // build wall if positive value else remove wall
@@ -272,8 +266,8 @@ void main()
             wall[1] = 255;                       // remove wall
             base[0] = 0.0;                       // reset all properties to prevent NaN bug
             base[1] = 0.0;
-            base[2] = 0.0;
-            base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));
+            base[2] = 1.5;
+            base[3] = CtoK(0.0);
             water[0] = 0.0;
             water[1] = 0.0;
             water[2] = 0.0;
@@ -285,7 +279,7 @@ void main()
   }
 
   if (wall[1] == 0) { // is wall
-    // base[3] += 1000.0; // WHY DOES WALL TEMP HAVE AFFECT ON SIMULATION?
+    // base[3] += 1000.0; // WHY DOES WALL TEMP HAVE EFFECT ON SIMULATION?
     // special temperature, just to identify that it is a wall cell when drawing
     // the graph
   } else { // no wall
@@ -293,6 +287,6 @@ void main()
     //  if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
     //    water = vec4(0.0);
 
-    water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
+    water[1] = max(water[0] - maxWater(base[3]), 0.0); // recalculate cloud water
   }
 }

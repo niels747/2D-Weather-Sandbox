@@ -71,9 +71,9 @@ float rand2d(vec2 co)
 
 // Temperature Functions
 
-float potentialToRealT(float potential) { return potential - texCoord.y * dryLapse; }
+float potentialToRealT(float potential) { return potential; }
 
-float realToPotentialT(float real) { return real + texCoord.y * dryLapse; }
+float realToPotentialT(float real) { return real; }
 
 float CtoK(float c) { return c + 273.15; }
 
@@ -139,7 +139,7 @@ vec4 bilerp(sampler2D tex, vec2 pos)
 vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
                 vec2 pos) // prevents sampeling from wall cell
 {
-  vec2 st = pos - 0.5; // calc pixel coordinats
+  vec2 st = pos - 0.5;    // calc pixel coordinats
 
   vec2 ipos = vec2(floor(st));
   vec2 fpos = fract(st);

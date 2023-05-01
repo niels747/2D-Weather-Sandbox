@@ -877,7 +877,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       for (var y = 0; y < sim_res_y; y++) {
         var potentialTemp = baseTextureValues[4 * y + 3];
 
-        var temp = potentialTemp - ((y / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0 - 273.15;
+        var temp = KtoC(potentialTemp);
 
         var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
 
@@ -916,7 +916,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       for (var y = surfaceLevel; y < sim_res_y; y++) {
         var dewPoint = KtoC(dewpoint(waterTextureValues[4 * y]));
 
-        var temp = baseTextureValues[4 * y + 3] - ((y / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0 - 273.15;
+        var temp = KtoC(baseTextureValues[4 * y + 3]);
         if (realDewPoint) {
           dewPoint = Math.min(temp, dewPoint);
         }
@@ -938,7 +938,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           c.strokeStyle = '#FFF';
           c.lineWidth = 1.0;
 
-
           c.strokeRect(T_to_Xpos(dewPoint, scrYpos) - 10, scrYpos, 10,
                        1); // vertical position indicator
           c.fillText('' + printTemp(dewPoint), T_to_Xpos(dewPoint, scrYpos) - 70, scrYpos + 5);
@@ -954,7 +953,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // Draw rising parcel temperature line
       var water = waterTextureValues[4 * simYpos];
       var potentialTemp = baseTextureValues[4 * simYpos + 3];
-      var initialTemperature = potentialTemp - ((simYpos / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0;
+      var initialTemperature = potentialTemp;
       var initialCloudWater = waterTextureValues[4 * simYpos + 1];
       // var temp = potentialTemp - ((y / sim_res_y) * guiControls.simHeight *
       // guiControls.dryLapseRate) / 1000.0 - 273.15;
@@ -1105,7 +1104,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       var baseTextureValues = new Float32Array(4);
       gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
 
-      this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
+      this.#temperature = KtoC(baseTextureValues[3]);
       this.#velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
 
       // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
@@ -2051,19 +2050,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function CtoK(c) { return c + 273.15; }
 
-  function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse; }
+  // function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse; }
 
   function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
 
   // generate Initial temperature profile
 
-  var initial_T = new Float32Array(304); // sim_res_y + 1
-
+  var initial_T = new Float32Array(604); // sim_res_y + 1
   for (var y = 0; y < sim_res_y + 1; y++) {
     var realTemp = Math.max(map_range(y, 0, sim_res_y + 1, 15.0, -70.0), -60);
-
-    initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
+    initial_T[y] = CtoK(realTemp); // initial temperature profile
   }
+
+  var initial_P = new Float32Array(604); // sim_res_y + 1
+  initial_P[sim_res_y] = 0.20;           // pressure at top of atmosphere
+  for (var y = sim_res_y - 1; y > 0; y--) {
+    var density = initial_P[y + 1] / initial_T[y + 1] * 348.37;
+    var gravMult = 0.004;
+    initial_P[y] = initial_P[y + 1] + density * gravMult; // initial temperature profile
+  }
+
 
   cellHeight = guiControls.simHeight / sim_res_y; // in meters
 
@@ -2072,8 +2078,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
-  // gl.uniform1fv(gl.getUniformLocation(setupProgram, 'initial_T'), initial_T);
 
+  gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Pv'), initial_P);
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(advectionProgram);
@@ -2084,7 +2090,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(advectionProgram, 'resolution'), sim_res_x, sim_res_y);
   // gl.uniform1fv(
   // gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
+  // gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(pressureProgram);
@@ -2098,7 +2104,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX, texelSizeY);
 
   // gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
-  gl.uniform4fv(gl.getUniformLocation(velocityProgram, 'initial_Tv'), initial_T);
+  // gl.uniform4fv(gl.getUniformLocation(velocityProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(vorticityProgram);
   gl.uniform2f(gl.getUniformLocation(vorticityProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -2119,7 +2125,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dryLapse'), dryLapse);
   // gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
-  gl.uniform4fv(gl.getUniformLocation(boundaryProgram, 'initial_Tv'), initial_T);
+  // gl.uniform4fv(gl.getUniformLocation(boundaryProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(curlProgram);
   gl.uniform2f(gl.getUniformLocation(curlProgram, 'texelSize'), texelSizeX, texelSizeY);

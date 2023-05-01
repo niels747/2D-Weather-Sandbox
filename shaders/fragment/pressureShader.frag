@@ -13,6 +13,15 @@ uniform isampler2D wallTex;
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
 
+void addPressure(float dP)
+{
+  float pressChangeMult = dP / base[2];
+
+  base[2] += dP;
+
+  base[3] *= 1.0 + pressChangeMult * 0.29;
+}
+
 void main()
 {
   base = texture(baseTex, texCoord);
@@ -32,12 +41,13 @@ void main()
   //  if(texCoord.y > 0.99){ // keep pressure at top close to 0
   //     base[2] *= 0.995; // 0.999
   //     base[2] -= 0.001;
-// }
+  // }
 
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;
 
   // pressure changes proportional to the net in or outflow, to or from the cell.
   // 0.05 - 0.49   was 0.40, lower multiplier dampenes pressure waves.
-  base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45;
+  // base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45;
+  addPressure((baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45);
 }
