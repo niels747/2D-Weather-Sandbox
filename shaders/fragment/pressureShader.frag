@@ -23,7 +23,7 @@ void addPressure(float dP)
 
   base[3] *= 1.0 + pressChangeMult * 0.29;
 
-  water[0] *= 1.0 + pressChangeMult;
+  // water[0] *= 1.0 + pressChangeMult;
 }
 
 void main()

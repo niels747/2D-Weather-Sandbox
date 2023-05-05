@@ -19,7 +19,7 @@ var loadingBar;
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
 
-const saveFileVersionID = 1939327491; // Uint32 id to check if save file is compatible
+const saveFileVersionID = 820815937; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
   vorticity : 0.005,
@@ -49,7 +49,7 @@ const guiControls_default = {
   displayMode : 'DISP_REAL',
   timeOfDay : 9.9,
   latitude : 45.0,
-  month : 6.67, // Northern himisphere solstice
+  month : 6.67, // Northern hemisphere solstice
   sunAngle : 9.9,
   dayNightCycle : true,
   exposure : 1.0,
@@ -2757,7 +2757,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         let compressedBlob = new Blob([ Uint32Array.of(saveFileVersionID), compressed ], {
           type : 'application/x-binary',
         }); // turn back into blob and add version id in front
-        download(saveFileName + '.weathersandbox', compressedBlob);
+        download(saveFileName + '.weathersandbox2', compressedBlob);
       } else {
         alert('You didn\'t enter a valid file name!');
       }

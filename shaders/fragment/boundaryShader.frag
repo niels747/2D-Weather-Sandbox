@@ -113,7 +113,7 @@ void main()
 
     float gravityForce = density * gravMult;
 
-    // gravityForce += water[1] * gravMult * waterWeight * 0.1; // cloud water weight added to gravity force
+    gravityForce += water[1] * gravMult * waterWeight * 0.01; // cloud water weight added to gravity force
 
     // gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
 
