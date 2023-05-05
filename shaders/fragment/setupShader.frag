@@ -39,7 +39,7 @@ void main()
   base = vec4(0.0);
   water = vec4(0.0);
 
-  base[2] = 1.0; // pressure
+  base[2] = getInitialP(int(texCoord.y * (1.0 / texelSize.y))); // set pressure
 
   // WALL SETUP
 
@@ -63,8 +63,11 @@ void main()
     height *= heightMult;
   }
 
-  if (texCoord.y < texelSize.y || texCoord.y < height) {                                             // set to wall
-    wall[1] = 0;                                                                                     // set to wall
+  if (texCoord.y < texelSize.y || texCoord.y < height) { // set to wall
+    wall[1] = 0;                                         // set to wall
+    base[2] = getInitialP(int(resolution.y));            // set pressure in lowest wall layer equal to top layer
+
+
     if (height < texelSize.y) {
       wall[0] = 2;                                                                                   // set walltype to water
     } else {
@@ -78,17 +81,14 @@ void main()
     }
   } else {                                                        // not wall
     wall[1] = 255;                                                // reset distance to wall
-    base[2] = getInitialP(int(texCoord.y * (1.0 / texelSize.y))); // set pressure
     base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y))); // set temperature
 
-    float realTemp = base[3];
-
-    if (texCoord.y < 0.20) // set dew point
-      water[0] = maxWater(realTemp - 2.0);
+    if (texCoord.y < 0.20)                                        // set dew point
+      water[0] = maxWater(base[3] - 2.0);
     else
-      water[0] = maxWater(realTemp - 20.0);
+      water[0] = maxWater(base[3] - 20.0);
 
-    water[1] = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
+    water[1] = max(water[0] - maxWater(base[3]), 0.0); // calculate cloud water
   }
-  wall[2] = 100;                                        // prevent water being deleted in boundaryshader ln 250*
+  wall[2] = 100;                                       // prevent water being deleted in boundaryshader ln 250*
 }

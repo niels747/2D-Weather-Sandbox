@@ -9,6 +9,7 @@ in vec2 texCoordXpY0; // right
 in vec2 texCoordX0Yp; // up
 
 uniform sampler2D baseTex;
+uniform sampler2D waterTex;
 uniform isampler2D wallTex;
 
 uniform float dragMultiplier;
@@ -18,14 +19,8 @@ uniform float wind;
 uniform vec2 texelSize;
 // uniform vec2 resolution;
 
-uniform vec4 initial_Tv[76];
-
-float getInitialT(int y)
-{
-    return initial_Tv[y/4][y%4];
-}
-
 layout(location = 0) out vec4 base;
+layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
 
 void main()
@@ -34,13 +29,15 @@ void main()
   vec4 baseXpY0 = texture(baseTex, texCoordXpY0);
   vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
 
+  water = texture(waterTex, texCoord);
+
   wall = texture(wallTex, texCoord);
 
   if (wall[1] == 0) // is wall
   {
-    base[0] = 0.0; // velocities in wall are 0
-    base[1] = 0.0; // this will make a wall not let any pressure trough and
-                   // thereby reflect any pressure waves back
+    base[0] = 0.0;  // velocities in wall are 0
+    base[1] = 0.0;  // this will make a wall not let any pressure trough and
+                    // thereby reflect any pressure waves back
   } else {
 
     // The velocity through the cell changes proportionally to the pressure

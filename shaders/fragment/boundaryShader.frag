@@ -102,7 +102,7 @@ void main()
 
 #define gravMult 0.004 // 0.0001 0.0005
 
-                       // gravity for convection interpolated between this and above cell to fix wierd waves
+// gravity for convection interpolated between this and above cell to fix wierd waves
 // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
 // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
 #define R_air 348.37
@@ -113,7 +113,7 @@ void main()
 
     float gravityForce = density * gravMult;
 
-    gravityForce += water[1] * gravMult * waterWeight * 0.1; // cloud water weight added to gravity force
+    // gravityForce += water[1] * gravMult * waterWeight * 0.1; // cloud water weight added to gravity force
 
     // gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
 

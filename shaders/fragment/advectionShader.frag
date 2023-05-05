@@ -266,7 +266,7 @@ void main()
             wall[1] = 255;                       // remove wall
             base[0] = 0.0;                       // reset all properties to prevent NaN bug
             base[1] = 0.0;
-            base[2] = 1.5;
+            base[2] = 1.0;
             base[3] = CtoK(0.0);
             water[0] = 0.0;
             water[1] = 0.0;

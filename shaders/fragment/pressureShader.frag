@@ -8,9 +8,11 @@ in vec2 texCoordXmY0; // left
 in vec2 texCoordX0Ym; // down
 
 uniform sampler2D baseTex;
+uniform sampler2D waterTex;
 uniform isampler2D wallTex;
 
 layout(location = 0) out vec4 base;
+layout(location = 1) out vec4 water; // new
 layout(location = 2) out ivec4 wall;
 
 void addPressure(float dP)
@@ -20,6 +22,8 @@ void addPressure(float dP)
   base[2] += dP;
 
   base[3] *= 1.0 + pressChangeMult * 0.29;
+
+  water[0] *= 1.0 + pressChangeMult;
 }
 
 void main()
@@ -27,6 +31,8 @@ void main()
   base = texture(baseTex, texCoord);
   vec4 baseXmY0 = texture(baseTex, texCoordXmY0);
   vec4 baseX0Ym = texture(baseTex, texCoordX0Ym);
+
+  water = texture(waterTex, texCoord);
 
   wall = texture(wallTex, texCoord); // pass trough
 
@@ -45,6 +51,8 @@ void main()
 
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;
+
+  // water[0] = 0.0;
 
   // pressure changes proportional to the net in or outflow, to or from the cell.
   // 0.05 - 0.49   was 0.40, lower multiplier dampenes pressure waves.

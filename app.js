@@ -25,11 +25,11 @@ const guiControls_default = {
   vorticity : 0.005,
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
-  globalEffectsHeight : 5000,
+  globalEffectsHeight : 8000,
   globalDrying : 0.00001,
   globalHeating : 0.0,
   sunIntensity : 1.0,
-  waterTemperature : 25, // only in degrees C, sorry Americans
+  waterTemperature : 25, // °C
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
   evapHeat : 1.9,           // 1.9    Real: 2260 J/g
@@ -61,8 +61,8 @@ const guiControls_default = {
   intensity : 0.01,
   showGraph : false,
   showDrops : false,
-  paused : false,
-  IterPerFrame : 10,
+  paused : true,
+  IterPerFrame : 1,
   auto_IterPerFrame : true,
   dryLapseRate : 10.0,   // Real: 9.81 degrees / km
   simHeight : 12000,     // meters
@@ -952,8 +952,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // Draw rising parcel temperature line
       var water = waterTextureValues[4 * simYpos];
-      var potentialTemp = baseTextureValues[4 * simYpos + 3];
-      var initialTemperature = potentialTemp;
+      // var potentialTemp = ;
+      var initialTemperature = baseTextureValues[4 * simYpos + 3];
       var initialCloudWater = waterTextureValues[4 * simYpos + 1];
       // var temp = potentialTemp - ((y / sim_res_y) * guiControls.simHeight *
       // guiControls.dryLapseRate) / 1000.0 - 273.15;
@@ -1215,7 +1215,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[0] X-vel:', baseTextureValues[0]);
     console.log('[1] Y-vel:', baseTextureValues[1]);
     console.log('[2] Press:', baseTextureValues[2]);
-    console.log('[3] Temp :', KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) + ' °C');
+    console.log('[3] Temp :', KtoC(baseTextureValues[3], simYpos).toFixed(2) + ' °C');
 
     //		console.log(simYpos);
 
@@ -2050,16 +2050,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function CtoK(c) { return c + 273.15; }
 
-  // function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse; }
-
-  function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
-
   // generate Initial temperature profile
 
   var initial_T = new Float32Array(604); // sim_res_y + 1
-  for (var y = 0; y < sim_res_y + 1; y++) {
-    var realTemp = Math.max(map_range(y, 0, sim_res_y + 1, 15.0, -70.0), -60);
-    initial_T[y] = CtoK(realTemp); // initial temperature profile
+  for (var y = 0; y <= sim_res_y; y++) {
+    var tempC = Math.max(map_range(y, 0, sim_res_y - 1, 15.0, -70.0), -60);
+    initial_T[y] = CtoK(tempC); // initial temperature profile
   }
 
   var initial_P = new Float32Array(604); // sim_res_y + 1
@@ -2095,12 +2091,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(pressureProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(pressureProgram, 'waterTex'), 1); // new
+  gl.uniform1i(gl.getUniformLocation(pressureProgram, 'wallTex'), 2);
   gl.uniform2f(gl.getUniformLocation(pressureProgram, 'texelSize'), texelSizeX, texelSizeY);
 
   gl.useProgram(velocityProgram);
   gl.uniform1i(gl.getUniformLocation(velocityProgram, 'baseTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(velocityProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(velocityProgram, 'waterTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(velocityProgram, 'wallTex'), 2);
   gl.uniform2f(gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX, texelSizeY);
 
   // gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
@@ -2354,9 +2352,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
           gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
+          gl.activeTexture(gl.TEXTURE2);
           gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
           gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
           // calc curl
@@ -2381,7 +2381,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
           gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1); // waterTexture_1
           gl.activeTexture(gl.TEXTURE2);
           gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
           gl.activeTexture(gl.TEXTURE3);
@@ -2411,19 +2411,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
           gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1); // new
+          gl.activeTexture(gl.TEXTURE2);
           gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
           gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
           // calc light
           gl.useProgram(lightingProgram);
           gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+          gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
           gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+          gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
           gl.activeTexture(gl.TEXTURE2);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+          gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
           gl.activeTexture(gl.TEXTURE3);
 
           if (even) {
