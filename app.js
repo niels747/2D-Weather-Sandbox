@@ -249,6 +249,8 @@ function printAltitude(meters)
     return meters.toFixed() + ' m';
 }
 
+function printPressure(hpa) { return hpa.toFixed(1) + ' hPa'; }
+
 function printVelocityMs(ms) { return ms.toFixed() + ' m/s'; }
 
 function printVelocity(ms)
@@ -931,6 +933,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         // c.fillText("Surface: " + y, 10, scrYpos);
         if (y == simYpos) {
           c.fillText('' + printAltitude(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight)), 5, scrYpos + 5);
+
+          c.fillText('' + printPressure(baseTextureValues[4 * y + 2] * 1000.0), 100, scrYpos + 5);
 
           c.fillText('' + printVelocity(velocity), this.graphCanvas.width - 120, scrYpos + 5);
 
