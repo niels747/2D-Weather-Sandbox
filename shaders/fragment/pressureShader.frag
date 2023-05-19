@@ -23,7 +23,7 @@ void addPressure(float dP)
 
   base[3] *= 1.0 + pressChangeMult * 0.29;
 
-  // water[0] *= 1.0 + pressChangeMult;
+  water[0] *= 1.0 + pressChangeMult; // the ammount of water vapor changes proortional to the air density change
 }
 
 void main()
@@ -44,11 +44,6 @@ void main()
   // if(wall[1] == 0) // if this is wall
   //    base[0] = 0.; // set velocity to 0
 
-  //  if(texCoord.y > 0.99){ // keep pressure at top close to 0
-  //     base[2] *= 0.995; // 0.999
-  //     base[2] -= 0.001;
-  // }
-
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;
 
@@ -57,5 +52,5 @@ void main()
   // pressure changes proportional to the net in or outflow, to or from the cell.
   // 0.05 - 0.49   was 0.40, lower multiplier dampenes pressure waves.
   // base[2] += (baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45;
-  addPressure((baseXmY0[0] - base[0] + baseX0Ym[1] - base[1]) * 0.45);
+  addPressure((baseXmY0.x - base.x + baseX0Ym.y - base.y) * 0.49);
 }

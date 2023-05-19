@@ -2063,7 +2063,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
   var initial_P = new Float32Array(604); // sim_res_y + 1
-  initial_P[sim_res_y] = 0.20;           // pressure at top of atmosphere
+  initial_P[sim_res_y] = 0.185;          // 0.185 pressure at top of atmosphere
   for (var y = sim_res_y - 1; y > 0; y--) {
     var density = initial_P[y + 1] / initial_T[y + 1] * 348.37;
     var gravMult = 0.004;
