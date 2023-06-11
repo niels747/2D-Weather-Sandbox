@@ -72,5 +72,5 @@ Pako: Only used for data compression to reduce save file sizes. Size reduction c
   
   3. Clone project using GIT, or just download ZIP
   4. Open project folder in VS Code
-  5. Start live server
-  6. Automatically opens in browser
+  5. Open index.html
+  6. Start live server, automatically opens page in browser
