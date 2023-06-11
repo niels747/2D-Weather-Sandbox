@@ -36,7 +36,7 @@ Sunlight with realistic colors makes clouds and precipitation look real
 ![Bui5](https://user-images.githubusercontent.com/42830240/160260713-32ffee8a-18a2-45bc-98be-b4396793b466.PNG)
 
 
-## limitations
+## Limitations
 Due to the two-dimensional nature of the simulation, it cannot simulate 3D vortices such as tornadoes, dust devils or hurricanes. It can only simulate linear storm systems.
 
 
@@ -46,16 +46,53 @@ Warm moist air is rising into the cloud on the right condensing water and releas
 The dew points and cape are very low in this example, but it's just enough to form a nice stable cell.
 ![Naamloos](https://user-images.githubusercontent.com/42830240/173365013-cdea3b40-f470-4390-a8fa-b8d93025d893.png)
 
-# The code
-
-The simulation is based on a very simple fluid simulation topology.
-In total the project contains arround 4000 lines of code of wich 2400 in JS and 1500 in GLSL
-
-<insert explanation>
-
+# The Code
+The simulation is based on a simple fluid simulation topology.
+In total the project contains arround 5000 lines of code of wich 2800 in JS and 2000 in GLSL.
 All code was written by me (Niels Daemen) except for the libraries included
 
-## libraries
+## Fluid Model
+The fluid model consists of a 2 dimensional grid of cells. 
+Each cell has the following properties:
+
+<img width="1095" alt="image" src="https://github.com/niels747/2D-Weather-Sandbox/assets/42830240/f08e08e9-4d96-4d80-b890-1f213085668f">
+
+
+These properties are not simply defined at the center of each cell, but using a so called staggered grid. the velocities are defined exactly on the border between cells. They are therefore exactly in between the centers of the cells, which is where the pressures are defined. In this way the velocities define the exact flow rate from one cell to its neighbor. This makes calculating new velocities and pressures very simple.
+
+![image](https://github.com/niels747/2D-Weather-Sandbox/assets/42830240/107d58f9-359c-4507-b7a9-bb1019a60934)
+
+
+### Iteration
+One iteration or timestep consists of the following steps:
+1.	Calculating pressure 
+2.	Calculating velocities
+3.	Advection
+Every step is completed for each cell in the grid, before the next step is executed.
+
+
+
+### Calculating pressure
+Pressure can be imagined as being the amount of fluid that is in a cell.
+The velocities can be imagined as a flow of fluid from a cell to a neighbouring cell. Therefore the change in pressure is equal to the net inflow to the cell this is also known as the divergence (or convergence) in the velocity vector field. To calculate the net inflow to the cell, the total outflow is simply subtracted from the total inflow. This is done for both x and y directions. 
+
+<img width="460" alt="image" src="https://github.com/niels747/2D-Weather-Sandbox/assets/42830240/b2500548-5145-451f-b67b-84d2d8673811">
+
+![image](https://github.com/niels747/2D-Weather-Sandbox/assets/42830240/83ea332f-c5c9-46de-8afb-5a0bf28c7b31)
+
+
+
+### Calculating velocities
+
+The change in the velocity trough a point is proportional to the pressure across it. This is basically just Newton's 2nd law (F = m * a) Pressure is force / area, and since the area of the cell is constant, the force (F) is simply the pressure gradient across the point. The mass (M) is also assumed to be constant as if the fluid has a constant density, this is not physically accurate. The acceleration (a) is then simply a function of the pressure gradient. Acceleration is simply the change in velocity / time, and because the timestep is constant all that remains is simply adding the pressure gradients to the velocities for both x and y axis:
+
+
+<img width="566" alt="image" src="https://github.com/niels747/2D-Weather-Sandbox/assets/42830240/3c8714fc-8b32-4fa8-8591-3a07509001a7">
+
+
+
+
+## Libraries
 
 The simulation and visualization itself is entirely custom js and glsl written by me (Niels Daemen). The sounding graph, keyboard and mouse controls are also custom code. The simulation can run and be partly controlled without any libraries. I do however use the following libraries for part of the user interface and file compression:
 
