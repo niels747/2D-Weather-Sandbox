@@ -1587,6 +1587,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WIND';
     } else if (event.code == 'KeyM') {
       guiControls.tool = 'TOOL_STATION';
+    } else if (event.code == 'KeyL') {
+      // reload simulation
+      if (initialRainDrops) { // if loaded from save file
+        setupPrecipitationBuffers();
+        setupTextures();
+        gl.bindVertexArray(fluidVao);
+      }
     } else if (event.key == 'PageUp') {
       adjIterPerFrame(1);
     } else if (event.code == 'PageDown') {
@@ -1768,94 +1775,105 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // console.log(rainDrops.length);
   // console.log(rainDrops);
 
-  var precipitationVao_0 = gl.createVertexArray();
-  gl.bindVertexArray(precipitationVao_0);
-  var precipVertexBuffer_0 = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rainDrops), gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(positionAttribLocation);
-  gl.enableVertexAttribArray(massAttribLocation);
-  gl.enableVertexAttribArray(densityAttribLocation);
-  gl.vertexAttribPointer(
-    dropPositionAttribLocation,         // Attribute location
-    2,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    0                                   // Offset from the beginning of a single vertex to this attribute
-  );
-  gl.vertexAttribPointer(
-    massAttribLocation,                 // Attribute location
-    2,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
-    // single vertex to this attribute
-  );
-  gl.vertexAttribPointer(
-    densityAttribLocation,              // Attribute location
-    1,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
-    // single vertex to this attribute
-  );
+  var even = true; // used to switch between precipitation buffers
+
+  const precipitationVao_0 = gl.createVertexArray();
+  const precipVertexBuffer_0 = gl.createBuffer();
   const precipitationTF_0 = gl.createTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_0);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
-                    precipVertexBuffer_0); // this binds the default (id = 0)
-  // TRANSFORM_FEEBACK buffer
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
-
-  var precipitationVao_1 = gl.createVertexArray();
-  gl.bindVertexArray(precipitationVao_1);
-  var precipVertexBuffer_1 = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_1);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rainDrops), gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(positionAttribLocation);
-  gl.enableVertexAttribArray(massAttribLocation);
-  gl.enableVertexAttribArray(densityAttribLocation);
-  gl.vertexAttribPointer(
-    dropPositionAttribLocation,         // Attribute location
-    2,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    0                                   // Offset from the beginning of a single vertex to this attribute
-  );
-  gl.vertexAttribPointer(
-    massAttribLocation,                 // Attribute location
-    2,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
-    // single vertex to this attribute
-  );
-  gl.vertexAttribPointer(
-    densityAttribLocation,              // Attribute location
-    1,                                  // Number of elements per attribute
-    gl.FLOAT,                           // Type of elements
-    gl.FALSE,
-    5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-    4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
-    // single vertex to this attribute
-  );
+  const precipitationVao_1 = gl.createVertexArray();
+  const precipVertexBuffer_1 = gl.createBuffer();
   const precipitationTF_1 = gl.createTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_1);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
-                    precipVertexBuffer_1); // this binds the default (id = 0)
-  // TRANSFORM_FEEBACK buffer
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-  gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, null); // buffers are bound via VAO's
 
-  var even = true;                      // used to switch between precipitation buffers
+  function setupPrecipitationBuffers()
+  {
+    gl.bindVertexArray(precipitationVao_0);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rainDrops), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(positionAttribLocation);
+    gl.enableVertexAttribArray(massAttribLocation);
+    gl.enableVertexAttribArray(densityAttribLocation);
+    gl.vertexAttribPointer(
+      dropPositionAttribLocation,         // Attribute location
+      2,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      0                                   // Offset from the beginning of a single vertex to this attribute
+    );
+    gl.vertexAttribPointer(
+      massAttribLocation,                 // Attribute location
+      2,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      // single vertex to this attribute
+    );
+    gl.vertexAttribPointer(
+      densityAttribLocation,              // Attribute location
+      1,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      // single vertex to this attribute
+    );
+
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_0);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
+                      precipVertexBuffer_0); // this binds the default (id = 0)
+    // TRANSFORM_FEEBACK buffer
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+
+    // var precipitationVao_1 = gl.createVertexArray();
+    gl.bindVertexArray(precipitationVao_1);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_1);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rainDrops), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(positionAttribLocation);
+    gl.enableVertexAttribArray(massAttribLocation);
+    gl.enableVertexAttribArray(densityAttribLocation);
+    gl.vertexAttribPointer(
+      dropPositionAttribLocation,         // Attribute location
+      2,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      0                                   // Offset from the beginning of a single vertex to this attribute
+    );
+    gl.vertexAttribPointer(
+      massAttribLocation,                 // Attribute location
+      2,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      // single vertex to this attribute
+    );
+    gl.vertexAttribPointer(
+      densityAttribLocation,              // Attribute location
+      1,                                  // Number of elements per attribute
+      gl.FLOAT,                           // Type of elements
+      gl.FALSE,
+      5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+      4 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+      // single vertex to this attribute
+    );
+
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_1);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
+                      precipVertexBuffer_1); // this binds the default (id = 0)
+    // TRANSFORM_FEEBACK buffer
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, null); // buffers are bound via VAO's
+  }
+
+  setupPrecipitationBuffers();
 
   /*
 
@@ -1889,85 +1907,115 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   */
 
+  const baseTexture_0 = gl.createTexture();
+  const baseTexture_1 = gl.createTexture();
+  const waterTexture_0 = gl.createTexture();
+  const waterTexture_1 = gl.createTexture();
+  const wallTexture_0 = gl.createTexture();
+  const wallTexture_1 = gl.createTexture();
+
+  const curlTexture = gl.createTexture();
+  const vortForceTexture = gl.createTexture();
+
+  const lightTexture_0 = gl.createTexture();
+  const lightTexture_1 = gl.createTexture();
+  const precipitationFeedbackTexture = gl.createTexture();
+  const noiseTexture = gl.createTexture();
+  const forestTexture = gl.createTexture();
+  const forestSnowTexture = gl.createTexture();
+  const forestFireTexture = gl.createTexture();
+
+
+  const frameBuff_0 = gl.createFramebuffer();
+  const frameBuff_1 = gl.createFramebuffer();
+
+  const curlFrameBuff = gl.createFramebuffer();
+  const vortForceFrameBuff = gl.createFramebuffer();
+
+  const lightFrameBuff_0 = gl.createFramebuffer();
+  const lightFrameBuff_1 = gl.createFramebuffer();
+  const precipitationFeedbackFrameBuff = gl.createFramebuffer();
 
   // Set up Textures
+  async function setupTextures()
+  {
+    gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const baseTexture_0 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const baseTexture_1 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const waterTexture_0 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const waterTexture_1 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const wallTexture_0 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  //  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-  const wallTexture_1 = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
+    gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
+    gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  setupTextures();
 
   // Set up Framebuffers
 
-  const frameBuff_0 = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTexture_0, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, waterTexture_0, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, wallTexture_0, 0);
 
-  const frameBuff_1 = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTexture_1, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, waterTexture_1, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, wallTexture_1, 0);
 
-  const curlTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, curlTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, sim_res_x, sim_res_y, 0, gl.RED, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  const curlFrameBuff = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, curlTexture,
                           0); // attach the texture as the first color attachment
 
-  const vortForceTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, sim_res_x, sim_res_y, 0, gl.RG, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  const vortForceFrameBuff = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, vortForceTexture, 0);
 
-  const lightTexture_0 = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT,
                 null);                                               // HALF_FLOAT before, but problems with acuracy
@@ -1975,33 +2023,33 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
                    gl.CLAMP_TO_EDGE); // prevent light from shining trough at bottem or top
-  const lightFrameBuff_0 = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_0, 0);
 
-  const lightTexture_1 = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
                    gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
-  const lightFrameBuff_1 = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_1, 0);
 
-  const precipitationFeedbackTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  const precipitationFeedbackFrameBuff = gl.createFramebuffer();
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
 
   // load images
   imgElement = await loadImage('resources/noise_texture.jpg');
-  const noiseTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
 
@@ -2017,7 +2065,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   //     gl.REPEAT);  // default, so no need to set
 
   imgElement = await loadImage('resources/forest.png');
-  const forestTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, forestTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
@@ -2027,7 +2075,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // NEAREST_MIPMAP_LINEAR create wierd effects
 
   imgElement = await loadImage('resources/forest_snow.png');
-  const forestSnowTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, forestSnowTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
@@ -2036,13 +2084,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   imgElement = await loadImage('resources/forestfire.png');
-  const forestFireTexture = gl.createTexture();
+
   gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
