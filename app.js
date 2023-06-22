@@ -1247,6 +1247,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var mouseX = 0;
   var mouseY = 0;
   var ctrlPressed = false;
+  var rightCtrlPressed = false;
   var bPressed = false;
   var leftPressed = false;
   var downPressed = false;
@@ -1499,10 +1500,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var lastBpressTime;
 
   document.addEventListener('keydown', (event) => {
-    if (event.keyCode == 17 || event.keyCode == 91) {
+    if (event.code == 'ControlLeft' || event.key == 'Meta') {
       // ctrl or cmd on mac
       ctrlPressed = true;
-    } else if (event.code == 'Space') {
+    }
+    if (event.code == 'ControlRight') {
+      // ctrl or cmd on mac
+      rightCtrlPressed = true;
+    } else if (event.code == 'Space') { //
       // space bar
       guiControls.paused = !guiControls.paused;
     } else if (event.code == 'KeyD') {
@@ -1550,16 +1555,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.key == 8) {
       guiControls.displayMode = 'DISP_IRUPTEMP';
     } else if (event.key == 'ArrowLeft') {
-      leftPressed = true;             // <
+      leftPressed = true;  // <
     } else if (event.key == 'ArrowUp') {
-      upPressed = true;               // ^
+      upPressed = true;    // ^
     } else if (event.key == 'ArrowRight') {
-      rightPressed = true;            // >
+      rightPressed = true; // >
     } else if (event.key == 'ArrowDown') {
-      downPressed = true;             // v
+      downPressed = true;  // v
     } else if (event.key == '=' || event.key == '+') {
-      plusPressed = true;             // +
+      event.preventDefault();
+      plusPressed = true; // +
     } else if (event.key == '-') {
+      event.preventDefault();
       minusPressed = true;            // -
     } else if (event.code == 'Backquote') {
       event.preventDefault();         // prevent anoying ` apearing when typing after
@@ -1604,6 +1611,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   document.addEventListener('keyup', (event) => {
     if (event.keyCode == 17 || event.keyCode == 224) {
       ctrlPressed = false;
+    }
+    if (event.code == 'ControlRight') {
+      // ctrl or cmd on mac
+      rightCtrlPressed = false;
     } else if (event.code == 'KeyB') {
       bPressed = false;
       lastBpressTime = new Date().getTime();
@@ -2280,35 +2291,41 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function draw()
   { // Runs for every frame
+
+    let camPanSpeed = 0.01;
+    let zoomSpeed = 0.02;
+
+    if (rightCtrlPressed) {
+      camPanSpeed *= 0.2;
+      zoomSpeed *= 0.2;
+    }
+
     if (leftPressed) {
       // <
-      cam.changeViewXpos(0.01 / cam.curZoom);
+      cam.changeViewXpos(camPanSpeed / cam.curZoom);
     }
     if (rightPressed) {
       // >
-      cam.changeViewXpos(-0.01 / cam.curZoom);
+      cam.changeViewXpos(-camPanSpeed / cam.curZoom);
     }
     if (upPressed) {
       // ^
-      cam.tarYpos -= 0.01 / cam.curZoom;
+      cam.tarYpos -= camPanSpeed / cam.curZoom;
     }
     if (downPressed) {
       // v
-      cam.tarYpos += 0.01 / cam.curZoom;
+      cam.tarYpos += camPanSpeed / cam.curZoom;
     }
     if (plusPressed) {
       // +
-      cam.changeViewZoom(0.02);
-      // cam.tarZoom = viewZoom;
+      cam.changeViewZoom(zoomSpeed);
     }
     if (minusPressed) {
       // -
-      cam.changeViewZoom(-0.02);
-      // cam.tarZoom = viewZoom;
+      cam.changeViewZoom(-zoomSpeed);
     }
 
     cam.move();
-    // viewZoom = cam.curZoom;
 
     prevMouseXinSim = mouseXinSim;
     prevMouseYinSim = mouseYinSim;
