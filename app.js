@@ -68,7 +68,7 @@ const guiControls_default = {
   IterPerFrame : 10,
   auto_IterPerFrame : true,
   dryLapseRate : 10.0,   // Real: 9.81 degrees / km
-  simHeight : 12000,     // meters
+  simHeight : 12000,     // 12000 meters
   imperialUnits : false, // only for display.  false = metric
 };
 
@@ -344,8 +344,11 @@ async function loadData()
       sliceStart = sliceEnd;
       let settingsArrayBlob = dataBlob.slice(sliceStart); // until end of file
 
-      if (version == saveFileVersionID)                   // only load settings from save file if it's the newest version with all the settings included
+      if (version == saveFileVersionID) {                 // only load settings from save file if it's the newest version with all the settings included
         guiControlsFromSaveFile = await settingsArrayBlob.text();
+      } else {
+        alert('Save File from older version, settings will not be loaded');
+      }
 
       mainScript(baseTexF32, waterTexF32, wallTexI8, precipArray);
     } else {
