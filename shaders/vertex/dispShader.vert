@@ -9,10 +9,10 @@ uniform vec2 texelSize;
 uniform vec2 aspectRatios; // sim   canvas
 uniform vec3 view;         // Xpos  Ypos    Zoom
 
+uniform float Xmult;
+
 out vec2 texCoord;  // normalized
 out vec2 fragCoord; // non normalized fragment coordinate
-
-const float Xmult = 3.; // how often the simulation is repeated horizontally
 
 void main()
 {

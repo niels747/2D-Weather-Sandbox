@@ -9,16 +9,17 @@ uniform vec2 texelSize;
 uniform vec2 aspectRatios; // sim   canvas
 uniform vec3 view;         // Xpos  Ypos    Zoom
 
-out vec2 texCoord;  // normalized
-out vec2 fragCoord; // non normalized fragment coordinate
+out vec2 texCoord;         // normalized
+out vec2 fragCoord;        // non normalized fragment coordinate
 
-out vec2 texCoordXmY0; // left
-out vec2 texCoordXpY0; // right
-out vec2 texCoordX0Yp; // up
-out vec2 texCoordX0Ym; // down
+out vec2 texCoordXmY0;     // left
+out vec2 texCoordXpY0;     // right
+out vec2 texCoordX0Yp;     // up
+out vec2 texCoordX0Ym;     // down
 
-const float Xmult = 3.0; // how often the simulation is repeated horizontally
-const float Ymult = 5.;  // 4.0
+uniform float Xmult;       // gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
+
+const float Ymult = 5.;    // 5.0
 
 void main()
 {

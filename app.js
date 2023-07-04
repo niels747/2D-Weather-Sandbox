@@ -15,11 +15,12 @@ var gl;
 var SETUP_MODE = false;
 
 var loadingBar;
+var cam;
 
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
 
-const saveFileVersionID = 1939327491; // Uint32 id to check if save file is compatible
+const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
   vorticity : 0.005,
@@ -36,7 +37,7 @@ const guiControls_default = {
   meltingHeat : 0.6,        // 0.281  Real:  334 J/g
   waterWeight : 0.5,        // 0.50
   inactiveDroplets : 0,
-  aboveZeroThreshold : 1.0, // PRECIPITATION Parameters
+  aboveZeroThreshold : 1.0, // PRECIPITATION
   subZeroThreshold : 0.01,  // 0.05
   spawnChance : 0.00002,    // 0.0005
   snowDensity : 0.2,        // 0.3
@@ -45,14 +46,16 @@ const guiControls_default = {
   growthRate_30C : 0.001,   // 0.01
   freezingRate : 0.0025,
   meltingRate : 0.0025,
-  evapRate : 0.0005, // END OF PRECIPITATION
+  evapRate : 0.0005,
   displayMode : 'DISP_REAL',
+  wrapHorizontally : true,
+  SmoothCam : true,
+  exposure : 1.0,
   timeOfDay : 9.9,
   latitude : 45.0,
   month : 6.67, // Northern himisphere solstice
   sunAngle : 9.9,
   dayNightCycle : true,
-  exposure : 1.0,
   greenhouseGases : 0.001,
   IR_rate : 1.0,
   tool : 'TOOL_NONE',
@@ -69,7 +72,8 @@ const guiControls_default = {
   imperialUnits : false, // only for display.  false = metric
 };
 
-var realDewPoint = true;
+var realDewPoint = true;         // show real dew point in graph, instead of dew point with cloud water included
+var horizontalDisplayMult = 3.0; // 3.0 to cover srceen while zoomed out
 
 var guiControls;
 
@@ -99,6 +103,8 @@ const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
 var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25; // 25
+
+function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
 function screenToSimX(screenX)
 {
@@ -270,16 +276,17 @@ function rawVelocityToMs(vel)
   return vel;
 }
 
+
 async function loadData()
 {
   let file = document.getElementById('fileInput').files[0];
 
-  if (file) {
-    let versionBlob = file.slice(0, 4);           // extract first 4 bytes containing version id
+  if (file) {                                                    // load data from save file
+    let versionBlob = file.slice(0, 4);                          // extract first 4 bytes containing version id
     let versionBuf = await versionBlob.arrayBuffer();
-    let version = new Uint32Array(versionBuf)[0]; // convert to Uint32
+    let version = new Uint32Array(versionBuf)[0];                // convert to Uint32
 
-    if (version == saveFileVersionID) {
+    if (version == saveFileVersionID || version == 1939327491) { // also allow previous version, settings will not be loaded
       // check version id, only proceed if file has the right version id
       let fileArrBuf = await file.slice(4).arrayBuffer(); // slice from behind version id to
       // the end of the file
@@ -337,7 +344,8 @@ async function loadData()
       sliceStart = sliceEnd;
       let settingsArrayBlob = dataBlob.slice(sliceStart); // until end of file
 
-      guiControlsFromSaveFile = await settingsArrayBlob.text();
+      if (version == saveFileVersionID)                   // only load settings from save file if it's the newest version with all the settings included
+        guiControlsFromSaveFile = await settingsArrayBlob.text();
 
       mainScript(baseTexF32, waterTexF32, wallTexI8, precipArray);
     } else {
@@ -463,6 +471,117 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 {
   await setLoadingBar();
 
+  class camera
+  {
+    #spring = 0.02;   // 0.02
+    #damp = 0.70;     // 0.70
+    wrapHorizontally; // bool
+    smooth;           // bool
+    curXpos;
+    curXposLin;
+    curYpos;
+    curZoom;
+    tarXpos;
+    tarYpos;
+    tarZoom;
+    #Xvel;
+    #Yvel;
+    #Zvel;
+
+    constructor()
+    {
+      this.curXpos = 0;
+      this.curXposLin = 0;
+      this.curYpos = -0.5 + sim_res_y / sim_res_x; // viewYpos = -0.5 + sim_res_y / sim_res_x;// match bottem of sim area to bottem of screen
+      this.curZoom = 1.0001;
+      this.tarXpos = 0;
+      this.tarYpos = -0.5 + sim_res_y / sim_res_x;
+      this.tarZoom = 1.0001;
+      this.wrapHorizontally = true;
+      this.smooth = true;
+      this.#Xvel = 0;
+      this.#Yvel = 0;
+      this.#Zvel = 0;
+    }
+
+    center()
+    {
+      this.tarXpos = this.curXpos = this.curXposLin = 0.0;
+      this.tarYpos = this.curYpos = -0.5 + sim_res_y / sim_res_x;
+      this.tarZoom = this.curZoom = 1.0001;
+    }
+
+    changeCurXpos(change)
+    {
+      this.curXposLin = this.curXposLin + change;
+      this.curXpos = mod(this.curXposLin + 1.0, 2.0) - 1.0;
+    }
+
+    move()
+    {
+      let xDif = this.tarXpos - this.curXposLin;
+      let yDif = this.tarYpos - this.curYpos;
+      let zoomDif = this.tarZoom - this.curZoom;
+      if (this.smooth) {
+        this.#Xvel += xDif * this.#spring;
+        this.#Xvel *= this.#damp;
+        this.changeCurXpos(this.#Xvel);
+
+        this.#Yvel += yDif * this.#spring;
+        this.#Yvel *= this.#damp;
+        this.curYpos += this.#Yvel;
+
+        this.#Zvel += zoomDif * this.#spring;
+        this.#Zvel *= this.#damp;
+        this.curZoom += this.#Zvel;
+      } else {
+        this.changeCurXpos(xDif);
+        this.curYpos += yDif;
+        this.curZoom += zoomDif;
+      }
+    }
+
+    changeViewZoom(change)
+    {
+      this.tarZoom *= 1.0 + change;
+
+      let minZoom = 0.5;
+      let maxZoom = 25.0 * sim_aspect;
+
+      if (this.tarZoom > maxZoom) {
+        this.tarZoom = maxZoom;
+        return false;
+      } else if (this.tarZoom < minZoom) {
+        this.tarZoom = minZoom;
+        return false;
+      } else {
+        return true;
+      }
+    }
+
+    changeViewXpos(change)
+    {
+      this.tarXpos += change;
+      if (!this.wrapHorizontally)
+        this.tarXpos = clamp(this.tarXpos, -0.99, 0.99);
+    }
+
+    changeViewYpos(change) { this.tarYpos = clamp(this.tarYpos + change, -0.99, 0.50); }
+
+    zoomAtMousePos(delta)
+    {
+      if (cam.changeViewZoom(delta)) {
+        // zoom center at mouse position
+        var mousePositionZoomCorrectionX = (((mouseX - canvas.width / 2 + this.tarXpos) * delta) / cam.tarZoom / canvas.width) * 2.0;
+        var mousePositionZoomCorrectionY = ((((mouseY - canvas.height / 2 + this.tarYpos) * delta) / cam.tarZoom / canvas.height) * 2.0) / canvas_aspect;
+        this.changeViewXpos(-mousePositionZoomCorrectionX);
+        this.changeViewYpos(mousePositionZoomCorrectionY);
+      }
+    }
+  }
+
+  cam = new camera();
+
   document.body.style.overflow = 'hidden'; // prevent scrolling bar from apearing
 
   canvas = document.getElementById('mainCanvas');
@@ -538,6 +657,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   {
     datGui = new dat.GUI();
     guiControls = JSON.parse(strGuiControls); // load object
+
+    cam.wrapHorizontally = guiControls.wrapHorizontally;
+    cam.smooth = guiControls.SmoothCam;
+
+    if (guiControls.wrapHorizontally)
+      horizontalDisplayMult = 3.0;
+    else
+      horizontalDisplayMult = 1.0;
+
 
     if (frameNum == 0) {
       // only hide during initial setup. When resetting settings and
@@ -780,9 +908,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .name('Evaporation Rate');
 
     precipitation_folder.add(guiControls, 'inactiveDroplets', 0, NUM_DROPLETS).listen().name('Inactive Droplets');
-    precipitation_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
 
-    datGui
+
+    var display_folder = datGui.addFolder('Display');
+
+    display_folder
       .add(guiControls, 'displayMode', {
         '1 Temperature -26°C to 30°C' : 'DISP_TEMPERATURE',
         '2 Water Vapor' : 'DISP_WATER',
@@ -795,20 +925,38 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Display Mode')
       .listen();
-    datGui.add(guiControls, 'exposure', 1.0, 10.0, 0.01)
+    display_folder.add(guiControls, 'exposure', 1.0, 10.0, 0.01)
       .onChange(function() {
         gl.useProgram(realisticDisplayProgram);
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
       })
       .name('Exposure');
 
+    display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
+
+    display_folder
+      .add(guiControls, 'wrapHorizontally') ////////////////////////////////////////////////////////////////////////////////// NEW
+      .onChange(function() {
+        cam.wrapHorizontally = guiControls.wrapHorizontally;
+        cam.center();
+        if (guiControls.wrapHorizontally)
+          horizontalDisplayMult = 3.0;
+        else
+          horizontalDisplayMult = 1.0;
+      })
+      .name("Wrap Horizontally");
+
+    display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
+
+    display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
+    display_folder.add(guiControls, 'imperialUnits').name('Imperial Units');
+
+
     var advanced_folder = datGui.addFolder('Advanced');
 
     advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).name('Iterations / Frame').listen();
 
     advanced_folder.add(guiControls, 'auto_IterPerFrame').name('Auto Adjust').listen();
-    advanced_folder.add(guiControls, 'imperialUnits').name('Imperial Units');
-    advanced_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     advanced_folder.add(guiControls, 'resetSettings').name('Reset all settings');
 
     datGui.add(guiControls, 'paused').name('Paused').listen();
@@ -1257,97 +1405,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var minusPressed = false;
 
 
-  class camera
-  {
-    #spring = 0.02; // 0.01
-    #damp = 0.70;   // 0.70
-    curXpos;
-    curXposLin;
-    curYpos;
-    curZoom;
-    tarXpos;
-    tarYpos;
-    tarZoom;
-    #Xvel;
-    #Yvel;
-    #Zvel;
-
-    constructor()
-    {
-      this.curXpos = 0;
-      this.curXposLin = 0;
-      this.curYpos = -0.5 + sim_res_y / sim_res_x; // viewYpos = -0.5 + sim_res_y / sim_res_x;// match bottem of sim area to bottem of screen
-      this.curZoom = 1.0001;
-      this.tarXpos = 0;
-      this.tarYpos = -0.5 + sim_res_y / sim_res_x;
-      this.tarZoom = 1.0001;
-      this.#Xvel = 0;
-      this.#Yvel = 0;
-      this.#Zvel = 0;
-    }
-
-
-    move()
-    {
-      let xDif = this.curXposLin - this.tarXpos;
-      this.#Xvel -= xDif * this.#spring;
-      this.#Xvel *= this.#damp;
-      this.changeCurXpos(this.#Xvel);
-
-      let yDif = this.curYpos - this.tarYpos;
-      this.#Yvel -= yDif * this.#spring;
-      this.#Yvel *= this.#damp;
-      this.curYpos += this.#Yvel;
-
-      let zoomDif = this.curZoom - this.tarZoom;
-      this.#Zvel -= zoomDif * this.#spring;
-      this.#Zvel *= this.#damp;
-      this.curZoom += this.#Zvel;
-    }
-
-    changeViewZoom(change)
-    {
-      this.tarZoom *= 1.0 + change;
-
-      let minZoom = 0.5;
-      let maxZoom = 25.0 * sim_aspect;
-
-      if (this.tarZoom > maxZoom) {
-        this.tarZoom = maxZoom;
-        return false;
-      } else if (this.tarZoom < minZoom) {
-        this.tarZoom = minZoom;
-        return false;
-      } else {
-        return true;
-      }
-    }
-
-
-    changeCurXpos(change)
-    {
-      this.curXposLin = this.curXposLin + change;
-      this.curXpos = mod(this.curXposLin + 1.0, 2.0) - 1.0;
-    }
-
-    changeViewXpos(change) { this.tarXpos += change; }
-
-    zoomAtMousePos(delta)
-    {
-      if (cam.changeViewZoom(delta)) {
-        // zoom center at mouse position
-        var mousePositionZoomCorrectionX = (((mouseX - canvas.width / 2 + this.tarXpos) * delta) / cam.tarZoom / canvas.width) * 2.0;
-        var mousePositionZoomCorrectionY = ((((mouseY - canvas.height / 2 + this.tarYpos) * delta) / cam.tarZoom / canvas.height) * 2.0) / canvas_aspect;
-        this.changeViewXpos(-mousePositionZoomCorrectionX);
-        this.tarYpos += mousePositionZoomCorrectionY;
-      }
-    }
-  }
-
-
-  cam = new camera();
-
-
   // EVENT LISTENERS
 
   addEventListener('beforeunload', (event) => {
@@ -1390,8 +1447,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     if (middleMousePressed) {
       cam.changeViewXpos(((mouseX - prevMouseX) / cam.curZoom / canvas.width) * 2.0);
-      cam.tarYpos -= ((mouseY - prevMouseY) / cam.curZoom / canvas.width) * 2.0;
-
+      cam.changeViewYpos(-((mouseY - prevMouseY) / cam.curZoom / canvas.width) * 2.0);
       prevMouseX = mouseX;
       prevMouseY = mouseY;
     }
@@ -1484,8 +1540,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.zoomAtMousePos((curSep / prevSep) - 1.0);
 
         if (wasTwoFingerTouchBefore) {
-          cam.tarXpos += ((mouseX - prevMouseX) / cam.curZoom / canvas.width) * 2.0;
-          cam.tarYpos -= ((mouseY - prevMouseY) / cam.curZoom / canvas.width) * 2.0;
+          cam.changeViewYpos(((mouseX - prevMouseX) / cam.curZoom / canvas.width) * 2.0);
+          cam.changeViewYpos(((mouseY - prevMouseY) / cam.curZoom / canvas.width) * 2.0);
         }
         wasTwoFingerTouchBefore = true;
         prevMouseX = mouseX;
@@ -1523,9 +1579,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // lastBpressTime = new Date().getTime();
     } else if (event.code == 'KeyV') {
       // V: reset view to full simulation area
-      cam.tarXpos = 0;
-      cam.tarYpos = -0.5 + sim_res_y / sim_res_x; // match bottem to bottem of screen
-      cam.tarZoom = 1.0001;
+      cam.center();
     } else if (event.code == 'KeyG') {
       // G
       guiControls.showGraph = !guiControls.showGraph;
@@ -2310,11 +2364,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
     if (upPressed) {
       // ^
-      cam.tarYpos -= camPanSpeed / cam.curZoom;
+      cam.changeViewYpos(-camPanSpeed / cam.curZoom);
     }
     if (downPressed) {
       // v
-      cam.tarYpos += camPanSpeed / cam.curZoom;
+      cam.changeViewYpos(camPanSpeed / cam.curZoom);
     }
     if (plusPressed) {
       // +
@@ -2400,6 +2454,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform2f(gl.getUniformLocation(advectionProgram, 'userInputMove'), moveX, moveY);
       }
       gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
+
 
       if (!guiControls.paused) {                                       // Simulation part
         if (guiControls.dayNightCycle)
@@ -2604,6 +2659,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       // gl.activeTexture(gl.TEXTURE0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
 
@@ -2615,6 +2671,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform4f(gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+
+      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
       // Don't display vectors when zoomed out because you would just see noise
       if (cam.curZoom / sim_res_x > 0.003) {
@@ -2646,6 +2704,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(temperatureDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+        gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
         // Don't display vectors when zoomed out because you would just see
         // noise
@@ -2661,6 +2720,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 0);
+        gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
@@ -2670,6 +2730,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 1);
+        gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
@@ -2678,6 +2739,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(universalDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+        gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
         switch (guiControls.displayMode) {
         case 'DISP_HORIVEL':
@@ -2705,6 +2767,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           break;
         }
       }
+
 
       //	gl.bindTexture(gl.TEXTURE_2D, curlTexture);
       //	gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
