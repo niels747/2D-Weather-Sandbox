@@ -63,7 +63,7 @@
 		<i>By Niels Daemen</i>
 
 		<form id="startBtn"
-			oninput="simResShowX.value=parseInt(simResSelX.value);simResShowY.value=parseInt(simResSelY.value);">
+			oninput="simResShowX.value=parseInt(simResSelX.value);simResShowY.value=parseInt(simResSelY.value); simHeightShow.value=parseInt(simHeightSel.value)+' m';">
 			<p>
 				Choose a resolution. The higher the resolution, the slower it will
 				run
@@ -85,6 +85,15 @@
 					<td>
 						<input type="range" min="100" max="300" value="300" step="10" id="simResSelY" />
 						<output name="simResShowY">300</output>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<b>Altitude</b>
+					</td>
+					<td>
+						<input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
+						<output name="simHeightShow">12000 m</output>
 					</td>
 				</tr>
 			</table>

@@ -50,6 +50,7 @@ const guiControls_default = {
   displayMode : 'DISP_REAL',
   wrapHorizontally : true,
   SmoothCam : true,
+  camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
   latitude : 45.0,
@@ -88,7 +89,8 @@ var datGui;
 
 var sim_res_x;
 var sim_res_y;
-var sim_aspect;     //  = sim_res_x / sim_res_y
+var sim_aspect; //  = sim_res_x / sim_res_y
+var sim_height = 12000;
 
 var cellHeight = 0; // guiControls.simHeight / sim_res_y;  // in meters
 
@@ -317,6 +319,7 @@ async function loadData()
       console.log('sim_res_x: ' + sim_res_x);
       console.log('sim_res_y: ' + sim_res_y);
 
+
       sliceStart = sliceEnd;
       sliceEnd += sim_res_x * sim_res_y * 4 * 4;
       let baseTexBlob = dataBlob.slice(sliceStart, sliceEnd);
@@ -361,6 +364,8 @@ async function loadData()
     // texture resolution limit on most GPU's: 16384
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
     sim_res_y = parseInt(document.getElementById('simResSelY').value);
+    sim_height = parseInt(document.getElementById('simHeightSel').value);
+
     NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER;
     SETUP_MODE = true;
 
@@ -610,10 +615,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // SETUP GUI
 
-  if (guiControlsFromSaveFile == null) {
-    setupDatGui(JSON.stringify(guiControls_default)); // use default settings
+  if (guiControlsFromSaveFile == null) { // use default settings
+    setupDatGui(JSON.stringify(guiControls_default));
+    guiControls.simHeight = sim_height;
   } else {
-    setupDatGui(guiControlsFromSaveFile);             // use settings from save file
+    setupDatGui(guiControlsFromSaveFile); // use settings from save file
   }
 
   function setGuiUniforms()
@@ -935,7 +941,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Exposure');
 
-    display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
+    display_folder.add(guiControls, 'camSpeed', 0.001, 0.050, 0.001).name('Camera Pan Speed');
+
 
     display_folder
       .add(guiControls, 'wrapHorizontally') ////////////////////////////////////////////////////////////////////////////////// NEW
@@ -952,6 +959,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
 
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
+    display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'imperialUnits').name('Imperial Units');
 
 
@@ -2177,7 +2185,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var initial_T = new Float32Array(304); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
-    var realTemp = Math.max(map_range(y, 0, sim_res_y + 1, 15.0, -70.0), -60);
+    let altitude = y / (sim_res_y + 1) * 12000; // guiControls.simHeight
+    var realTemp = Math.max(map_range(altitude, 0, 12000, 15.0, -70.0), -60);
 
     initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
   }
@@ -2349,12 +2358,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function draw()
   { // Runs for every frame
 
-    let camPanSpeed = 0.01;
-    let zoomSpeed = 0.02;
+    let camPanSpeed = guiControls.camSpeed;
 
     if (rightCtrlPressed) {
       camPanSpeed *= 0.2;
-      zoomSpeed *= 0.2;
     }
 
     if (leftPressed) {
@@ -2375,11 +2382,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
     if (plusPressed) {
       // +
-      cam.changeViewZoom(zoomSpeed);
+      cam.changeViewZoom(camPanSpeed);
     }
     if (minusPressed) {
       // -
-      cam.changeViewZoom(-zoomSpeed);
+      cam.changeViewZoom(-camPanSpeed);
     }
 
     cam.move();
