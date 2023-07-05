@@ -43,12 +43,14 @@
 - [x] Add weather stations showing current conditions
 - [x] Add hail formation
 - [x] Apply wind tool only horizontally in whole width mode
-- [X] Smooth Camera Controls
+- [X] Optional Smooth Camera Controls with adjustable speed
+- [X] Optional Horizontal View wrapping
+- [x] Add Option to quickly reload simulation from save file
+- [X] Make simulation height adjustable from 5000m to 15000m
 
 # In Progress
 - [ ] Save Weather Stations to Save File
-- [ ] Make simulation height adjustable from 5000m to 15000m
-- [ ] Make horizontal resolution adjustable from 100 to 500
+- [ ] Make vertical resolution adjustable from 100 to 500
 - [ ] Improve realistic hail formation and improve precipitation in general
 - [ ] Improve precipitation spawning system
 - [ ] Add Option to reset atmosphere while keeping terain
