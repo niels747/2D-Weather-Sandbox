@@ -33,7 +33,7 @@
 - [x] Make trees wave with the wind
 - [x] Make behaviour of IR radiation scale with vertical resolution to fix unrealistic behavior at resolutions lower than 300
 
-# Recent changes:
+# In Between changes:
 - [x] Improve droplet display
 - [x] Lock vertical brush position when drawing lake / sea
 - [x] Add Touch Screen Input for using tools
@@ -43,17 +43,20 @@
 - [x] Add weather stations showing current conditions
 - [x] Add hail formation
 - [x] Apply wind tool only horizontally in whole width mode
-- [X] Optional Smooth Camera Controls with adjustable speed
-- [X] Optional Horizontal View wrapping
+- [X] Smooth Camera Controls
+
+# Juli xx, 2023 (500 Subsriber Special) Release:
 - [x] Add Option to quickly reload simulation from save file
-- [X] Make simulation height adjustable from 5000m to 15000m
+- [x] Optional Smooth Camera Controls with adjustable speed
+- [x] Optional Horizontal View wrapping
+- [x] Make simulation height adjustable from 5000m to 15000m
+- [x] Make vertical resolution adjustable from 100 to 500
+- [ ] Save Weather Stations to Save File
+- [ ] Add Option to reset atmosphere while keeping terain
 
 # In Progress
-- [ ] Save Weather Stations to Save File
-- [ ] Make vertical resolution adjustable from 100 to 500
 - [ ] Improve realistic hail formation and improve precipitation in general
 - [ ] Improve precipitation spawning system
-- [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
 
 # Future:
