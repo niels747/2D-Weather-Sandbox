@@ -2458,17 +2458,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           intensity *= -1;
         }
 
-        var posXinSim = mod(mouseXinSim, 1.0); // wrap mouse position around borders
+        var posXinSim;
 
-        if (guiControls.wholeWidth) {
+        if (guiControls.wholeWidth)
           posXinSim = -1.0;
-        }
+        else if (guiControls.wrapHorizontally)
+          posXinSim = mod(mouseXinSim, 1.0); // wrap mouse position around borders
+        else
+          posXinSim = clamp(mouseXinSim, 0.0, 1.0);
+
 
         let moveX = mouseXinSim - prevMouseXinSim;
         let moveY = mouseYinSim - prevMouseYinSim;
 
         gl.uniform4f(gl.getUniformLocation(advectionProgram, 'userInputValues'), posXinSim, mouseYinSim, intensity, guiControls.brushSize * 0.5);
         gl.uniform2f(gl.getUniformLocation(advectionProgram, 'userInputMove'), moveX, moveY);
+        gl.uniform1i(gl.getUniformLocation(advectionProgram, 'wrapHorizontally'), guiControls.wrapHorizontally);
       }
       gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 

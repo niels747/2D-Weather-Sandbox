@@ -22,6 +22,8 @@ uniform vec4 userInputValues; // xpos   Ypos   intensity   Size
 uniform vec2 userInputMove;   // moveX  moveY
 uniform int userInputType;    // 0 = nothing 	1 = temp ...
 
+uniform bool wrapHorizontally;
+
 uniform float dryLapse;
 uniform float evapHeat;
 uniform float meltingHeat;
@@ -178,8 +180,16 @@ void main()
   if (userInputValues.x < -0.5) { // whole width brush
     if (abs(userInputValues.y - texCoord.y) < userInputValues[3] * texelSize.y)
       inBrush = true;
-  } else {                                       // circular brush
-    vec2 vecFromMouse = vec2(absHorizontalDist(userInputValues.x, texCoord.x), userInputValues.y - texCoord.y);
+  } else { // circular brush
+
+    vec2 vecFromMouse;
+
+    if (wrapHorizontally) {
+      vecFromMouse = vec2(absHorizontalDist(userInputValues.x, texCoord.x), userInputValues.y - texCoord.y);
+    } else {
+      vecFromMouse = vec2(abs(userInputValues.x - texCoord.x), userInputValues.y - texCoord.y);
+    }
+
     vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
 
     float distFromMouse = length(vecFromMouse);

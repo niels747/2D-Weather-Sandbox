@@ -139,7 +139,7 @@ vec4 bilerp(sampler2D tex, vec2 pos)
 vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
                 vec2 pos) // prevents sampeling from wall cell
 {
-  vec2 st = pos - 0.5; // calc pixel coordinats
+  vec2 st = pos - 0.5;    // calc pixel coordinats
 
   vec2 ipos = vec2(floor(st));
   vec2 fpos = fract(st);
@@ -188,8 +188,7 @@ float IR_temp(float IR) // inversed Stefan–Boltzmann law
   return pow(IR / IR_constant, 1. / 4.) * 100.0;
 }
 
-float absHorizontalDist(float a,
-                        float b) // for wrapping around simulation border
+float absHorizontalDist(float a, float b) // for wrapping horizontal position around simulation border
 {
   return min(min(abs(a - b), abs(1.0 + a - b)), 1.0 - a + b);
 }
@@ -200,14 +199,4 @@ float realMod(float a, float b)
     // proper modulo to handle negative numbers
     return mod(mod(a, b) + b, b);
 }
-
-
-
-
-
-
-
-
-
-
 */
