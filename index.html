@@ -45,7 +45,7 @@
 	</style>
 </head>
 
-<body id="body" style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41);">
+<body id="body" style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41);" onload="updateSetupSliders();">
 
 	<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
 		<div class="icon-bar">
@@ -62,8 +62,7 @@
 		<h1>2D Weather Sandbox</h1>
 		<i>By Niels Daemen</i>
 
-		<form id="startBtn"
-			oninput="simResShowX.value=parseInt(simResSelX.value);simResShowY.value=parseInt(simResSelY.value); simHeightShow.value=parseInt(simHeightSel.value)+' m';">
+		<form id="startBtn" oninput="updateSetupSliders();">
 			<p>
 				Choose a resolution. The higher the resolution, the slower it will
 				run
@@ -75,7 +74,7 @@
 					</td>
 					<td>
 						<input type="range" min="100" max="16000" value="2500" step="100" id="simResSelX" />
-						<output name="simResShowX">2500</output>
+						<output id="simResShowX"></output>
 					</td>
 				</tr>
 				<tr>
@@ -84,7 +83,7 @@
 					</td>
 					<td>
 						<input type="range" min="100" max="300" value="300" step="10" id="simResSelY" />
-						<output name="simResShowY">300</output>
+						<output id="simResShowY"></output>
 					</td>
 				</tr>
 				<tr>
@@ -93,7 +92,7 @@
 					</td>
 					<td>
 						<input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
-						<output name="simHeightShow">12000 m</output>
+						<output id="simHeightShow"></output>
 					</td>
 				</tr>
 			</table>

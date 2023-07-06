@@ -9,6 +9,13 @@ details. You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+function updateSetupSliders()
+{
+  document.getElementById("simResShowX").value = parseInt(simResSelX.value);
+  document.getElementById("simResShowY").value = parseInt(simResSelY.value);
+  document.getElementById("simHeightShow").value = parseInt(simHeightSel.value) + ' m';
+}
+
 var canvas;
 var gl;
 
@@ -2185,7 +2192,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var initial_T = new Float32Array(304); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
-    let altitude = y / (sim_res_y + 1) * 12000; // guiControls.simHeight
+    let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
     var realTemp = Math.max(map_range(altitude, 0, 12000, 15.0, -70.0), -60);
 
     initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
