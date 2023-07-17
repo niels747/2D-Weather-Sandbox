@@ -51,7 +51,7 @@
 - [x] Optional Horizontal View wrapping
 - [x] Make simulation height adjustable from 5000m to 15000m
 - [x] Make vertical resolution adjustable from 100 to 500
-- [ ] Save Weather Stations to Save File
+- [x] Save Weather Stations to Save File
 - [ ] Add Option to reset atmosphere while keeping terain
 
 # In Progress

@@ -106,6 +106,10 @@ var lastFrameNum = 0;
 
 var IterNum = 0;
 
+var frameBuff_0;
+
+var dryLapse;
+
 
 const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
 
@@ -285,6 +289,120 @@ function rawVelocityToMs(vel)
   return vel;
 }
 
+function CtoK(c) { return c + 273.15; }
+
+function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse; }
+
+function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
+
+
+class Weatherstation
+{
+  #width = 70; // display size
+  #height = 55;
+  #canvas;
+  #c; // 2d canvas context
+  #x; // position in simulation
+  #y;
+
+  #temperature = 0;
+  #dewpoint = 0;
+  #velocity = 0;
+
+  constructor(xIn, yIn)
+  {
+    this.#x = Math.floor(xIn);
+    this.#y = Math.floor(yIn);
+    this.#canvas = document.createElement('canvas');
+    document.body.appendChild(this.#canvas);
+    this.#canvas.height = this.#height;
+    this.#canvas.width = this.#width;
+    this.#c = this.#canvas.getContext('2d');
+
+    this.#canvas.style.position = "absolute";
+    this.#canvas.style.zIndex = '-2';
+
+    let thisObj = this;
+    this.#canvas.onclick = function() {
+      if (guiControls.tool == 'TOOL_STATION') {
+        thisObj.destroy()
+      }
+    };
+  }
+
+  destroy()
+  {
+    this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
+    let index = weatherStations.indexOf(this);
+    weatherStations.splice(index, 1);                     // remove object from array
+  }
+
+  measure()
+  {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
+    var baseTextureValues = new Float32Array(4);
+    gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
+
+    this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
+    this.#velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
+
+    // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+    gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
+    var waterTextureValues = new Float32Array(4);
+    gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
+
+    this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
+
+    if (realDewPoint) {
+      this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
+    }
+  }
+
+  getXpos() { return this.#x; }
+
+  getYpos() { return this.#y; }
+
+  updateCanvas()
+  {
+    let screenX = simToScreenX(this.#x) - this.#width / 2;
+    let screenY = simToScreenY(this.#y) - this.#height;
+
+    // if (screenX > 0 && screenX < canvas.width && screenY > 0 && screenY < canvas.height) {
+
+    this.#canvas.style.left = screenX + 'px';
+    this.#canvas.style.top = screenY + 'px';
+    let c = this.#c;
+    c.clearRect(0, 0, this.#width, this.#height);
+    c.fillStyle = '#00000000';
+    c.fillRect(0, 0, this.#width, this.#height);
+
+    // temperature
+    c.font = '15px Arial';
+    c.fillStyle = '#FFFFFF';
+    c.fillText(printTemp(this.#temperature), 10, 15);
+    // dew point
+    c.font = '12px Arial';
+    c.fillStyle = '#00FFFF';
+    c.fillText(printTemp(this.#dewpoint), 10, 28);
+
+    c.fillStyle = '#FFFFFF';
+    c.fillText(printVelocity(this.#velocity), 10, 40);
+
+    // Position pointer
+    c.beginPath();
+    c.moveTo(this.#width / 2, this.#height * 0.80);
+    c.lineTo(this.#width / 2, this.#height);
+    c.strokeStyle = 'white';
+    c.stroke();
+    //  }
+  }
+}
+
+
+let weatherStations = []; // array holding all weather stations
+
+// weatherStations.push(new Weatherstation(1, 1)); // test station
 
 async function loadData()
 {
@@ -321,7 +439,6 @@ async function loadData()
       }
 
       console.log('loading file: ' + saveFileName);
-      5;
       console.log('File versionID: ' + version);
       console.log('sim_res_x: ' + sim_res_x);
       console.log('sim_res_y: ' + sim_res_y);
@@ -351,10 +468,30 @@ async function loadData()
       let precipArrayBuf = await precipArrayBlob.arrayBuffer();
       let precipArray = new Float32Array(precipArrayBuf);
 
-      sliceStart = sliceEnd;
-      let settingsArrayBlob = dataBlob.slice(sliceStart); // until end of file
+      if (version == saveFileVersionID) {             // only load settings and weather stations from save file if it's the newest version with all the settings included
+        sliceStart = sliceEnd;
+        sliceEnd += 1 * Int16Array.BYTES_PER_ELEMENT; // one 16 bit int indicates number of weather stations
+        let numWeatherStationsArrayBlob = dataBlob.slice(sliceStart, sliceEnd);
+        let numWeatherStationsBuf = await numWeatherStationsArrayBlob.arrayBuffer();
+        let numWeatherStations = new Int16Array(numWeatherStationsBuf)[0];
 
-      if (version == saveFileVersionID) {                 // only load settings from save file if it's the newest version with all the settings included
+        console.log("numWeatherStations", numWeatherStations);
+
+        sliceStart = sliceEnd;
+        sliceEnd += numWeatherStations * 2 * Int16Array.BYTES_PER_ELEMENT;
+        let weatherStationArrayBlob = dataBlob.slice(sliceStart, sliceEnd);
+        let weatherStationBuf = await weatherStationArrayBlob.arrayBuffer();
+        let weatherStationArray = new Int16Array(weatherStationBuf);
+
+
+        for (i = 0; i < numWeatherStations; i++) {
+          weatherStations.push(new Weatherstation(weatherStationArray[i * 2], weatherStationArray[i * 2 + 1]));
+        }
+
+        sliceStart = sliceEnd;
+        let settingsArrayBlob = dataBlob.slice(sliceStart); // until end of file
+
+
         guiControlsFromSaveFile = await settingsArrayBlob.text();
       } else {
         alert('Save File from older version, settings will not be loaded');
@@ -1223,109 +1360,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // END OF GRAPH
 
 
-  class Weatherstation
-  {
-    #width = 70; // display size
-    #height = 55;
-    #canvas;
-    #c; // 2d canvas context
-    #x; // position in simulation
-    #y;
-
-    #temperature = 0;
-    #dewpoint = 0;
-    #velocity = 0;
-
-    constructor(xIn, yIn)
-    {
-      this.#x = Math.floor(xIn);
-      this.#y = Math.floor(yIn);
-      this.#canvas = document.createElement('canvas');
-      document.body.appendChild(this.#canvas);
-      this.#canvas.height = this.#height;
-      this.#canvas.width = this.#width;
-      this.#c = this.#canvas.getContext('2d');
-
-      this.#canvas.style.position = "absolute";
-      this.#canvas.style.zIndex = '-2';
-
-      let thisObj = this;
-      this.#canvas.onclick = function() {
-        if (guiControls.tool == 'TOOL_STATION') {
-          thisObj.destroy()
-        }
-      };
-    }
-
-    destroy()
-    {
-      this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
-      let index = weatherStations.indexOf(this);
-      weatherStations.splice(index, 1);                     // remove object from array
-    }
-
-    measure()
-    {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-      gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
-      var baseTextureValues = new Float32Array(4);
-      gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
-
-      this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
-      this.#velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
-
-      // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-      gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
-      var waterTextureValues = new Float32Array(4);
-      gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
-
-      this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
-
-      if (realDewPoint) {
-        this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
-      }
-    }
-
-    updateCanvas()
-    {
-      let screenX = simToScreenX(this.#x) - this.#width / 2;
-      let screenY = simToScreenY(this.#y) - this.#height;
-
-      // if (screenX > 0 && screenX < canvas.width && screenY > 0 && screenY < canvas.height) {
-
-      this.#canvas.style.left = screenX + 'px';
-      this.#canvas.style.top = screenY + 'px';
-      let c = this.#c;
-      c.clearRect(0, 0, this.#width, this.#height);
-      c.fillStyle = '#00000000';
-      c.fillRect(0, 0, this.#width, this.#height);
-
-      // temperature
-      c.font = '15px Arial';
-      c.fillStyle = '#FFFFFF';
-      c.fillText(printTemp(this.#temperature), 10, 15);
-      // dew point
-      c.font = '12px Arial';
-      c.fillStyle = '#00FFFF';
-      c.fillText(printTemp(this.#dewpoint), 10, 28);
-
-      c.fillStyle = '#FFFFFF';
-      c.fillText(printVelocity(this.#velocity), 10, 40);
-
-      // Position pointer
-      c.beginPath();
-      c.moveTo(this.#width / 2, this.#height * 0.80);
-      c.lineTo(this.#width / 2, this.#height);
-      c.strokeStyle = 'white';
-      c.stroke();
-      //  }
-    }
-  }
-
-  let weatherStations = []; // array holding all weather stations
-
-  // weatherStations.push(new Weatherstation(1, 1)); // test station
-
   sim_aspect = sim_res_x / sim_res_y;
 
   var canvas_aspect;
@@ -2009,7 +2043,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const forestFireTexture = gl.createTexture();
 
 
-  const frameBuff_0 = gl.createFramebuffer();
+  frameBuff_0 = gl.createFramebuffer(); // global for weather stations
   const frameBuff_1 = gl.createFramebuffer();
 
   const curlFrameBuff = gl.createFramebuffer();
@@ -2179,13 +2213,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
 
-  var dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
+  dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
 
-  function CtoK(c) { return c + 273.15; }
-
-  function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse; }
-
-  function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
 
   // generate Initial temperature profile
 
@@ -2888,11 +2917,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.getBufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(precipBufferValues));
         gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind again
 
-        //	let settings = guiControls;
+
+        let weatherStationsPositions = new Int16Array(weatherStations.length * 2);
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStationsPositions[i * 2] = weatherStations[i].getXpos();
+          weatherStationsPositions[i * 2 + 1] = weatherStations[i].getYpos();
+        }
+
 
         let strGuiControls = JSON.stringify(guiControls);
 
-        let saveDataArray = [ Uint16Array.of(sim_res_x), Uint16Array.of(sim_res_y), baseTextureValues, waterTextureValues, wallTextureValues, precipBufferValues, strGuiControls ];
+        let saveDataArray = [ Uint16Array.of(sim_res_x), Uint16Array.of(sim_res_y), baseTextureValues, waterTextureValues, wallTextureValues, precipBufferValues, Uint16Array.of(weatherStations.length), weatherStationsPositions, strGuiControls ];
         let blob = new Blob(saveDataArray);        // combine everything into a single blob
         let arrBuff = await blob.arrayBuffer();    // turn into array for pako
         let arr = new Uint8Array(arrBuff);
