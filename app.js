@@ -71,6 +71,8 @@ const guiControls_default = {
   wholeWidth : false,
   intensity : 0.01,
   showGraph : false,
+  realDewPoint : true, // show real dew point in graph, instead of dew point with cloud water included
+  enablePrecipitation : true,
   showDrops : false,
   paused : false,
   IterPerFrame : 10,
@@ -80,7 +82,6 @@ const guiControls_default = {
   imperialUnits : false, // only for display.  false = metric
 };
 
-var realDewPoint = true;         // show real dew point in graph, instead of dew point with cloud water included
 var horizontalDisplayMult = 3.0; // 3.0 to cover srceen while zoomed out
 
 var guiControls;
@@ -354,7 +355,7 @@ class Weatherstation
 
     this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
 
-    if (realDewPoint) {
+    if (guiControls.realDewPoint) {
       this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
     }
   }
@@ -1104,10 +1105,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
+    display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
     display_folder.add(guiControls, 'imperialUnits').name('Imperial Units');
 
 
     var advanced_folder = datGui.addFolder('Advanced');
+
+    advanced_folder.add(guiControls, 'enablePrecipitation').name('Enable Precipitation');
 
     advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).name('Iterations / Frame').listen();
 
@@ -1220,7 +1224,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         var dewPoint = KtoC(dewpoint(waterTextureValues[4 * y]));
 
         var temp = baseTextureValues[4 * y + 3] - ((y / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0 - 273.15;
-        if (realDewPoint) {
+        if (guiControls.realDewPoint) {
           dewPoint = Math.min(temp, dewPoint);
         }
 
@@ -2611,44 +2615,52 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
           gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]); // calc light
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-          // HUGE PERFORMANCE BOTTLENECK!
-          // move precipitation
-          gl.useProgram(precipitationProgram);
-          gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'frameNum'), IterNum);
-          gl.enable(gl.BLEND);
-          gl.blendFunc(gl.ONE, gl.ONE); // add everything together
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+
+
           gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-          gl.bindVertexArray(srcVAO);
-          gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
-          gl.beginTransformFeedback(gl.POINTS);
-          gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
-          gl.endTransformFeedback();
+          gl.clear(gl.COLOR_BUFFER_BIT);         // clear precipitation feedback
 
-          // sample to count number of inactive droplets
-          if (IterNum % 600 == 0) {
-            gl.readBuffer(gl.COLOR_ATTACHMENT0);
-            var sampleValues = new Float32Array(4);
-            // console.time('cnt');
-            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
-            // console.timeEnd('cnt')         // 1 - 100 ms huge variation
-            // console.log(sampleValues[0]);  // number of inactive droplets
-            guiControls.inactiveDroplets = sampleValues[0];
+          if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
+
             gl.useProgram(precipitationProgram);
-            gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
+            gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'frameNum'), IterNum);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.ONE, gl.ONE); // add everything together
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
 
+            gl.bindVertexArray(srcVAO);
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
+            gl.beginTransformFeedback(gl.POINTS);
+            gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
+            gl.endTransformFeedback();
+
+            // sample to count number of inactive droplets
+            if (IterNum % 600 == 0) {
+              gl.readBuffer(gl.COLOR_ATTACHMENT0);
+              var sampleValues = new Float32Array(4);
+              // console.time('cnt');
+              gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
+              // console.timeEnd('cnt')         // 1 - 100 ms huge variation
+              // console.log(sampleValues[0]);  // number of inactive droplets
+              guiControls.inactiveDroplets = sampleValues[0];
+              gl.useProgram(precipitationProgram);
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
+            }
+
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+            gl.disable(gl.BLEND);
+            gl.bindVertexArray(fluidVao); // set screenfilling rect again
+          }
+
+          if (IterNum % 100 == 0) {
             for (i = 0; i < weatherStations.length; i++) {
               weatherStations[i].measure();
             }
           }
 
-          gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-          gl.disable(gl.BLEND);
-          gl.bindVertexArray(fluidVao); // set screenfilling rect again
           IterNum++;
         }
       } // end of simulation part

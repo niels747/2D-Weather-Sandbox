@@ -52,6 +52,7 @@
 - [x] Make simulation height adjustable from 5000m to 15000m
 - [x] Make vertical resolution adjustable from 100 to 500
 - [x] Save Weather Stations to Save File
+- [x] Add option to turn off precipitation
 - [ ] Add Option to reset atmosphere while keeping terain
 
 # In Progress
