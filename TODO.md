@@ -45,7 +45,7 @@
 - [x] Apply wind tool only horizontally in whole width mode
 - [X] Smooth Camera Controls
 
-# Juli xx, 2023 (500 Subsriber Special) Release:
+# Juli 21, 2023 (500 Subsriber Special) Release:
 - [x] Add Option to quickly reload simulation from save file
 - [x] Optional Smooth Camera Controls with adjustable speed
 - [x] Optional Horizontal View wrapping
@@ -53,9 +53,10 @@
 - [x] Make vertical resolution adjustable from 100 to 500
 - [x] Save Weather Stations to Save File
 - [x] Add option to turn off precipitation
-- [ ] Add Option to reset atmosphere while keeping terain
+- [x] Improve longwave (IR) simulation
 
 # In Progress
+- [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Improve realistic hail formation and improve precipitation in general
 - [ ] Improve precipitation spawning system
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
@@ -75,5 +76,3 @@
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
 - [ ] Add weather balloons
-
-... Submit your ideas in the discussions tab!

@@ -23,6 +23,7 @@ uniform float waterTemperature;
 uniform float sunIntensity;
 
 uniform float greenhouseGases;
+uniform float waterGreenHouseEffect;
 
 out vec4 light;
 
@@ -57,23 +58,23 @@ void main()
       // float lightReflected = sunlight - (sunlight / (1. + water[1] * 0.025 + water[2] * 0.025)); // 0.025 cloud + 0.025 precipitation
       // float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
 
-if(fragCoord.y < resolution.y - 2.){ // prevent shadow bug above simulation area
-      float reflection = min((water[1] * 0.035 + water[2] * 0.035) * cellHeightCompensation, 1.); // 0.040 cloud + 0.40 precipitation
-      float absorbtion = min(water[3] * 0.020 * cellHeightCompensation, 1.);                      // 0.025 dust/smoke
+      if (fragCoord.y < resolution.y - 2.) {                                                        // prevent shadow bug above simulation area
+        float reflection = min((water[1] * 0.035 + water[2] * 0.035) * cellHeightCompensation, 1.); // 0.040 cloud + 0.40 precipitation
+        float absorbtion = min(water[3] * 0.020 * cellHeightCompensation, 1.);                      // 0.025 dust/smoke
 
-      float lightReflected = sunlight * reflection;
-      float lightAbsorbed = sunlight * absorbtion;
+        float lightReflected = sunlight * reflection;
+        float lightAbsorbed = sunlight * absorbtion;
 
-      sunlight -= lightReflected + lightAbsorbed;
+        sunlight -= lightReflected + lightAbsorbed;
 
-      net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
-}
+        net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
+      }
 
       // longwave / IR calculation
       float IR_down = texture(lightTex, texCoordX0Yp)[2];
       float IR_up;
 
-      if (wall[2] == 1) { // 1 above surface
+      if (wall[2] == 1) {               // 1 above surface
 
         if (wall[0] == 1) {             // if land, IR only affects land
           IR_up = IR_emitted(realTemp); // emissivity of surface = 1.0 for simplicity
@@ -90,16 +91,16 @@ if(fragCoord.y < resolution.y - 2.){ // prevent shadow bug above simulation area
 
         IR_up = texture(lightTex, texCoordX0Ym)[3];
 
-        float emissivity;                // how opage it is too ir, the rest is let trough, no
-                                         // reflection
-        emissivity = greenhouseGases;    // 0.001 greenhouse gasses
-        emissivity += water[0] * 0.0025; // water vapor
-        emissivity += water[1] * 1.5;    // cloud water
-        emissivity += water[3] * 0.0001; // 0.01 smoke Should be prettymuch transparent to ir
+        float emissivity;                               // how opage it is too ir, the rest is let trough, no
+                                                        // reflection
+        emissivity = greenhouseGases;                   // greenhouse gasses
+        emissivity += water[0] * waterGreenHouseEffect; // water vapor
+        emissivity += water[1] * 5.0;                   // cloud water blocks all IR
+        emissivity += water[3] * 0.0000;                // 0.0001 smoke Should be prettymuch transparent to IR
 
-        emissivity *= cellHeightCompensation; // compensate for the height of the cell
+        emissivity *= cellHeightCompensation;           // compensate for the height of the cell
 
-        emissivity = min(emissivity, 1.0); // limit to 1.0
+        emissivity = min(emissivity, 1.0);              // limit to 1.0
 
         float absorbedDown = IR_down * emissivity;
         float absorbedUp = IR_up * emissivity;

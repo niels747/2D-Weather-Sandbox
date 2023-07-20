@@ -65,6 +65,7 @@ const guiControls_default = {
   sunAngle : 9.9,
   dayNightCycle : true,
   greenhouseGases : 0.001,
+  waterGreenHouseEffect : 0.0015,
   IR_rate : 1.0,
   tool : 'TOOL_NONE',
   brushSize : 20,
@@ -784,6 +785,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(lightingProgram);
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'greenhouseGases'), guiControls.greenhouseGases);
+    gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterGreenHouseEffect'), guiControls.waterGreenHouseEffect);
     gl.useProgram(advectionProgram);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'meltingHeat'), guiControls.meltingHeat);
@@ -933,6 +935,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Greenhouse Gases');
 
+    radiation_folder.add(guiControls, 'waterGreenHouseEffect', 0.0, 0.01, 0.0001)
+      .onChange(function() {
+        gl.useProgram(lightingProgram);
+        gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterGreenHouseEffect'), guiControls.waterGreenHouseEffect);
+      })
+      .name('Water Vapor Greenhouse Effect');
+
     radiation_folder.add(guiControls, 'IR_rate', 0.0, 10.0, 0.1)
       .onChange(function() {
         gl.useProgram(boundaryProgram);
@@ -1079,7 +1088,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Display Mode')
       .listen();
-    display_folder.add(guiControls, 'exposure', 1.0, 10.0, 0.01)
+    display_folder.add(guiControls, 'exposure', 0.5, 10.0, 0.01)
       .onChange(function() {
         gl.useProgram(realisticDisplayProgram);
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
