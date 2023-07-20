@@ -11,6 +11,8 @@ uniform vec2 texelSize;
 
 uniform sampler2D lightTex;
 
+uniform float exposure;
+
 out vec4 fragmentColor;
 
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
@@ -44,12 +46,12 @@ void main()
   float val = pow(map_range(texCoord.y, 0., 3.2, 1.0, 0.1), 5.0); // pow 3 map 1.0 to 0.3
 
 
-  val = pow(val, 1. / 2.2);                                       // gamma correction
+  val = pow(val, 1. / 2.2); // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
 
 
-   //if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top
-  
+  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top
 
-  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3), 1.0);
+
+  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3) * exposure, 1.0);
 }

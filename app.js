@@ -807,6 +807,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
     gl.useProgram(realisticDisplayProgram);
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+    gl.useProgram(skyBackgroundDisplayProgram);
+    gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
   }
 
   function setupDatGui(strGuiControls)
@@ -1088,18 +1090,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Display Mode')
       .listen();
-    display_folder.add(guiControls, 'exposure', 0.5, 10.0, 0.01)
+    display_folder.add(guiControls, 'exposure', 0.5, 5.0, 0.01)
       .onChange(function() {
         gl.useProgram(realisticDisplayProgram);
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+        gl.useProgram(skyBackgroundDisplayProgram);
+        gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
       })
       .name('Exposure');
 
     display_folder.add(guiControls, 'camSpeed', 0.001, 0.050, 0.001).name('Camera Pan Speed');
 
 
-    display_folder
-      .add(guiControls, 'wrapHorizontally') ////////////////////////////////////////////////////////////////////////////////// NEW
+    display_folder.add(guiControls, 'wrapHorizontally')
       .onChange(function() {
         cam.wrapHorizontally = guiControls.wrapHorizontally;
         cam.center();
