@@ -1150,10 +1150,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     clockEl = document.createElement('div');
     document.body.appendChild(clockEl);
 
-    clockEl.innerHTML = "09:45"
+    clockEl.innerHTML = ""
     clockEl.style.position = "absolute";
     clockEl.style.fontFamily = 'Monospace';
-    // clockEl.style.font = 'Monaco';
     clockEl.style.fontSize = '35px';
     clockEl.style.color = 'white';
 
@@ -2962,7 +2961,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(realisticDisplayProgram);
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), sunAngleForShaders);
 
-    clockEl.innerHTML = timeFormat(guiControls.timeOfDay); // update clock
+    if (guiControls.dayNightCycle)
+      clockEl.innerHTML = timeFormat(guiControls.timeOfDay); // update clock
+    else
+      clockEl.innerHTML = "";
   }
 
 
