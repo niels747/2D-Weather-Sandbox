@@ -54,6 +54,7 @@
 - [x] Save Weather Stations to Save File
 - [x] Add option to turn off precipitation
 - [x] Improve longwave (IR) simulation
+- [x] Add Clock
 
 # In Progress
 - [ ] Add Option to reset atmosphere while keeping terain

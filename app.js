@@ -19,6 +19,8 @@ function updateSetupSliders()
 var canvas;
 var gl;
 
+var clockEl;
+
 var SETUP_MODE = false;
 
 var loadingBar;
@@ -404,7 +406,6 @@ class Weatherstation
 
 let weatherStations = []; // array holding all weather stations
 
-// weatherStations.push(new Weatherstation(1, 1)); // test station
 
 async function loadData()
 {
@@ -1145,6 +1146,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(realisticDisplayProgram);
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
     datGui.show(); // unhide
+
+    clockEl = document.createElement('div');
+    document.body.appendChild(clockEl);
+
+    clockEl.innerHTML = "09:45"
+    clockEl.style.position = "absolute";
+    clockEl.style.fontFamily = 'Monospace';
+    // clockEl.style.font = 'Monaco';
+    clockEl.style.fontSize = '35px';
+    clockEl.style.color = 'white';
+
+    updateSunlight('MANUAL_ANGLE'); // set angle from savefile
   }
 
   var soundingGraph = {
@@ -2388,7 +2401,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  updateSunlight('MANUAL_ANGLE'); // set angle from savefile
 
   if (!SETUP_MODE) {
     startSimulation();
@@ -2868,6 +2880,40 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
+  function pad(num, size)
+  {
+    num = num.toString();
+    while (num.length < size)
+      num = "0" + num;
+    return num;
+  }
+
+  function timeFormat(hours)
+  {
+    if (guiControls.imperialUnits) { // for Americans
+      if (hours < 12.0) {
+        let hour = Math.floor(hours);
+        if (hour == 0)
+          hour = 12;
+        let hourStr = pad(hour, 2);
+        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
+        return ' ' + hourStr + ':' + minuteStr + ' AM';
+      } else {
+        hours -= 12;
+        let hour = Math.floor(hours);
+        if (hour == 0)
+          hour = 12;
+        let hourStr = pad(hour, 2);
+        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
+        return ' ' + hourStr + ':' + minuteStr + ' PM';
+      }
+    }
+    // Simple 24 hour clock:
+    let hourStr = pad(Math.floor(hours), 2);
+    let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
+    return ' ' + hourStr + ':' + minuteStr;
+  }
+
   function updateSunlight(input)
   {
     if (input != 'MANUAL_ANGLE') {
@@ -2915,7 +2961,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'sunAngle'), sunAngleForShaders);
     gl.useProgram(realisticDisplayProgram);
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), sunAngleForShaders);
+
+    clockEl.innerHTML = timeFormat(guiControls.timeOfDay); // update clock
   }
+
 
   async function prepareDownload()
   {
