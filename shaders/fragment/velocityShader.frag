@@ -18,12 +18,9 @@ uniform float wind;
 uniform vec2 texelSize;
 // uniform vec2 resolution;
 
-uniform vec4 initial_Tv[76];
+uniform vec4 initial_Tv[126];
 
-float getInitialT(int y)
-{
-    return initial_Tv[y/4][y%4];
-}
+float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
@@ -38,9 +35,9 @@ void main()
 
   if (wall[1] == 0) // is wall
   {
-    base[0] = 0.0; // velocities in wall are 0
-    base[1] = 0.0; // this will make a wall not let any pressure trough and
-                   // thereby reflect any pressure waves back
+    base[0] = 0.0;  // velocities in wall are 0
+    base[1] = 0.0;  // this will make a wall not let any pressure trough and
+                    // thereby reflect any pressure waves back
   } else {
 
     // The velocity through the cell changes proportionally to the pressure

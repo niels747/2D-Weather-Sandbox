@@ -1201,7 +1201,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       var reachedAir = false;
       var surfaceLevel;
 
-      c.fillText('' + printDistance(map_range(simXpos, 0, sim_res_y, 0, guiControls.simHeight / 1000.0)), 5, 40);
+      c.fillText('' + printDistance(map_range(simXpos, 0, sim_res_y, 0, guiControls.simHeight / 1000.0)), this.graphCanvas.width - 70, 20);
 
       // Draw temperature line
       c.beginPath();
@@ -1351,10 +1351,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       function T_to_Xpos(T, y)
       {
         // temperature to horizontal position
-
-        // var normX = T * 0.013 + 1.34 - (y / graphBottem) * 0.9; // -30 to 40
         var normX = T * 0.0115 + 1.18 - (y / graphBottem) * 0.8; // -30 to 50
-
         return normX * this.graphCanvas.width;                   // T * 7.5 + 780.0 - 600.0 * (y / graphBottem);
       }
 
@@ -2246,7 +2243,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // generate Initial temperature profile
 
-  var initial_T = new Float32Array(304); // sim_res_y + 1
+  var initial_T = new Float32Array(504); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
     let altitude = y / (sim_res_y + 1) * guiControls.simHeight;

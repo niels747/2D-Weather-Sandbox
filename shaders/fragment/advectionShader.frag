@@ -40,7 +40,7 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform vec4 initial_Tv[76];
+uniform vec4 initial_Tv[126];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
