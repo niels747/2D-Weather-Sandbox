@@ -2067,6 +2067,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const forestSnowTexture = gl.createTexture();
   const forestFireTexture = gl.createTexture();
 
+  const surfaceTextureMap = gl.createTexture();
+
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
   const frameBuff_1 = gl.createFramebuffer();
@@ -2235,6 +2237,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
+  imgElement = await loadImage('resources/surfaceTextureMap.png');
+
+  gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  // gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
 
@@ -2354,9 +2366,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'waterTex'), 2);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
-  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestTex'), 5);
-  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestFireTex'), 6);
-  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'forestSnowTex'), 7);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'surfaceTextureMap'), 5);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
@@ -2732,11 +2742,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE4);
       gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
       gl.activeTexture(gl.TEXTURE5);
-      gl.bindTexture(gl.TEXTURE_2D, forestTexture);
-      gl.activeTexture(gl.TEXTURE6);
-      gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
-      gl.activeTexture(gl.TEXTURE7);
-      gl.bindTexture(gl.TEXTURE_2D, forestSnowTexture);
+      gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
+
 
       // draw background
       gl.useProgram(skyBackgroundDisplayProgram);
