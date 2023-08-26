@@ -47,7 +47,7 @@ const guiControls_default = {
   meltingRate : 0.0025,
   evapRate : 0.0005, // END OF PRECIPITATION
   displayMode : 'DISP_REAL',
-  timeOfDay : 9.9,
+  timeOfDay : 9.5,
   latitude : 45.0,
   month : 6.67, // Northern hemisphere solstice
   sunAngle : 9.9,
