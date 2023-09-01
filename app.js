@@ -115,7 +115,7 @@ var frameBuff_0;
 var dryLapse;
 
 
-const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
+const timePerIteration = 0.00008; // (0.00008 = 0.288 sec, at 40m cell size that means the speed of light & sound = 138.88 m/s = 500 km/h) in hours
 
 var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
@@ -775,7 +775,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(boundaryProgram);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'), guiControls.vorticity);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'IR_rate'), guiControls.IR_rate);
-    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
+    // gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'evapHeat'), guiControls.evapHeat);
@@ -793,6 +793,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'), guiControls.globalEffectsHeight / guiControls.simHeight);
+    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.useProgram(precipitationProgram);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingHeat'), guiControls.meltingHeat);
@@ -954,14 +955,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var water_folder = datGui.addFolder('Water');
 
-    water_folder.add(guiControls, 'waterTemperature', 0.0, 35.0, 0.1)
+    water_folder.add(guiControls, 'waterTemperature', 0.0, 40.0, 0.1)
       .onChange(function() {
-        gl.useProgram(boundaryProgram);
-        gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
+        gl.useProgram(advectionProgram);
+        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
         gl.useProgram(lightingProgram);
         gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
       })
-      .name('Lake / Sea Temp (°C)');
+      .name('Lake / Sea Temperature (°C)');
     water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
       .onChange(function() {
         gl.useProgram(boundaryProgram);
@@ -1137,6 +1138,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     datGui.width = 400;
   }
 
+  // guiControls.paused = true; // pause before first iteration for debugging
+
   await loadingBar.set(3, 'Initializing Sounding Graph');
   // END OF GUI
 
@@ -1185,8 +1188,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       gl.readBuffer(gl.COLOR_ATTACHMENT1);
       var waterTextureValues = new Float32Array(4 * sim_res_y);
-      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA, gl.FLOAT,
-                    waterTextureValues);                // read a vertical culumn of cells
+      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues); // read a vertical culumn of cells
+
+      gl.readBuffer(gl.COLOR_ATTACHMENT2);
+      var wallTextureValues = new Int8Array(4 * sim_res_y);
+      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+
 
       const graphBottem = this.graphCanvas.height - 30; // in pixels
 
@@ -1215,8 +1222,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         c.font = '15px Arial';
         c.fillStyle = 'white';
 
-        if (temp < 599.0) {
-          // not wall
+        if (wallTextureValues[4 * y + 1] != 0) { // if this is fluid cell
           if (!reachedAir) {
             // first non wall cell
             reachedAir = true;
@@ -2021,27 +2027,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   TEXTURE DESCRIPTIONS
 
-  base texture:
+  base texture: RGBA32F
   [0] = Horizontal velocity                              -1.0 to 1.0
   [1] = Vertical   velocity                              -1.0 to 1.0
   [2] = Pressure                                          >= 0
   [3] = Temperature in air, indicator in wall
 
-  water texture:
+  water texture: RGBA32F
   [0] = total water                                        >= 0
   [1] = cloud water                                        >= 0
   [2] = precipitation in air, moisture in surface          >= 0
   [3] = smoke/dust in air, snow in surface                 >= 0 for smoke/dust
   0 to 100 for snow
 
-  wall texture:
+  wall texture: RGBA8I
   [0] walltype
   [1] manhattan distance to nearest wall                   0 to 127
   [2] height above/below ground. Surface = 0               -127 to 127
-  [3] vegetation                                           0 to 127     grass
-  from 0 to 50, trees from 50 to 127
+  [3] vegetation                                           0 to 127     grass from 0 to 50, trees from 50 to 127
 
-  lighting texture:
+  lighting texture: RGBA32F
   [0] sunlight                                             0 to 1.0
   [1] net heating effect of IR + sun absorbed by smoke
   [2] IR coming down                                       >= 0
@@ -2285,6 +2290,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
+  gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
+               CtoK(guiControls.waterTemperature)); // can be changed by GUI input
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);

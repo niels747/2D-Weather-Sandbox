@@ -22,8 +22,8 @@ void main()
   wall = texture(wallTex, texCoord); // pass trough
 
   ivec2 wallX0Ym = texture(wallTex, texCoordX0Ym).xy;
-  if (wallX0Ym[1] == 0) {            // cell below is wall
-    base[3] -= baseX0Ym[3] - 1000.0; // Snow melting cools air
+  if (wallX0Ym[1] == 0 && wallX0Ym[0] == 1) { // cell below is land wall
+    base[3] -= baseX0Ym[3] - 1000.0;          // Snow melting cools air
   }
 
   // if(wall[1] == 0) // if this is wall
@@ -32,7 +32,7 @@ void main()
   //  if(texCoord.y > 0.99){ // keep pressure at top close to 0
   //     base[2] *= 0.995; // 0.999
   //     base[2] -= 0.001;
-// }
+  // }
 
   //  if(texCoord.y > 0.2)
   //    base[3] -= 0.0005;

@@ -31,6 +31,7 @@ uniform float meltingHeat;
 uniform float globalEffectsHeight;
 uniform float globalDrying;
 uniform float globalHeating;
+uniform float waterTemperature;
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
@@ -142,8 +143,10 @@ void main()
 
     water = texture(waterTex, texCoord);
 
-    base[3] = 1000.0; // special temperature, just to identify that this is a
-                      // wall cell when drawing the graph
+    if (wall[0] == 1)   // land
+      base[3] = 1000.0; // Set snow melting feedback to 0
+
+    water[0] = 1111.;   // indicate this is wall
 
     ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
@@ -202,9 +205,11 @@ void main()
   }
 
   if (inBrush) {
-    if (userInputType == 1) {        // temperature
+    if (userInputType == 1) { // temperature
       base[3] += userInputValues[2];
-    } else if (userInputType == 2) { // water
+      if (wall[0] == 2)
+        base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
+    } else if (userInputType == 2) {                             // water
       water[0] += userInputValues[2];
       water[0] = max(water[0], 0.0);
     } else if (userInputType == 3) { // smoke
@@ -264,6 +269,11 @@ void main()
           wall[1] = 0;      // set wall
           water = vec4(0.0);
           base[3] = 1000.0; // indicate this is wall and no snow cooling
+
+
+          if (wall[0] == 2) { // water surface
+            base[3] = waterTemperature;
+          }
         }
       } else {
         if (wall[1] == 0) { // remove wall only if it is a wall and not bottem layer
@@ -298,10 +308,8 @@ void main()
     // base[3] += 1000.0; // WHY DOES WALL TEMP HAVE AFFECT ON SIMULATION?
     // special temperature, just to identify that it is a wall cell when drawing
     // the graph
-  } else { // no wall
-
-    //  if (texCoord.y > 0.99) // dry the top edge and prevent snow from passing trough
-    //    water = vec4(0.0);
+    water[0] = 1111.;                                   // indicate this is wall
+  } else {                                              // no wall
 
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
   }

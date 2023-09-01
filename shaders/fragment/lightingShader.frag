@@ -18,7 +18,7 @@ uniform vec2 resolution;
 uniform vec2 texelSize;
 
 uniform float sunAngle;
-uniform float waterTemperature;
+// uniform float waterTemperature;
 
 uniform float sunIntensity;
 
@@ -80,10 +80,11 @@ void main()
           IR_up = IR_emitted(realTemp); // emissivity of surface = 1.0 for simplicity
           net_heating += (IR_down - IR_up) * IRHeatingConst;
           //  net_heating *= 0.5;
-        } else if (wall[0] == 2) {              // if water surface
-          IR_up = IR_emitted(waterTemperature); // emissivity = 1.0
-        } else if (wall[0] == 3) {              // if fire
-          IR_up = IR_emitted(realTemp);         // emissivity = 1.0
+        } else if (wall[0] == 2) {                                    // if water surface
+          float waterTemperature = texture(baseTex, texCoordX0Ym)[3]; // sample water temperature below
+          IR_up = IR_emitted(waterTemperature);                       // emissivity = 1.0
+        } else if (wall[0] == 3) {                                    // if fire
+          IR_up = IR_emitted(realTemp);                               // emissivity = 1.0
           net_heating = 0.0;
         }
 
@@ -96,7 +97,7 @@ void main()
         emissivity = greenhouseGases;                   // greenhouse gasses
         emissivity += water[0] * waterGreenHouseEffect; // water vapor
         emissivity += water[1] * 5.0;                   // cloud water blocks all IR
-        emissivity += water[3] * 0.0000;                // 0.0001 smoke Should be prettymuch transparent to IR
+                                                        // emissivity += water[3] * 0.0001;                // 0.0001 smoke Should be prettymuch transparent to IR
 
         emissivity *= cellHeightCompensation;           // compensate for the height of the cell
 
@@ -119,9 +120,9 @@ void main()
       // light = vec4(1, 0, 0, 0);
     } else {                                    // is wall
       if (wall[0] == 2)                         // water
-        light = vec4(sunlight * 0.80, 0, 0, 0); // * 0.95 light absorbed by water
+        light = vec4(sunlight * 0.90, 0, 0, 0); // light absorbed by water
       else                                      // land
-        light = vec4(sunlight * 0.5, 0, 0, 0);  // * 0.85 light absorbed by ground
+        light = vec4(sunlight * 0.5, 0, 0, 0);  // light absorbed by ground
     }
   }
 }

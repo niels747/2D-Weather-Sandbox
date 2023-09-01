@@ -9,6 +9,8 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 #define lightHeatingConst 0.0023 // how much heat a unit of light adds per iteration
 #define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
 
+#define maxWaterTemp 40.0
+
 #define snowMeltRate 0.0003
 #define ALBEDO_SNOW 0.85
 /*
@@ -115,7 +117,6 @@ float relativeHumd(float T, float W) { return (W / maxWater(T)); }
 
 vec4 bilerp(sampler2D tex, vec2 pos)
 {
-
   vec2 st = pos - 0.5; // calc pixel coordinats
 
   vec2 ipos = vec2(floor(st));

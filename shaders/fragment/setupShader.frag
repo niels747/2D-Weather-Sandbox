@@ -63,6 +63,7 @@ void main()
     wall[1] = 0;                                                                                     // set to wall
     if (height < texelSize.y) {
       wall[0] = 2;                                                                                   // set walltype to water
+      base[3] = CtoK(25.0);                                                                          // set water temperature to 25 C
     } else {
       wall[0] = 1;                                                                                   // set walltype to land
       water[2] = 100.0;                                                                              // soil moisture
@@ -85,5 +86,5 @@ void main()
 
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
   }
-  wall[2] = 100;                                        // prevent water being deleted in boundaryshader ln 250*
+  wall[2] = 100;                                        // preset height above ground to prevent water being deleted in boundaryshader ln 250*
 }
