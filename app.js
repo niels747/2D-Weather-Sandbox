@@ -1195,7 +1195,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
 
 
-      const graphBottem = this.graphCanvas.height - 30; // in pixels
+      const graphBottem = this.graphCanvas.height - 40; // in pixels
 
       var c = this.ctx;
 
@@ -1241,7 +1241,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
-          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos); // temperature
+          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                       // temperature
+        } else if (wallTextureValues[4 * y + 0] == 2 && wallTextureValues[4 * y + 2] == 0) { // if this is water surface
+          c.fillStyle = 'lightblue';
+          c.lineWidth = 1.0;
+          var waterTempC = KtoC(potentialTemp);
+          c.fillText('' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 15, scrYpos + 17); // water surface temperature
         }
       }
       c.lineWidth = 2.0; // 3
