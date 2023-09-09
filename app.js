@@ -272,17 +272,17 @@ function printAltitude(meters)
     return meters.toFixed() + ' m';
 }
 
-function printVelocityMs(ms) { return ms.toFixed() + ' m/s'; }
-
 function printVelocity(ms)
 {
+  var speedStr = '';
   if (guiControls.imperialUnits) {
     let mph = ms * 2.23694;
-    return mph.toFixed() + ' mph';
+    speedStr = mph.toFixed() + ' mph';
   } else {
     let kmh = ms * 3.6;
-    return kmh.toFixed() + ' km/h';
+    speedStr = kmh.toFixed() + ' km/h';
   }
+  return speedStr + '  ' + ms.toFixed() + ' m/s';
 }
 
 function rawVelocityToMs(vel)
@@ -302,7 +302,7 @@ function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) *
 
 class Weatherstation
 {
-  #width = 70; // display size
+  #width = 100; // 70 display size
   #height = 55;
   #canvas;
   #c; // 2d canvas context
@@ -1246,7 +1246,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           c.fillStyle = 'lightblue';
           c.lineWidth = 1.0;
           var waterTempC = KtoC(potentialTemp);
-          c.fillText('' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 15, scrYpos + 17); // water surface temperature
+          c.fillText('' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 20, scrYpos + 17); // water surface temperature
         }
       }
       c.lineWidth = 2.0; // 3
@@ -1274,7 +1274,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         if (y == simYpos) {
           c.fillText('' + printAltitude(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight)), 5, scrYpos + 5);
 
-          c.fillText('' + printVelocity(velocity), this.graphCanvas.width - 120, scrYpos + 5);
+          c.fillText('' + printVelocity(velocity), this.graphCanvas.width - 113, scrYpos + 20);
 
 
           c.strokeStyle = '#FFF';
