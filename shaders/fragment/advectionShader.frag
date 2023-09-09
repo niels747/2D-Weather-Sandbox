@@ -205,9 +205,9 @@ void main()
   }
 
   if (inBrush) {
-    if (userInputType == 1) { // temperature
+    if (userInputType == 1) {                                    // temperature
       base[3] += userInputValues[2];
-      if (wall[0] == 2)
+      if (wall[0] == 2 && wall[1] == 0)                          // water wall
         base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
     } else if (userInputType == 2) {                             // water
       water[0] += userInputValues[2];
