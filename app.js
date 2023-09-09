@@ -1421,7 +1421,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   {
     // mouse position in sim coordinates
     var simXpos = Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x)));
-    var simYpos = Math.floor(mouseYinSim * sim_res_y);
+    var simYpos = Math.min(Math.max(Math.floor(mouseYinSim * sim_res_y), 0), sim_res_y - 1);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
@@ -1452,7 +1452,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[0] X-vel:', baseTextureValues[0]);
     console.log('[1] Y-vel:', baseTextureValues[1]);
     console.log('[2] Press:', baseTextureValues[2]);
-    console.log('[3] Temp :', KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) + ' °C');
+    console.log('[3] Temp :', baseTextureValues[3].toFixed(2) + ' K   ', KtoC(baseTextureValues[3]).toFixed(2) + ' °C   ', KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) + ' °C');
 
     //		console.log(simYpos);
 
