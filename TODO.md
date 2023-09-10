@@ -56,6 +56,11 @@
 - [x] Improve longwave (IR) simulation
 - [x] Add Clock
 
+# Changes since Juli 21
+- [x] Adjustable water temperature
+- [x] Show water temperature in sounding graph
+- [x] Improve fire
+
 # In Progress
 - [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Improve realistic hail formation and improve precipitation in general
@@ -71,7 +76,7 @@
 - [ ] Make weather stations show history in plots
 - [ ] Improve terain generation
 - [ ] Allow editing while simulation paused
-- [ ] Make precipitation work on mobile devices
+- [ ] Make precipitation work on all mobile devices
 - [ ] Add sounds
 - [ ] Add lightning effect
 - [ ] Add plane flying mode. You will be able to fly a realistic plane trough the clouds at realistic scale and speed

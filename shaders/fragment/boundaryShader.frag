@@ -42,10 +42,14 @@ layout(location = 2) out ivec4 wall;
 
 #include "common.glsl"
 
+#define minimalFireVegitation 10
+
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 /*
 #define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
 #define exchangeRate 0.001       // Rate of smoothing near surface
+
+
 
 void exchangeWith(vec2 texCoord) // exchange temperature and water
 {
@@ -290,10 +294,10 @@ void main()
         water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
 
         // if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
-        if (int(iterNum) % 700 == 0) {                                                                           // fire spread at fixed rate
+        if (int(iterNum) % 700 == 0) {                                                                                                // fire spread at fixed rate
 
-          if (wall[3] >= 20 && wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5) // if left or right is on fire or fire is blowing over
-            wall[0] = 3;                                                                                         // spread fire
+          if (wall[3] >= minimalFireVegitation && (wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5)) // if left or right is on fire or fire is blowing over
+            wall[0] = 3;                                                                                                              // spread fire
         }
 
 
@@ -319,11 +323,11 @@ void main()
         }
         // base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range, really only needed for first iteration after loading old save file without water temperature
 
-      } else if (wall[0] == 3 && int(iterNum) % 100 == 0) { // fire wall
+      } else if (wall[0] == 3 && int(iterNum) % 300 == 0) { // fire wall
 
         // wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
         wall[3] -= 1;  // reduce vegetation
-        if (wall[3] < 20)
+        if (wall[3] < minimalFireVegitation)
           wall[0] = 1; // turn off fire
       }
     }

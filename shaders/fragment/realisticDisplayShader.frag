@@ -16,9 +16,6 @@ uniform sampler2D waterTex;
 uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D noiseTex;
-// uniform sampler2D forestTex;
-// uniform sampler2D forestFireTex;
-// uniform sampler2D forestSnowTex;
 uniform sampler2D surfaceTextureMap;
 
 #define CITY 0
