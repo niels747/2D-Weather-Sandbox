@@ -214,7 +214,7 @@ void main()
       water[0] = max(water[0], 0.0);
     } else if (userInputType == 3) { // smoke
       water[3] += userInputValues[2];
-      water[3] = max(water[3], 0.0);
+      water[3] = min(max(water[3], 0.0), 2.0);
 
     } else if (userInputType == 4) {                                   // drag/move air
 
@@ -276,16 +276,16 @@ void main()
           }
         }
       } else {
-        if (wall[1] == 0) { // remove wall only if it is a wall and not bottem layer
+        if (wall[1] == 0) {                      // remove wall only if it is a wall and not bottem layer
 
-          if (userInputType == 13) {
-            if (wall[0] == 3) // extinguish fire
+          if (userInputType == 13) {             // fire
+            if (wall[0] == 3)                    // extinguish fire
               wall[0] = 1;
-          } else if (userInputType == 14) {
+          } else if (userInputType == 14) {      // moisture
             water[2] += userInputValues[2] * 10.0;
-          } else if (userInputType == 15) {
+          } else if (userInputType == 15) {      // snow
             water[3] += userInputValues[2] * 10.0;
-          } else if (userInputType == 16) {
+          } else if (userInputType == 16) {      // vegetation
             wall[3] = max(wall[3] - 1, 0);       // remove vegetation
           } else if (texCoord.y > texelSize.y) { // remove wall
 

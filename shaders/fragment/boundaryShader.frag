@@ -296,7 +296,7 @@ void main()
         // if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
         if (int(iterNum) % 700 == 0) {                                                                                                // fire spread at fixed rate
 
-          if (wall[3] >= minimalFireVegitation && (wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.5)) // if left or right is on fire or fire is blowing over
+          if (wall[3] >= minimalFireVegitation && (wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.3)) // if left or right is on fire or fire is blowing over
             wall[0] = 3;                                                                                                              // spread fire
         }
 
