@@ -721,7 +721,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.tarXpos = clamp(this.tarXpos, -0.99, 0.99);
     }
 
-    changeViewYpos(change) { this.tarYpos = clamp(this.tarYpos + change, -0.99, 0.50); }
+    changeViewYpos(change) { this.tarYpos = clamp(this.tarYpos + change, -2.50, 0.50); }
 
     zoomAtMousePos(delta)
     {

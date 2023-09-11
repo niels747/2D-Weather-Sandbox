@@ -28,19 +28,23 @@ vec3 hsv2rgb(vec3 c)
 }
 
 
-vec4 displayA320()
+vec4 displayA320(vec2 pos)
 {
-
-  // float aspect = texelSize.y / texelSize.x;
-
   vec2 planeTexCoord = texCoord;
-  planeTexCoord.x -= 0.5 - iterNum * 0.0002; // 20 meters if area is 100km wide. / 0.288 = 69.44 m/s = 250 km/h
-  planeTexCoord.x = mod(planeTexCoord.x, 1.0);
-  planeTexCoord.y -= 0.1;
-  planeTexCoord.x *= 800.0;
-  planeTexCoord.y *= -2600.0 / aspectRatios.x;
 
-  if (planeTexCoord.x < 0.0 || planeTexCoord.x > 1.0 || planeTexCoord.y < 0.0 || planeTexCoord.y > 1.0)
+  planeTexCoord.x -= pos.x;
+  planeTexCoord.x = mod(planeTexCoord.x, 1.0);
+  planeTexCoord.y -= pos.y;
+
+  const float simHeight = 12000.0;
+  float cellHeight = simHeight / resolution.y;
+
+  float scaleMult = 12000.0 / cellHeight;
+
+  planeTexCoord.x *= scaleMult * aspectRatios.x;
+  planeTexCoord.y *= -scaleMult * 3.25;
+
+  if (planeTexCoord.x < 0.01 || planeTexCoord.x > 1.01 || planeTexCoord.y < 0.01 || planeTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec4(0);
 
   return texture(A320Tex, planeTexCoord);
@@ -72,12 +76,21 @@ void main()
   val = pow(val, 1. / 2.2); // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
 
-  mixedCol *= 1.0 - displayA320().a;
-  mixedCol += displayA320().rgb;
+
+  const float timePerIteration = 0.00008;          // app.js line 118
+  const float speed_kmh = 250.0;
+  float speed_kmpi = speed_kmh * timePerIteration; // km per iteration
+  float areaWidth = 100.0;                         // km
+
+  vec2 planePos = vec2(0.5 - iterNum * speed_kmpi / areaWidth, 0.10);
+
+  vec4 A320Col = displayA320(planePos);
+
+  mixedCol *= 1.0 - A320Col.a;
+  mixedCol += A320Col.rgb;
 
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
-
 
   fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3) * exposure, 1.0);
 }
