@@ -8,10 +8,13 @@ in vec2 texCoord;
 
 uniform vec2 resolution;
 uniform vec2 texelSize;
+uniform vec2 aspectRatios;
 
 uniform sampler2D lightTex;
+uniform sampler2D A320Tex;
 
 uniform float exposure;
+uniform float iterNum;
 
 out vec4 fragmentColor;
 
@@ -23,6 +26,26 @@ vec3 hsv2rgb(vec3 c)
   vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
+
+
+vec4 displayA320()
+{
+
+  // float aspect = texelSize.y / texelSize.x;
+
+  vec2 planeTexCoord = texCoord;
+  planeTexCoord.x -= 0.5 - iterNum * 0.0002; // 20 meters if area is 100km wide. / 0.288 = 69.44 m/s = 250 km/h
+  planeTexCoord.x = mod(planeTexCoord.x, 1.0);
+  planeTexCoord.y -= 0.1;
+  planeTexCoord.x *= 800.0;
+  planeTexCoord.y *= -2600.0 / aspectRatios.x;
+
+  if (planeTexCoord.x < 0.0 || planeTexCoord.x > 1.0 || planeTexCoord.y < 0.0 || planeTexCoord.y > 1.0)
+    return vec4(0);
+
+  return texture(A320Tex, planeTexCoord);
+}
+
 
 void main()
 {
@@ -49,8 +72,11 @@ void main()
   val = pow(val, 1. / 2.2); // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
 
+  mixedCol *= 1.0 - displayA320().a;
+  mixedCol += displayA320().rgb;
 
-  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top
+
+  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
 
 
   fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3) * exposure, 1.0);

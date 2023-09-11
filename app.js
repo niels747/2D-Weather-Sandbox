@@ -2072,11 +2072,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightTexture_0 = gl.createTexture();
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
-  const noiseTexture = gl.createTexture();
-  const forestTexture = gl.createTexture();
-  const forestSnowTexture = gl.createTexture();
-  const forestFireTexture = gl.createTexture();
 
+  // Static texures:
+  const noiseTexture = gl.createTexture();
+  const A320Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
 
 
@@ -2218,33 +2217,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
   //     gl.REPEAT);  // default, so no need to set
 
-  imgElement = await loadImage('resources/forest.png');
+  imgElement = await loadImage('resources/A320.png');
 
-  gl.bindTexture(gl.TEXTURE_2D, forestTexture);
+  gl.bindTexture(gl.TEXTURE_2D, A320Texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  // gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   // NEAREST_MIPMAP_LINEAR create wierd effects
-
-  imgElement = await loadImage('resources/forest_snow.png');
-
-  gl.bindTexture(gl.TEXTURE_2D, forestSnowTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  // gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  imgElement = await loadImage('resources/forestfire.png');
-
-  gl.bindTexture(gl.TEXTURE_2D, forestFireTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  // gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
   imgElement = await loadImage('resources/surfaceTextureMap.png');
@@ -2397,6 +2379,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
+  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'A320Tex'), 6);
+
 
   // console.time('Set uniforms');
   setGuiUniforms(); // all uniforms changed by gui
@@ -2758,10 +2742,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
       // draw background
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindTexture(gl.TEXTURE_2D, A320Texture);
+
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
+      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), IterNum);
+
       // gl.activeTexture(gl.TEXTURE0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
 
