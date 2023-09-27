@@ -1103,6 +1103,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys.angle = 5.0 * degToRad;
       this.throttle = 0.4;                                                                                                          // %
       cam.tarZoom = 100.0;
+      document.body.style.cursor = 'crosshair';
     }
     disableAirplaneMode()
     {
@@ -1113,6 +1114,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#camFollow = false;
       this.display(); // run display function one more time to update uniforms
       this.#instrumentPanel.remove();
+      document.body.style.cursor = 'default';
     }
     // https://aviation.stackexchange.com/questions/64490/is-there-a-simple-relationship-between-angle-of-attack-and-lift-coefficient/97747#97747?newreg=547ea95b1d784abf993b7d1850dcc938
     Cl(AOA) // lift coefficient https://www.desmos.com/calculator/ffcguasdqc
@@ -3110,7 +3112,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.viewport(0, 0, sim_res_x, sim_res_y);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
-        if (!airplaneMode || airplane.hasCrashed() || frameNum % 20 == 0) {
+        if (!airplaneMode || airplane.hasCrashed() || frameNum % 17 == 0) { // update every 17 frames because 60 * 0.288 secs per iteration = 17.28
           let numIterations = guiControls.IterPerFrame;
           if (airplaneMode)
             numIterations = 1;

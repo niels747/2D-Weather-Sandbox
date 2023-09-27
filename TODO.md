@@ -60,7 +60,7 @@
 - [x] Adjustable water temperature
 - [x] Show water temperature in sounding graph
 - [x] Improve fire
-- [x] Add plane flying mode. Fly a realistic plane trough the clouds at realistic scale and speed
+- [x] Add plane flying mode. Experience the turbulent clouds by flying a realistic plane trough the clouds at realistic scale and speed!
 
 # In Progress
 - [ ] Add Option to reset atmosphere while keeping terain
