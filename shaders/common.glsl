@@ -19,7 +19,6 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 #define ALBEDO_GRASS 0.20
 #define ALBEDO_FOREST 0.10
 */
-
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
 
@@ -92,7 +91,6 @@ float dT_saturated(float dTdry,
     return dTdry * multiplier;
   }
 }
-
 ////////////// Water Functions ///////////////
 #define wf_devider 250.0 // 250.0 Real water 	230 less steep curve
 #define wf_pow 17.0      // 17.0						10
@@ -193,7 +191,6 @@ float absHorizontalDist(float a, float b) // for wrapping horizontal position ar
 {
   return min(min(abs(a - b), abs(1.0 + a - b)), 1.0 - a + b);
 }
-
 /*
 float realMod(float a, float b)
 {

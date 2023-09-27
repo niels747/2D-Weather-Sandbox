@@ -20,7 +20,9 @@ uniform isampler2D wallTex;
 
 uniform vec4 userInputValues; // xpos   Ypos   intensity   Size
 uniform vec2 userInputMove;   // moveX  moveY
-uniform int userInputType;    // 0 = nothing 	1 = temp ...
+uniform int userInputType;    // 0 = nothing 	1 = temp ...`
+
+uniform vec4 airplaneValues;  // xpos   Ypos   throttle   fire
 
 uniform bool wrapHorizontally;
 
@@ -82,7 +84,6 @@ void main()
                                                        // base[0] = bilerpWall(baseTex, wallTex, fragCoord - velAtVx)[0]; // Vx
                                                        // base[1] = bilerpWall(baseTex, wallTex, fragCoord - velAtVy)[1]; // Vy
 
-
     // base[2] = bilerp(baseTex, fragCoord - velAtP)[2];
     // base[3] = bilerp(baseTex, fragCoord - velAtP)[3];
 
@@ -143,10 +144,11 @@ void main()
 
     water = texture(waterTex, texCoord);
 
-    if (wall[0] == 1)   // land
+    if (wall[0] == 1) { // land
       base[3] = 1000.0; // Set snow melting feedback to 0
+    }
 
-    water[0] = 1111.;   // indicate this is wall
+    water[0] = 1111.; // indicate this is wall
 
     ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
@@ -212,7 +214,7 @@ void main()
     } else if (userInputType == 2) {                             // water
       water[0] += userInputValues[2];
       water[0] = max(water[0], 0.0);
-    } else if (userInputType == 3) { // smoke
+    } else if (userInputType == 3 && wall[1] != 0) { // smoke, only apply if not wall
       water[3] += userInputValues[2];
       water[3] = min(max(water[3], 0.0), 2.0);
 
@@ -310,7 +312,39 @@ void main()
     // the graph
     water[0] = 1111.;                                   // indicate this is wall
   } else {                                              // no wall
-
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // recalculate cloud water
+  }
+  // airplaneValues.xy
+  float planeInfluence = max(0.003 - length(texCoord - airplaneValues.xy), 0.) * 10.0;
+  water[0] += planeInfluence * airplaneValues[2] * 1.0; // moisture
+  // water[3] += planeInfluence * 0.1; // smoke
+  //  base[3] += planeInfluence * 74.0; // heat
+
+
+  if (airplaneValues[3] > 0.9) { // PLANE CRASH!
+
+    vec2 vecFromPlane;
+
+    if (wrapHorizontally) {
+      vecFromPlane = vec2(absHorizontalDist(airplaneValues.x, texCoord.x), airplaneValues.y - texCoord.y);
+    } else {
+      vecFromPlane = vec2(abs(airplaneValues.x - texCoord.x), airplaneValues.y - texCoord.y);
+    }
+
+    vecFromPlane.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
+
+    float distFromPlane = length(vecFromPlane);
+
+    if (distFromPlane < 1. / resolution.y * 1.5) {
+      if (wall[1] == 0) {
+        if (wall[0] == 1 && wall[2] == 0) // if land, set ground on fire
+          wall[0] = 3;                    // start fire when plane hits the ground
+      } else {                            // air, create FIRE BALL!
+        base[2] += 0.05;                  // pressure wave
+        base[3] = CtoK(50.0);             // heat
+        water[0] += 1.;                   // moisture
+        water[3] += 10.;                  // smoke
+      }
+    }
   }
 }

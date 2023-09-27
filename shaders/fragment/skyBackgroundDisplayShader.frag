@@ -11,10 +11,12 @@ uniform vec2 texelSize;
 uniform vec2 aspectRatios;
 
 uniform sampler2D lightTex;
-uniform sampler2D A320Tex;
+uniform sampler2D planeTex;
 
 uniform float exposure;
 uniform float iterNum;
+
+uniform vec3 planePos;
 
 out vec4 fragmentColor;
 
@@ -27,33 +29,54 @@ vec3 hsv2rgb(vec3 c)
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+float realMod(float a, float b)
+{
+  // proper modulo to handle negative numbers
+  return mod(mod(a, b) + b, b);
+}
 
-vec4 displayA320(vec2 pos)
+
+vec4 displayA380(vec2 pos, float angle)
 {
   vec2 planeTexCoord = texCoord;
 
-  planeTexCoord.x -= pos.x;
-  planeTexCoord.x = mod(planeTexCoord.x, 1.0);
+  planeTexCoord.x -= mod(pos.x, 1.);
+  // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
   planeTexCoord.y -= pos.y;
 
   const float simHeight = 12000.0;
   float cellHeight = simHeight / resolution.y;
 
-  float scaleMult = 12000.0 / cellHeight;
+  float scaleMult = 60.0 / cellHeight; // 6000
 
   planeTexCoord.x *= scaleMult * aspectRatios.x;
-  planeTexCoord.y *= -scaleMult * 3.25;
+  planeTexCoord.y *= -scaleMult;
+
+  // planeTexCoord.y -= 0.7;
+
+  // rotate
+
+  float sin_factor = sin(angle);
+  float cos_factor = cos(angle);
+
+  planeTexCoord = vec2((planeTexCoord.x), planeTexCoord.y) * mat2(cos_factor, sin_factor, -sin_factor, cos_factor);
+
+  planeTexCoord *= 0.15;              // scale
+  planeTexCoord *= vec2(500., 1000.); // Aspect ratio
+
+  planeTexCoord += vec2(0.5, 0.6);    // center rotation point
+
 
   if (planeTexCoord.x < 0.01 || planeTexCoord.x > 1.01 || planeTexCoord.y < 0.01 || planeTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec4(0);
 
-  return texture(A320Tex, planeTexCoord);
+  return texture(planeTex, planeTexCoord);
 }
 
 
 void main()
 {
-  vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
+  vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y + texelSize.y * 0.5, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
 
   float light = texture(lightTex, lightTexCoord)[0];
 
@@ -82,12 +105,14 @@ void main()
   float speed_kmpi = speed_kmh * timePerIteration; // km per iteration
   float areaWidth = 100.0;                         // km
 
-  vec2 planePos = vec2(0.5 - iterNum * speed_kmpi / areaWidth, 0.10);
+                                                   // vec2 planePos = vec2(0.5 - iterNum * speed_kmpi / areaWidth, 0.1); // 0.5 - iterNum * speed_kmpi / areaWidth
 
-  vec4 A320Col = displayA320(planePos);
+  // float angle = iterNum * 0.01;
 
-  mixedCol *= 1.0 - A320Col.a;
-  mixedCol += A320Col.rgb;
+  vec4 A380Col = displayA380(planePos.xy, planePos.z);
+
+  mixedCol *= 1.0 - A380Col.a;
+  mixedCol += A380Col.rgb;
 
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area

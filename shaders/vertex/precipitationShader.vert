@@ -47,7 +47,7 @@ uniform vec2 resolution;
 uniform vec2 texelSize;
 uniform float dryLapse;
 
-uniform float frameNum;         // used as seed for random function
+uniform float iterNum;          // used as seed for random function
 uniform float inactiveDroplets; // used to maintain constant spawnrate
 
 uniform float evapHeat;
@@ -91,7 +91,7 @@ void main()
                        */
 
     // generate random spawn position: x and y from 0. to 1.
-    texCoord = vec2(random(mass[WATER] * frameNum * 2.4173), random(mass[ICE] * frameNum * 7.3916));
+    texCoord = vec2(random(mass[WATER] * iterNum * 2.4173), random(mass[ICE] * iterNum * 7.3916));
 
     // sample fluid at generated position
     vec4 base = texture(baseTex, texCoord);
@@ -113,14 +113,14 @@ void main()
                                                          // if (spawnChance > rand2d(mass.xy)) {
       float spawnChance = (water[CLOUD] - thresHold) / inactiveDroplets * resolution.x * resolution.y * spawnChanceMult;
 
-      float nrmRand = random(mass[WATER] * 0.3724 + frameNum + random(mass[ICE])); // normalized random value
-      if (spawnChance > nrmRand) {                                                 // spawn
-        newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.);           // convert texture coordinate (0 to 1) to position (-1 to 1)
+      float nrmRand = random(mass[WATER] * 0.3724 + iterNum + random(mass[ICE])); // normalized random value
+      if (spawnChance > nrmRand) {                                                // spawn
+        newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.);          // convert texture coordinate (0 to 1) to position (-1 to 1)
 
-        if (realTemp < CtoK(0.0)) {                                                // below 0 C
-          newMass[WATER] = 0.0;                                                    // enable
-          newMass[ICE] = initalMass;                                               // snow
-          feedback[HEAT] += newMass[ICE] * meltingHeat;                            // add heat of freezing
+        if (realTemp < CtoK(0.0)) {                                               // below 0 C
+          newMass[WATER] = 0.0;                                                   // enable
+          newMass[ICE] = initalMass;                                              // snow
+          feedback[HEAT] += newMass[ICE] * meltingHeat;                           // add heat of freezing
           newDensity = snowDensity;
         } else {
           newMass[WATER] = initalMass; // rain

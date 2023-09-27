@@ -65,7 +65,7 @@ void main()
         float lightReflected = sunlight * reflection;
         float lightAbsorbed = sunlight * absorbtion;
 
-        sunlight -= lightReflected + lightAbsorbed;
+        sunlight = max(0., sunlight - lightReflected - lightAbsorbed);
 
         net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
       }

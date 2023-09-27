@@ -26,13 +26,14 @@ var SETUP_MODE = false;
 var loadingBar;
 var cam;
 
+const PI = 3.14159265359;
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
 
 const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
-  vorticity : 0.005,
+  vorticity : 0.007,
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
   globalEffectsHeight : 5000,
@@ -93,6 +94,8 @@ var displayVectorField = false;
 
 var sunIsUp = true;
 
+var airplaneMode = false;
+
 var saveFileName = '';
 
 var guiControlsFromSaveFile = null;
@@ -103,7 +106,7 @@ var sim_res_y;
 var sim_aspect; //  = sim_res_x / sim_res_y
 var sim_height = 12000;
 
-var cellHeight = 0; // guiControls.simHeight / sim_res_y;  // in meters
+var cellHeight = 0; // guiControls.simHeight / sim_res_y;  // in meters // cell width is the same
 
 var frameNum = 0;
 var lastFrameNum = 0;
@@ -626,7 +629,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 {
   await setLoadingBar();
 
-  class camera
+  let lastSaveTime = new Date();
+
+  class Camera
   {
     #spring = 0.02;   // 0.02
     #damp = 0.70;     // 0.70
@@ -701,7 +706,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.tarZoom *= 1.0 + change;
 
       let minZoom = 0.5;
-      let maxZoom = 25.0 * sim_aspect;
+      let maxZoom = 35.0 * sim_aspect;
 
       if (this.tarZoom > maxZoom) {
         this.tarZoom = maxZoom;
@@ -735,7 +740,552 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  cam = new camera();
+  cam = new Camera();
+
+  class InstrumentPanel
+  {
+    #instrumentCanvas;
+    #panelImg;
+
+    constructor()
+    {
+      this.#instrumentCanvas = document.createElement('canvas');
+      this.#instrumentCanvas.width = 750;
+      this.#instrumentCanvas.height = 660;
+      this.#instrumentCanvas.style.opacity = 0.7;
+      this.#instrumentCanvas.style.position = 'absolute';
+      this.#instrumentCanvas.style.bottom = 0;
+      this.#instrumentCanvas.style.right = 0;
+      body.appendChild(this.#instrumentCanvas);
+      this.loadImages();
+    }
+
+    remove() { this.#instrumentCanvas.remove(); }
+
+    async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
+
+    async display(pitchAngle, moveAngle, altitude, radarAltitude, airspeed, OAT_C, throttle)
+    {
+      let ctx = this.#instrumentCanvas.getContext("2d");
+      let width = this.#instrumentCanvas.width;
+      let height = this.#instrumentCanvas.height;
+      const topBarHeight = 50;
+      let mainHeight = height - topBarHeight; // height of indicator part
+
+      // ATTITUDE INDICATOR:
+
+      const pixPerDeg = 15.0;
+
+      let y0 = mainHeight / 2 + topBarHeight + pitchAngle * pixPerDeg; // y pos of 0 deg pitch line
+
+      ctx.beginPath();
+      ctx.rect(0, -1000, width, 1000 + y0);
+      ctx.fillStyle = '#05A3ED'; // blue
+      ctx.fill();
+      ctx.beginPath();
+      ctx.rect(0, y0, width, 1500);
+      ctx.fillStyle = '#F0843C'; // brown
+      ctx.fill();
+
+
+      ctx.strokeStyle = 'white';
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      for (let i = Math.round((pitchAngle) / 10) * 10 - 50; i < pitchAngle + 50; i += 2.5) {
+        let y = y0 - i * pixPerDeg;
+        if (i % 10 == 0) {
+          ctx.moveTo(width / 2 - width * 0.15, y);
+          ctx.lineTo(width / 2 + width * 0.15, y);
+          if (i != 0) {
+            ctx.fillText(i, width / 2 - width * 0.25, y + 12);
+            ctx.fillText(i, width / 2 + width * 0.21, y + 12);
+          }
+        } else if (i % 5 == 0) {
+          ctx.moveTo(width / 2 - width * 0.075, y);
+          ctx.lineTo(width / 2 + width * 0.075, y);
+        } else { // 2.5 deg
+          ctx.moveTo(width / 2 - width * 0.0375, y);
+          ctx.lineTo(width / 2 + width * 0.0375, y);
+        }
+      }
+      ctx.stroke();
+
+
+      ctx.strokeStyle = 'yellow';
+      ctx.beginPath();
+      let moveIndY = mainHeight / 2 + topBarHeight + (pitchAngle - moveAngle) * pixPerDeg;
+      ;
+      ctx.moveTo(width / 2 - width * 0.15, moveIndY);
+      ctx.lineTo(width / 2 + width * 0.15, moveIndY);
+      ctx.stroke();
+
+      ctx.drawImage(this.#panelImg, 0, 50, width, mainHeight);
+
+      // ALTITUDE INDICATOR:
+
+      const altIndXpos = 640; // pos of vertical line
+
+      ctx.beginPath();
+      ctx.moveTo(altIndXpos, topBarHeight);
+      ctx.lineTo(altIndXpos, height);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'white';
+      ctx.fillStyle = 'white';
+      ctx.stroke();
+      ctx.font = "30px serif";
+
+      let unit = ' m'
+
+      if (guiControls.imperialUnits)
+      {
+        altitude *= 3.28084;
+        radarAltitude *= 3.28084;
+        unit = ' ft'
+      }
+
+      const pxPerAlt = 0.65;
+      const altRange = 500; // + and -
+
+      ctx.beginPath();
+      for (let i = Math.round((altitude - altRange) / 100) * 100; i < altitude + altRange; i += 50) {
+        let y = mainHeight / 2 + topBarHeight - (i - altitude) * pxPerAlt;
+        if (i % 100 == 0) {
+          ctx.moveTo(altIndXpos, y);
+          ctx.lineTo(altIndXpos + 20, y);
+          ctx.fillText(i, altIndXpos + 25, y + 12);
+        } else {
+          ctx.moveTo(altIndXpos, y);
+          ctx.lineTo(altIndXpos + 10, y);
+        }
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'black';
+      ctx.fillRect(altIndXpos - 3, mainHeight / 2 + topBarHeight - 25, 150, 50);
+      ctx.fillStyle = 'white';
+      ctx.fillText(altitude.toFixed(0) + unit, altIndXpos, mainHeight / 2 + topBarHeight + 10);
+
+      // Show ground level
+      ctx.beginPath();
+      ctx.fillStyle = '#aa0000aa';
+      ctx.fillRect(altIndXpos - 3, mainHeight / 2 + topBarHeight + radarAltitude * pxPerAlt, 100, 500);
+
+      // VELOCITY INDICATOR:
+      const velIndXpos = 110;
+      ctx.beginPath();
+      ctx.moveTo(velIndXpos, topBarHeight);
+      ctx.lineTo(velIndXpos, height);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'white';
+      ctx.fillStyle = 'white';
+      ctx.stroke();
+      ctx.font = "30px serif";
+
+      let stallSpeed = 70.0; // m/s
+
+      if (guiControls.imperialUnits) {
+        airspeed *= 1.94384;
+        stallSpeed *= 1.94384;
+        unit = ' kt'
+      } else {
+        unit = ' km/h'
+        airspeed *= 3.6; // convert m/s to km/h
+        stallSpeed *= 3.6;
+      }
+
+      const pxPerVel = 10.0;
+      const velRange = 35; // + and -
+
+      ctx.beginPath();
+      for (let i = Math.max(Math.round((airspeed) / 10) * 10 - velRange, 0); i < airspeed + velRange; i += 5) {
+        let y = mainHeight / 2 + topBarHeight - (i - airspeed) * pxPerVel;
+        if (i % 10 == 0) {
+          ctx.moveTo(velIndXpos - 20, y);
+          ctx.lineTo(velIndXpos, y);
+          ctx.fillText(i, 0, y + 12);
+        } else {
+          ctx.moveTo(velIndXpos - 10, y);
+          ctx.lineTo(velIndXpos, y);
+        }
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, mainHeight / 2 + topBarHeight - 25, velIndXpos + 3, 50);
+      ctx.fillStyle = 'white';
+      ctx.fillText(airspeed.toFixed(0) + unit, 0, mainHeight / 2 + topBarHeight + 10);
+
+      // Show stall speed
+      ctx.beginPath();
+      ctx.fillStyle = '#aa0000aa';
+      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - stallSpeed) * pxPerVel, velIndXpos + 3, 5000);
+
+
+      // OVERHEAD
+
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(0, 0, this.#instrumentCanvas.width, topBarHeight);
+
+      ctx.fillStyle = '#00FFFF';
+      ctx.fillText('OAT: ' + printTemp(OAT_C), 0, 40);
+
+      ctx.fillStyle = '#FFFF00';
+      ctx.fillText('Throttle: ' + throttle.toFixed() + ' %', 200, 40);
+
+
+      let AOA = pitchAngle - moveAngle;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('AOA: ' + AOA.toFixed(1) + '°', 400, 40);
+      if (AOA > 14.0) {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillText('STALL!', 650, 40);
+      }
+    }
+  }
+
+
+  class Vec2D // simple 2D vector
+  {
+    x;
+    y;
+    constructor(x, y)
+    {
+      this.x = x;
+      this.y = y;
+    }
+    static fromAngle(angle, mag) // create vector from angle and optional magnitude
+    {
+      if (mag == null)
+        mag = 1.0;
+      let x = -Math.cos(angle) * mag;
+      let y = Math.sin(angle) * mag;
+      return new Vec2D(x, y);
+    }
+
+    copy() { return new Vec2D(this.x, this.y); }
+    add(other)
+    {
+      this.x += other.x;
+      this.y += other.y;
+      return this;
+    }
+    subtract(other)
+    {
+      this.x -= other.x;
+      this.y -= other.y;
+      return this;
+    }
+    mult(mult)
+    {
+      this.x *= mult;
+      this.y *= mult;
+      return this;
+    }
+    div(div)
+    {
+      this.x /= div;
+      this.y /= div;
+      return this;
+    }
+
+    rotate(angle) // rotate vector
+    {
+      let newX = Math.sin(angle) * this.y + Math.cos(angle) * this.x;
+      this.y = Math.cos(angle) * this.y - Math.sin(angle) * this.x;
+      this.x = newX;
+      return this;
+    }
+
+    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); } // get magnitude of vector
+
+    magSq() { return this.x * this.x + this.y * this.y; }          // square of magnitude
+
+    angle()                                                        // get angle of vector
+    {
+      return Math.atan(this.y / -this.x);
+    }
+  }
+
+  const dt = 1. / 60.;
+
+  class PhysicsObject
+  {        // 2D PhysicsObject
+    m;     // mass in kg
+    I;     // moment of inertia
+    pos;   // in meters
+    vel;   // in m/s
+    angle; // radians
+    aVel;  // angular velocity in rad/s
+
+    constructor(m, I, x, y, vx, vy)
+    {
+      this.m = m;
+      this.I = I;
+      this.pos = new Vec2D(x, y);
+      this.vel = new Vec2D(vx, vy);
+      this.angle = 0.0;
+      this.aVel = 0.0;
+    }
+
+    applyAcceleration(a) { this.vel.add(a.mult(dt)); }
+
+    applyForce(F, pos) // position relative to center
+    {
+      F.mult(dt);
+      this.vel.add(F.copy().div(this.m)); // simply apply force at center of mass
+      if (pos != null) {                  // apply torque if force not applied at the center of mass
+
+        let angleToCm = pos.angle();      // angle to center of mass
+
+                                          // console.log(F);
+        F.rotate(-angleToCm); // make force vector perpendicular to vector to center off mass
+
+                              // console.log("After rotating ", F, angleToCm * radToDeg);
+
+        let torque = -F.y * pos.mag(); // if force perpendicular to vector from center, mult by dist from center
+        this.aVel += torque / this.I;
+      }
+    }
+
+    applyDrag(mult) // applies drag force at center off mass proportional to square of velocity
+    {
+      let mag = this.vel.mag() * mult;
+      this.applyForce(new Vec2D(-this.vel.x * mag, -this.vel.y * mag));
+
+      this.aVel *= 1. - 0.02 * dt; // angular velocity drag
+    }
+
+    move()
+    {
+      // move
+      let movementPerFrame = this.vel.copy();
+      movementPerFrame.mult(dt);
+      this.pos.add(movementPerFrame);
+
+      this.angle += this.aVel * dt; // rotate
+    }
+  }
+
+  class Airplane
+  {
+    #instrumentPanel;
+
+    #relVelAngle; // angle of velocity relative to air
+    #airspeed;    // actual airspeed, not IAS
+    #camFollow;
+    #OAT;         // outdoor air temperature
+
+    #radarAltitude;
+    #framesSinceCrash;
+
+    // Controls
+    elevator;
+    throttle;
+
+    phys; // physics object, containing all physical properties
+
+    constructor()
+    {
+      this.#camFollow = true;
+      this.phys = new PhysicsObject(1, 1, 0, 0);
+      this.phys.pos.x = -99.0;
+      this.phys.pos.y = -99.0;
+    }
+
+    enableAirplaneMode()
+    {
+      this.#framesSinceCrash = -1;
+      this.#instrumentPanel = new InstrumentPanel();
+      airplaneMode = true;
+      this.#camFollow = true;
+      let M = 400 * 1000;                                                                                                           // mass: 400 tons
+      let L = 30.0;                                                                                                                 // effective length in meters
+      let I = 1 / 12 * M * L * L;                                                                                                   // moment of inertial
+      this.phys = new PhysicsObject(M, I, mouseXinSim * sim_res_x * cellHeight, mouseYinSim * sim_res_y * cellHeight, -100.0, 0.0); // 400 tons
+      this.phys.angle = 5.0 * degToRad;
+      this.throttle = 0.4;                                                                                                          // %
+      cam.tarZoom = 100.0;
+    }
+    disableAirplaneMode()
+    {
+      airplaneMode = false;
+      this.#framesSinceCrash = -1;
+      this.phys.pos.x = -99.0;
+      this.phys.pos.y = -99.0;
+      this.#camFollow = false;
+      this.display(); // run display function one more time to update uniforms
+      this.#instrumentPanel.remove();
+    }
+    // https://aviation.stackexchange.com/questions/64490/is-there-a-simple-relationship-between-angle-of-attack-and-lift-coefficient/97747#97747?newreg=547ea95b1d784abf993b7d1850dcc938
+    Cl(AOA) // lift coefficient https://www.desmos.com/calculator/ffcguasdqc
+    {
+      let lift = 0.0;
+      if ((AOA > 0. && AOA < PI / 7.23) || (AOA > 7. / 8.124 * PI && AOA < PI)) {
+        lift = Math.sin(6. * AOA);
+      } else {
+        lift = Math.sin(2. * AOA);
+      }
+      return lift;
+    }
+
+    Cd(AOA) // drag coefficient
+    {
+      return 1.0 - Math.cos(2 * AOA);
+    }
+
+    move()
+    {
+      if (this.#framesSinceCrash >= 0) {
+        this.#framesSinceCrash++;
+        if (this.#framesSinceCrash > 30)
+          this.disableAirplaneMode();
+        return;
+      }
+
+      let Xpos = mod(this.phys.pos.x / cellHeight, sim_res_x);
+      let Ypos = min(this.phys.pos.y / cellHeight + 1.0, sim_res_y - 1);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);                                   // basetexture
+      var baseTextureValues = new Float32Array(4 * 4);
+      gl.readPixels(Xpos, Ypos, 2, 2, gl.RGBA, gl.FLOAT, baseTextureValues); // order bottem up: x0y0 x1y0 x0y1 x1y1
+
+      let temperature = KtoC(potentialToRealT(baseTextureValues[3], Ypos));
+
+      function fract(f) { return f % 1.; }
+      function mix(x, y, a) { return x * (1. - a) + y * a; }
+
+      function bilerp(array, ind, fractX, fractY) // ind: index of value in array to get
+      {
+        let top = mix(array[2 * 4 + ind], array[3 * 4 + ind], fractX);
+        let bottem = mix(array[0 * 4 + ind], array[1 * 4 + ind], fractX);
+        return mix(bottem, top, fractY);
+      }
+
+      let fractX = fract(Xpos);
+      let fractY = fract(Ypos);
+
+      // Linearly interpolatate velocity
+      let Vx = bilerp(baseTextureValues, 0, fractX, fractY);
+      let Vy = bilerp(baseTextureValues, 1, fractX, fractY);
+
+      let airVel = new Vec2D(Vx, Vy);
+      airVel.mult(cellHeight * 3.0); // convert to m/s
+
+      this.#OAT = temperature;
+
+      // gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
+      // var waterTextureValues = new Float32Array(4);
+      // gl.readPixels(Xpos, Ypos, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
+      // let dewpoint = KtoC(dewpoint(waterTextureValues[0]));
+
+      gl.readBuffer(gl.COLOR_ATTACHMENT2);
+      var wallTextureValues = new Int8Array(4 * 4);
+      gl.readPixels(Xpos - 1, Ypos, 2, 2, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+
+      this.#radarAltitude = (bilerp(wallTextureValues, 2, fractX, fractY) - 1) * cellHeight;
+
+      if (this.#radarAltitude <= 0) { // crash into the surface
+        guiControls.IterPerFrame = 1;
+        guiControls.auto_IterPerFrame = false;
+        this.#framesSinceCrash = 0;
+      }
+
+      let relVel = this.phys.vel.copy();
+      relVel.subtract(airVel);
+
+      this.#airspeed = relVel.mag(); // true airspeed in m/s
+
+      // this.phys.angle += this.elevator * 0.001; // simple pitch
+
+      // this.#relVelAngle = this.phys.vel.angle(); // ignore air movement for testing
+      this.#relVelAngle = relVel.angle();
+
+
+      let AOA = this.phys.angle - this.#relVelAngle;
+      // let velSq = this.phys.vel.magSq(); // square of velocity
+      let velSq = relVel.magSq();
+      let liftForce = this.Cl(AOA) * velSq * 800.0;
+      let dragForce = this.Cd(AOA) * velSq * 800.0;
+
+      // console.log(Math.round(liftForce, 1), Math.round(dragForce, 1));
+      // console.log((liftForce / dragForce).toFixed(1));
+      // console.log(Math.abs(this.phys.vel.x));
+
+      let mainWingForce = new Vec2D(dragForce, liftForce);
+      mainWingForce.rotate(this.#relVelAngle);
+      this.phys.applyForce(mainWingForce); // Apply Main wing force at center off mass
+
+      // console.log("this.elevator " + this.elevator);
+
+      let vertStabilAOA = AOA - this.elevator * 15.0 * degToRad; // angled at -15 to 15 degrees relative to main wing
+
+      // console.log("vertStabilAOA ", vertStabilAOA * radToDeg);
+
+      let vertStabilPos = new Vec2D(35., 0.); // 35 meters to the right of the center of mass
+      vertStabilPos.rotate(this.phys.angle);
+      // console.log("vertStabilPos ", vertStabilPos);
+      let vertStabilForce = new Vec2D(this.Cd(vertStabilAOA) * velSq * 40.0, this.Cl(vertStabilAOA) * velSq * 40.0);
+      vertStabilForce.rotate(this.#relVelAngle);
+
+      // console.log((vertStabilAOA * radToDeg).toFixed(2), vertStabilForce.copy().div(10000));
+
+      // vertStabilForce.x = 0;
+
+      this.phys.applyForce(vertStabilForce, vertStabilPos);                               // apply vertical stabiliser force
+      this.phys.applyForce(Vec2D.fromAngle(this.phys.angle, this.throttle * 311000 * 4)); // Thrust 4 X 311 kN
+      this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                 // gravity
+      this.phys.applyDrag(17.0 + Math.abs(Math.sin(AOA) * 100.0));                        // parasitic drag
+
+      // console.log(Fx, Fy);
+
+      this.phys.move();
+    }
+
+    hasCrashed() { return this.#framesSinceCrash >= 0; }
+
+    takeUserInput()
+    {
+      this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0;       // pitch input -1.0 to +1.0
+
+      this.elevator /= 1.0 + max(this.#airspeed - 80, 0.) * 0.01;               // limit elevator throw at higher airspeed
+
+      this.elevator += Math.max(-this.phys.angle * radToDeg - 50.0, 0.) * 0.03; // limit elevator to prevent going down steeper than vertical
+      this.elevator -= Math.max(this.phys.angle * radToDeg - 50.0, 0.) * 0.03;  // limit elevator to prevent going up steeper than vertical
+
+      // console.log(this.phys.angle * radToDeg, this.elevator);
+
+      if (upPressed) {
+        this.throttle = Math.min(this.throttle + .01, 1.0);
+      } else if (downPressed) {
+        this.throttle = Math.max(this.throttle - .01, 0.0);
+      }
+    }
+
+    display()
+    {
+      let normXpos = this.phys.pos.x / cellHeight / sim_res_x;
+      let normYpos = (this.phys.pos.y / cellHeight + 1.0) / sim_res_y;
+
+      // console.log(normXpos, normYpos);
+      gl.useProgram(skyBackgroundDisplayProgram);
+      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planePos'), normXpos, normYpos, this.phys.angle);
+      gl.useProgram(advectionProgram);
+      gl.uniform4f(gl.getUniformLocation(advectionProgram, 'airplaneValues'), normXpos, normYpos, this.throttle, this.#framesSinceCrash > 0 ? 1.0 : 0.0);
+      gl.useProgram(skyBackgroundDisplayProgram);
+
+      if (this.#camFollow) {
+        cam.tarXpos = -normXpos * 2.0 + 1.0;
+        cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
+      }
+
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#airspeed, this.#OAT, this.throttle * 100.0);
+    }
+  }
+
+  // before: in cell coordinats
+  // now: in meters
+
+  var airplane = new Airplane();
+
 
   document.body.style.overflow = 'hidden'; // prevent scrolling bar from apearing
 
@@ -1127,7 +1677,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     advanced_folder.add(guiControls, 'enablePrecipitation').name('Enable Precipitation');
 
-    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).name('Iterations / Frame').listen();
+    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).onChange(function() { guiControls.auto_IterPerFrame = false; }).name('Iterations / Frame').listen();
 
     advanced_folder.add(guiControls, 'auto_IterPerFrame').name('Auto Adjust').listen();
     advanced_folder.add(guiControls, 'resetSettings').name('Reset all settings');
@@ -1496,10 +2046,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // EVENT LISTENERS
 
   addEventListener('beforeunload', (event) => {
-    event.preventDefault();
-    // custom message not showing for some reason
-    confirm('Are you sure you want to quit without saving?');
-    event.returnValue = 0; // Google Chrome requires returnValue to be set.
+    if (new Date() - lastSaveTime > 120000) { // more than 120 seconds
+      event.preventDefault();
+      // custom message not showing for some reason
+      confirm('Are you sure you want to quit without saving?');
+      event.returnValue = 0; // Google Chrome requires returnValue to be set.
+    }
   });
 
   window.addEventListener('wheel', function(event) {
@@ -1679,8 +2231,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyS') {
       // S: log sample at mouse location
       logSample();
-      // number keys for displaymodes
-    } else if (event.key == 1) {
+    } else if (event.code == 'KeyA') {
+      if (airplaneMode)
+        airplane.disableAirplaneMode();
+      else
+        airplane.enableAirplaneMode();
+    } else if (event.key == 1) { // number keys for displaymodes
       guiControls.displayMode = 'DISP_TEMPERATURE';
     } else if (event.key == 2) {
       guiControls.displayMode = 'DISP_WATER';
@@ -2075,7 +2631,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // Static texures:
   const noiseTexture = gl.createTexture();
-  const A320Texture = gl.createTexture();
+  const A380Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
 
 
@@ -2217,15 +2773,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
   //     gl.REPEAT);  // default, so no need to set
 
-  imgElement = await loadImage('resources/A320.png');
+  imgElement = await loadImage('resources/A380.png');
 
-  gl.bindTexture(gl.TEXTURE_2D, A320Texture);
+  gl.bindTexture(gl.TEXTURE_2D, A380Texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
   // NEAREST_MIPMAP_LINEAR create wierd effects
 
 
@@ -2379,7 +2935,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
-  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'A320Tex'), 6);
+  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 6);
 
 
   // console.time('Set uniforms');
@@ -2430,21 +2986,23 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       camPanSpeed *= 0.2;
     }
 
-    if (leftPressed) {
-      // <
-      cam.changeViewXpos(camPanSpeed / cam.curZoom);
-    }
-    if (rightPressed) {
-      // >
-      cam.changeViewXpos(-camPanSpeed / cam.curZoom);
-    }
-    if (upPressed) {
-      // ^
-      cam.changeViewYpos(-camPanSpeed / cam.curZoom);
-    }
-    if (downPressed) {
-      // v
-      cam.changeViewYpos(camPanSpeed / cam.curZoom);
+    if (!airplaneMode) {
+      if (leftPressed) {
+        // <
+        cam.changeViewXpos(camPanSpeed / cam.curZoom);
+      }
+      if (rightPressed) {
+        // >
+        cam.changeViewXpos(-camPanSpeed / cam.curZoom);
+      }
+      if (upPressed) {
+        // ^
+        cam.changeViewYpos(-camPanSpeed / cam.curZoom);
+      }
+      if (downPressed) {
+        // v
+        cam.changeViewYpos(camPanSpeed / cam.curZoom);
+      }
     }
     if (plusPressed) {
       // +
@@ -2537,165 +3095,184 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 
 
-      if (!guiControls.paused) {                                       // Simulation part
-        if (guiControls.dayNightCycle)
-          updateSunlight(timePerIteration * guiControls.IterPerFrame); // increase solar time
+      // guiControls.IterPerFrame = 1.0 / timePerIteration * 3600 / 60.0;
+
+
+      if (!guiControls.paused) {                                         // Simulation part
+        if (guiControls.dayNightCycle) {
+          if (airplaneMode) {                                            // Bug in firefox requires  == true
+            updateSunlight(1.0 / 3600.0 / 60);                           // increase solar time at real speed: 1/60 seconds per frame
+          } else {
+            updateSunlight(timePerIteration * guiControls.IterPerFrame); // increase solar time
+          }
+        }
 
         gl.viewport(0, 0, sim_res_x, sim_res_y);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
-        for (var i = 0; i < guiControls.IterPerFrame; i++) { // Simulation loop
-          // calc and apply velocity
-          gl.useProgram(velocityProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        if (!airplaneMode || airplane.hasCrashed() || frameNum % 20 == 0) {
+          let numIterations = guiControls.IterPerFrame;
+          if (airplaneMode)
+            numIterations = 1;
+          for (var i = 0; i < numIterations; i++) { // Simulation loop
+            // calc and apply velocity
+            gl.useProgram(velocityProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-          // calc curl
-          gl.useProgram(curlProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            // calc curl
+            gl.useProgram(curlProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-          // calculate vorticity
-          gl.useProgram(vorticityProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, curlTexture);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            // calculate vorticity
+            gl.useProgram(vorticityProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, curlTexture);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-          // apply vorticity, boundary conditions and user input
-          gl.useProgram(boundaryProgram);
-          gl.uniform1f(uniformLocation_boundaryProgram_iterNum, IterNum);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
-          gl.activeTexture(gl.TEXTURE2);
-          gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
-          gl.activeTexture(gl.TEXTURE3);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
-          gl.activeTexture(gl.TEXTURE4);
-          gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
-          gl.activeTexture(gl.TEXTURE5);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-          // calc and apply advection
-          gl.useProgram(advectionProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
-          gl.activeTexture(gl.TEXTURE2);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-          // calc and apply pressure
-          gl.useProgram(pressureProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-          // calc light
-          gl.useProgram(lightingProgram);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
-          gl.activeTexture(gl.TEXTURE2);
-          gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
-          gl.activeTexture(gl.TEXTURE3);
-
-          if (even) {
-            gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
-
-            srcVAO = precipitationVao_0;
-            destTF = precipitationTF_1;
-            destVAO = precipitationVao_1;
-          } else {
-            gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
-
-            srcVAO = precipitationVao_1;
-            destTF = precipitationTF_0;
-            destVAO = precipitationVao_0;
-          }
-          even = !even;
-
-          gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]); // calc light
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-
-          gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
-          gl.clear(gl.COLOR_BUFFER_BIT);         // clear precipitation feedback
-
-          if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
-
-            gl.useProgram(precipitationProgram);
-            gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'frameNum'), IterNum);
-            gl.enable(gl.BLEND);
-            gl.blendFunc(gl.ONE, gl.ONE); // add everything together
+            // apply vorticity, boundary conditions and user input
+            gl.useProgram(boundaryProgram);
+            gl.uniform1f(uniformLocation_boundaryProgram_iterNum, IterNum);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
+            gl.activeTexture(gl.TEXTURE5);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-            gl.bindVertexArray(srcVAO);
-            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
-            gl.beginTransformFeedback(gl.POINTS);
-            gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
-            gl.endTransformFeedback();
+            // calc and apply advection
+            gl.useProgram(advectionProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-            // sample to count number of inactive droplets
-            if (IterNum % 600 == 0) {
-              gl.readBuffer(gl.COLOR_ATTACHMENT0);
-              var sampleValues = new Float32Array(4);
-              // console.time('cnt');
-              gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
-              // console.timeEnd('cnt')         // 1 - 100 ms huge variation
-              // console.log(sampleValues[0]);  // number of inactive droplets
-              guiControls.inactiveDroplets = sampleValues[0];
+            // calc and apply pressure
+            gl.useProgram(pressureProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            // calc light
+            gl.useProgram(lightingProgram);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+            gl.activeTexture(gl.TEXTURE3);
+
+            if (even) {
+              gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
+
+              srcVAO = precipitationVao_0;
+              destTF = precipitationTF_1;
+              destVAO = precipitationVao_1;
+            } else {
+              gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
+
+              srcVAO = precipitationVao_1;
+              destTF = precipitationTF_0;
+              destVAO = precipitationVao_0;
+            }
+            even = !even;
+
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]); // calc light
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
+            gl.clear(gl.COLOR_BUFFER_BIT);         // clear precipitation feedback
+
+            if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
+
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum);
+              gl.enable(gl.BLEND);
+              gl.blendFunc(gl.ONE, gl.ONE); // add everything together
+              gl.activeTexture(gl.TEXTURE0);
+              gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+              gl.activeTexture(gl.TEXTURE1);
+              gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+
+              gl.bindVertexArray(srcVAO);
+              gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
+              gl.beginTransformFeedback(gl.POINTS);
+              gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
+              gl.endTransformFeedback();
+
+              // sample to count number of inactive droplets
+              if (IterNum % 600 == 0) {
+                gl.readBuffer(gl.COLOR_ATTACHMENT0);
+                var sampleValues = new Float32Array(4);
+                // console.time('cnt');
+                gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, sampleValues);
+                // console.timeEnd('cnt')         // 1 - 100 ms huge variation
+                // console.log(sampleValues[0]);  // number of inactive droplets
+                guiControls.inactiveDroplets = sampleValues[0];
+                gl.useProgram(precipitationProgram);
+                gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
+              }
+
+              gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+              gl.disable(gl.BLEND);
+              gl.bindVertexArray(fluidVao); // set screenfilling rect again
             }
 
-            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-            gl.disable(gl.BLEND);
-            gl.bindVertexArray(fluidVao); // set screenfilling rect again
-          }
-
-          if (IterNum % 100 == 0) {
-            for (i = 0; i < weatherStations.length; i++) {
-              weatherStations[i].measure();
+            if (IterNum % 100 == 0) {
+              for (i = 0; i < weatherStations.length; i++) {
+                weatherStations[i].measure();
+              }
             }
+            IterNum++;
           }
-
-          IterNum++;
         }
+
+        if (airplaneMode) {
+          airplane.takeUserInput();
+          airplane.move();
+        }
+
       } // end of simulation part
 
       if (guiControls.showGraph) {
         soundingGraph.draw(Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x))), Math.floor(mouseYinSim * sim_res_y));
       }
 
-    }                     // END OF NOT SETUP
+    } // END OF NOT SETUP
+
 
     let cursorType = 1.0; // normal circular brush
     if (guiControls.wholeWidth) {
@@ -2725,6 +3302,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
     gl.clear(gl.COLOR_BUFFER_BIT);
 
+    if (airplaneMode) {
+      airplane.display();
+    }
+
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
     gl.activeTexture(gl.TEXTURE1);
@@ -2743,13 +3324,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // draw background
       gl.activeTexture(gl.TEXTURE6);
-      gl.bindTexture(gl.TEXTURE_2D, A320Texture);
+      gl.bindTexture(gl.TEXTURE_2D, A380Texture);
 
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), IterNum);
+
 
       // gl.activeTexture(gl.TEXTURE0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
@@ -2949,9 +3531,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else {
       sunIsUp = false;
     }
-
     //		console.log(sunAngleForShaders, sunIsUp);
-
     //	let sunIntensity = guiControls.sunIntensity *
     // Math.pow(Math.max(Math.sin((90.0 - Math.abs(guiControls.sunAngle)) *
     // degToRad) - 0.1, 0.0) * 1.111, 0.4);
@@ -2975,6 +3555,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   async function prepareDownload()
   {
+    let prevIterPerFrame = guiControls.IterPerFrame;
     var newFileName = prompt('Please enter a file name. Can not include \'.\'', saveFileName);
 
     if (newFileName != null) {
@@ -3020,6 +3601,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         alert('You didn\'t enter a valid file name!');
       }
     }
+    guiControls.IterPerFrame = prevIterPerFrame;
+    lastSaveTime = new Date(); // reset timer
   }
 
   function createProgram(vertexShader, fragmentShader, transform_feedback_varyings)
@@ -3116,7 +3699,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       const fpsTarget = 60;
 
-      if (guiControls.auto_IterPerFrame && !guiControls.paused) {
+      if (guiControls.auto_IterPerFrame && !(guiControls.paused || airplaneMode)) {
         console.log(FPS + ' FPS   ' + guiControls.IterPerFrame + ' Iterations / frame      ' + FPS * guiControls.IterPerFrame + ' Iterations / second');
         adjIterPerFrame((FPS / fpsTarget - 1.0) * 5.0); // example: ((30 / 60)-1.0) = -0.5
 
