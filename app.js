@@ -1117,7 +1117,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       document.body.style.cursor = 'default';
     }
     // https://aviation.stackexchange.com/questions/64490/is-there-a-simple-relationship-between-angle-of-attack-and-lift-coefficient/97747#97747?newreg=547ea95b1d784abf993b7d1850dcc938
-    Cl(AOA) // lift coefficient https://www.desmos.com/calculator/ffcguasdqc
+    Cl(AOA) // lift coefficient https://www.desmos.com/calculator/aeeizqvarp
     {
       let lift = 0.0;
       if ((AOA > 0. && AOA < PI / 7.23) || (AOA > 7. / 8.124 * PI && AOA < PI)) {
