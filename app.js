@@ -2095,7 +2095,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   });
 
-  canvas.addEventListener('mousedown', function(event) {
+  body.addEventListener('mousedown', function(event) {
     event.preventDefault();
     if (event.button == 0) { // left
       leftMousePressed = true;
