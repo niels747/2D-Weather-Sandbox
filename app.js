@@ -2096,7 +2096,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   });
 
   body.addEventListener('mousedown', function(event) {
-    event.preventDefault();
+    // event.preventDefault(); // caused problems with dat.gui
     if (event.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
