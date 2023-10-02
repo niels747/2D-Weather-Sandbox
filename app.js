@@ -330,11 +330,13 @@ class Weatherstation
     this.#canvas.style.zIndex = '-2';
 
     let thisObj = this;
-    this.#canvas.onclick = function() {
+    this.#canvas.addEventListener('mousedown', function(event) {
+      console.log("Weatherstation event");
       if (guiControls.tool == 'TOOL_STATION') {
-        thisObj.destroy()
+        thisObj.destroy();       // remove weather station
+        event.stopPropagation(); // prevent mousedown on body from firing
       }
-    };
+    });
   }
 
   destroy()
@@ -363,6 +365,10 @@ class Weatherstation
 
     if (guiControls.realDewPoint) {
       this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
+    }
+
+    if (waterTextureValues[0] > 1110) { // is not air
+      this.destroy();                   // remove weather station
     }
   }
 
