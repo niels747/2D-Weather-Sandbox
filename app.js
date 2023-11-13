@@ -327,7 +327,7 @@ class Weatherstation
     this.#c = this.#canvas.getContext('2d');
 
     this.#canvas.style.position = "absolute";
-    this.#canvas.style.zIndex = '-2';
+    this.#canvas.style.zIndex = 1; // z-index
 
     let thisObj = this;
     this.#canvas.addEventListener('mousedown', function(event) {
@@ -2101,9 +2101,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   });
 
-  body.addEventListener('mousedown', function(event) {
+  canvas.addEventListener('mousedown', function(e) { mouseDownEvent(e); });
+  graphCanvas.addEventListener('mousedown', function(e) { mouseDownEvent(e); });
+
+  function mouseDownEvent(e)
+  {
     // event.preventDefault(); // caused problems with dat.gui
-    if (event.button == 0) { // left
+    console.log('mousedown');
+    if (e.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
         startSimulation();
@@ -2119,13 +2124,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         if (wallTextureValues[1] > 0) // only place if cell is not wall
           weatherStations.push(new Weatherstation(simXpos, simYpos));
       }
-    } else if (event.button == 1) {
+    } else if (e.button == 1) {
       // middle mouse button
       middleMousePressed = true;
       prevMouseX = mouseX;
       prevMouseY = mouseY;
     }
-  });
+  }
+
 
   window.addEventListener('mouseup', function(event) {
     if (event.button == 0) {
@@ -2342,6 +2348,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   await loadingBar.set(9, 'Setting up WebGL');
 
   gl.getExtension('EXT_color_buffer_float');
+  gl.getExtension("EXT_float_blend");
   gl.getExtension('OES_texture_float_linear');
   gl.getExtension('OES_texture_half_float_linear');
 
@@ -2925,6 +2932,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'surfaceTextureMap'), 5);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'curlTex'), 6);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
@@ -2943,7 +2951,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
-  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 6);
+  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 8);
 
 
   // console.time('Set uniforms');
@@ -3328,10 +3336,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
       gl.activeTexture(gl.TEXTURE5);
       gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindTexture(gl.TEXTURE_2D, curlTexture);
 
 
       // draw background
-      gl.activeTexture(gl.TEXTURE6);
+      gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, A380Texture);
 
       gl.useProgram(skyBackgroundDisplayProgram);
@@ -3352,8 +3362,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform4f(gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
-
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'Xmult'), horizontalDisplayMult);
+      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'iterNum'), IterNum);
 
       // Don't display vectors when zoomed out because you would just see noise
       if (cam.curZoom / sim_res_x > 0.003) {

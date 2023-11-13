@@ -198,3 +198,42 @@ float realMod(float a, float b)
     return mod(mod(a, b) + b, b);
 }
 */
+
+
+// new hash funtions:
+
+
+// Standard 2x2 hash algorithm.
+vec2 hash22(vec2 p, float seed)
+{
+  float n = sin(dot(p, vec2(41, 289)));
+  p = fract(vec2(2097152, 262144) * n);
+  return cos(p * 6.283 + seed * 2.);
+  return abs(fract(p + seed * .5) - .5) * 4. - 1.;  // Snooker.
+  return abs(cos(p * 6.283 + seed * 2.)) * 2. - 1.; // Bounce.
+}
+
+float simplesque2D(vec2 p, float seed)
+{
+  vec2 s = floor(p + (p.x + p.y) * .3660254); // Skew the current point.
+  p -= s - (s.x + s.y) * .2113249;            // Vector to unskewed base vertice.
+
+  // Clever way to perform an "if" statement to determine which of two triangles we need.
+  float i = p.x < p.y ? 1. : 0.; // Apparently, faster than: step(p.x, p.y);
+
+  vec2 ioffs = vec2(1. - i, i);  // Vertice offset, based on above.
+
+  // Vectors to the other two triangle vertices.
+  vec2 p1 = p - ioffs + .2113249, p2 = p - .5773502;
+
+  // Vector to hold the falloff value of the current pixel with respect to each vertice.
+  vec3 d = max(.5 - vec3(dot(p, p), dot(p1, p1), dot(p2, p2)), 0.); // Range [0, 0.5]
+
+  d *= d * d * 12.;                                                 //(2*2*2*1.5)
+  // d *= d*d*d*36.;
+
+  vec3 w = vec3(dot(hash22(s, seed), p), dot(hash22(s + ioffs, seed), p1), dot(hash22(s + 1., seed), p2));
+  return .5 + dot(w, d); // Range [0, 1]... Hopefully. Needs more attention.
+}
+
+float func2D(vec2 p, float seed) { return simplesque2D(p * 4., seed) * .66 + simplesque2D(p * 8., seed) * 0.34; }

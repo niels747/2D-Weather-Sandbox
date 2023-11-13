@@ -17,6 +17,7 @@ uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D noiseTex;
 uniform sampler2D surfaceTextureMap;
+uniform sampler2D curlTex;
 
 #define CITY 0
 #define FOR_FIRE 1
@@ -37,6 +38,8 @@ uniform vec3 view;   // Xpos  Ypos    Zoom
 uniform vec4 cursor; // Xpos   Ypos  Size   type
 
 uniform float displayVectorField;
+
+uniform float iterNum;
 
 out vec4 fragmentColor;
 
@@ -84,7 +87,8 @@ vec3 getWallColor(float depth)
   return color;
 }
 
-#define minShadowLight 0.15 // 0.05
+
+#define minShadowLight 0.10 // 0.15
 
 
 void main()
@@ -141,13 +145,26 @@ void main()
       break;
     }
 
-  } else {                                                // air
+  } else {                                                  // air
 
-    vec3 cloudCol = vec3(1.0 / (cloudwater * 0.1 + 1.0)); // white to black
-    // vec3 cloudCol = vec3(1.0); // white
+    vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black
+                                                            // vec3 cloudCol = vec3(1.0); // white
 
-    float cloudOpacity = clamp(cloudwater * 4.0 /* + water[2] * 1.0*/, 0.0, 1.0);
-    cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
+
+    // float curl = bilerp(curlTex, fragCoord).x;
+    //  float curl = texture(curlTex, texCoord).x;
+
+    // fragmentColor = vec4(vec3(curl * 5.), 1.0);
+
+    float vaporDensity = max(cloudwater * 13.6, 0.0);
+
+    vaporDensity += water[2] * 0.8; // precipitation
+
+    // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
+    float cloudOpacity = clamp(1.0 - (1.0 / (1. + vaporDensity)), 0.0, 1.0);
+
+
+    // cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
 
     const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
     const vec3 smokeThickCol = vec3(0., 0., 0.);
@@ -258,6 +275,11 @@ void main()
   finalLight += vec3(shadowLight);
 
   fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
+
+
+  // vec2 uv = vec2(texCoord.x * texelSize.y / texelSize.x, texCoord.y);
+  // uv *= 10.;
+  // fragmentColor = vec4(vec3(func2D(uv)), 1.0);
 
 
   drawCursor(); // over everything else

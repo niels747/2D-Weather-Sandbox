@@ -59,7 +59,7 @@ void main()
       // float lightAbsorbed = sunlight - (sunlight / (1. + water[3] * 0.010));                     // 0.010 dust/smoke
 
       if (fragCoord.y < resolution.y - 2.) {                                                        // prevent shadow bug above simulation area
-        float reflection = min((water[1] * 0.035 + water[2] * 0.035) * cellHeightCompensation, 1.); // 0.040 cloud + 0.40 precipitation
+        float reflection = min((water[1] * 0.020 + water[2] * 0.010) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
         float absorbtion = min(water[3] * 0.020 * cellHeightCompensation, 1.);                      // 0.025 dust/smoke
 
         float lightReflected = sunlight * reflection;
