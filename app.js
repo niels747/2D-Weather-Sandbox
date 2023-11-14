@@ -569,6 +569,8 @@ class LoadingBar
     this.loadingBar.style.lineHeight = '50px';
     this.loadingBar.style.backgroundColor = 'gray';
     this.loadingBar.style.marginTop = '400px';
+    this.loadingBar.style.position = 'absolute';
+    this.loadingBar.style.zIndex = '2';
 
     this.underBar.style.width = '100%';
     this.underBar.style.height = '50px';
