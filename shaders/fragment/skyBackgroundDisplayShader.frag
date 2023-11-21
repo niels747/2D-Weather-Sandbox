@@ -13,6 +13,8 @@ uniform vec2 aspectRatios;
 uniform sampler2D lightTex;
 uniform sampler2D planeTex;
 
+uniform sampler2D lightningTex;
+
 uniform float exposure;
 uniform float iterNum;
 
@@ -35,6 +37,32 @@ float realMod(float a, float b)
   return mod(mod(a, b) + b, b);
 }
 
+
+vec4 displayLightning(vec2 pos)
+{
+  vec2 lightningTexCoord = texCoord;
+
+  lightningTexCoord.x -= mod(pos.x, 1.);
+  // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
+  lightningTexCoord.y -= pos.y;
+
+  const float simHeight = 12000.0;
+  float cellHeight = simHeight / resolution.y;
+
+  float scaleMult = 60.0 / cellHeight; // 6000
+
+  lightningTexCoord.x *= scaleMult * aspectRatios.x;
+  lightningTexCoord.y *= -scaleMult;
+
+  lightningTexCoord /= 0.7;                                                                                                 // scale
+
+  lightningTexCoord.x /= 3440. / 1283.;                                                                                     // dimentions                                                                                    // Aspect ratio
+
+  if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
+    return vec4(0);
+
+  return texture(lightningTex, lightningTexCoord);
+}
 
 vec4 displayA380(vec2 pos, float angle)
 {
@@ -113,6 +141,12 @@ void main()
 
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb;
+
+
+  vec4 lightningCol = displayLightning(vec2(0.55, 0.5));
+
+  mixedCol *= 1.0 - lightningCol.a;
+  mixedCol += lightningCol.rgb * lightningCol.a * 4.0;
 
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
