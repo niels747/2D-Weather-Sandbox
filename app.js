@@ -2106,7 +2106,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function mouseDownEvent(e)
   {
     // event.preventDefault(); // caused problems with dat.gui
-    console.log('mousedown');
+
     if (e.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
@@ -2365,8 +2365,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const dispVertexShader = await loadShader('dispShader.vert');
   const realDispVertexShader = await loadShader('realDispShader.vert');
   const precipDisplayVertexShader = await loadShader('precipDisplayShader.vert');
-
-  // const errorTest = loadShader("nonexisting.vert");
+  const postProcessingVertexShader = await loadShader('postProcessingShader.vert');
 
   const pressureShader = await loadShader('pressureShader.frag');
   const velocityShader = await loadShader('velocityShader.frag');
@@ -2386,6 +2385,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const realisticDisplayShader = await loadShader('realisticDisplayShader.frag');
   const IRtempDisplayShader = await loadShader('IRtempDisplayShader.frag');
 
+  const postProcessingShader = await loadShader('postProcessingShader.frag');
+  const isolateBrightPartsShader = await loadShader('isolateBrightPartsShader.frag');
+
+
   // create programs
   const pressureProgram = createProgram(simVertexShader, pressureShader);
   const velocityProgram = createProgram(simVertexShader, velocityShader);
@@ -2404,6 +2407,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const skyBackgroundDisplayProgram = createProgram(realDispVertexShader, skyBackgroundDisplayShader);
   const realisticDisplayProgram = createProgram(realDispVertexShader, realisticDisplayShader);
   const IRtempDisplayProgram = createProgram(dispVertexShader, IRtempDisplayShader);
+
+  // const postProcessingProgram = createProgram(simVertexShader, postProcessingShader);
+  const postProcessingProgram = createProgram(postProcessingVertexShader, postProcessingShader);
+  const isolateBrightPartsProgram = createProgram(postProcessingVertexShader, isolateBrightPartsShader);
 
 
   // Vertex shader program
@@ -2674,7 +2681,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // ( x.5 ) fragcoordinates in the fragmentshaders I figured this out
   // experimentally. It took me days! Without it the linear interpolation would
   // get fucked up because of the tiny offsets
-  const quadVertices = [
+  const fluidQuadVertices = [
     // X, Y,  U, V
     1.0,
     -1.0,
@@ -2697,9 +2704,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var fluidVao = gl.createVertexArray(); // vertex array object to store
   // bufferData and vertexAttribPointer
   gl.bindVertexArray(fluidVao);
-  var VertexBufferObject = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, VertexBufferObject);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadVertices), gl.STATIC_DRAW);
+  var fluidVertexBufferObject = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, fluidVertexBufferObject);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fluidQuadVertices), gl.STATIC_DRAW);
   var positionAttribLocation = gl.getAttribLocation(pressureProgram,
                                                     'vertPosition'); // 0 these positions are the same for every program,
   // since they all use the same vertex shader
@@ -2726,6 +2733,60 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindVertexArray(null);
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+
+  const postProcessingQuadVertices = [
+    1.0,  // X
+    -1.0, // Y
+    1.0,  // U
+    0.0,  // V
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    -1.0,
+    1.0,
+    0.0,
+    1.0,
+  ];
+
+  var postProcessingVao = gl.createVertexArray(); // vertex array object to store
+  // bufferData and vertexAttribPointer
+  gl.bindVertexArray(postProcessingVao);
+  var postProcessingVertexBufferObject = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, postProcessingVertexBufferObject);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(postProcessingQuadVertices), gl.STATIC_DRAW);
+  positionAttribLocation = gl.getAttribLocation(postProcessingProgram,
+                                                'vertPosition'); // 0 these positions are the same for every program,
+  // since they all use the same vertex shader
+  texCoordAttribLocation = gl.getAttribLocation(postProcessingProgram, 'vertTexCoord'); // 1
+  gl.enableVertexAttribArray(positionAttribLocation);
+  gl.enableVertexAttribArray(texCoordAttribLocation);
+  gl.vertexAttribPointer(
+    positionAttribLocation,             // Attribute location
+    2,                                  // Number of elements per attribute
+    gl.FLOAT,                           // Type of elements
+    gl.FALSE,
+    4 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+    0                                   // Offset from the beginning of a single vertex to this attribute
+  );
+  gl.vertexAttribPointer(
+    texCoordAttribLocation,             // Attribute location
+    2,                                  // Number of elements per attribute
+    gl.FLOAT,                           // Type of elements
+    gl.FALSE,
+    4 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+    2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+    // single vertex to this attribute
+  );
+
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
 
   // Precipitation setup
 
@@ -2903,12 +2964,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
 
+  const hdrTexture = gl.createTexture(); // hdr image
+
+  const brightPartsTexture = gl.createTexture();
+
   // Static texures:
   const noiseTexture = gl.createTexture();
   const A380Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
 
-  const lightningTexture = gl.createTexture();
+  const lightningTexture = gl.createTexture(); // often regenerated
 
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
@@ -2920,6 +2985,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightFrameBuff_0 = gl.createFramebuffer();
   const lightFrameBuff_1 = gl.createFramebuffer();
   const precipitationFeedbackFrameBuff = gl.createFramebuffer();
+
+  const hdrFrameBuff = gl.createFramebuffer(); // for rendering image to in float format
+  const brightPartsFrameBuffer = gl.createFramebuffer();
 
   // Set up Textures
   async function setupTextures()
@@ -3032,6 +3100,25 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
 
+  console.log("Creating hdrTexture: " + canvas.width + ", " + canvas.height)
+  gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, canvas.width, canvas.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFrameBuff);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, hdrTexture, 0);
+
+
+  gl.bindTexture(gl.TEXTURE_2D, brightPartsTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, canvas.width, canvas.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, brightPartsFrameBuffer);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, brightPartsTexture, 0);
+
+
   // load images
   imgElement = await loadImage('resources/noise_texture.jpg');
 
@@ -3041,6 +3128,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   // gl.texParameteri(
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,
@@ -3073,18 +3162,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // imgElement = await loadImage('resources/lightningbolt_bloom2.png'); // lightningbolt.png
 
-  imgElement = generateLightningBolt(3440, 1283); // lightningbolt.png
+  function generateLightningTexture()
+  {
+    let imgElement = generateLightningBolt(10000, 5000); // 3440, 1283
 
+    gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 
-  gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
-  // NEAREST_MIPMAP_LINEAR create wierd effects
+    console.log("New lightning texture generated");
+  }
 
+  generateLightningTexture();
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
@@ -3229,6 +3322,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 8);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightningTex'), 9);
+
+  gl.useProgram(postProcessingProgram);
+  // gl.uniform2f(gl.getUniformLocation(postProcessingProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
+  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'hdrTex'), 0);
+  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'brightPartsTex'), 1);
+
+
+  gl.useProgram(isolateBrightPartsProgram);
+  // gl.uniform2f(gl.getUniformLocation(isolateBrightPartsProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
+  gl.uniform1i(gl.getUniformLocation(isolateBrightPartsProgram, 'hdrTex'), 0);
 
 
   // console.time('Set uniforms');
@@ -3558,6 +3661,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           airplane.move();
         }
 
+
+        if ((IterNum + 150) % 300 == 0) {
+          generateLightningTexture();
+        }
+
       } // end of simulation part
 
       if (guiControls.showGraph) {
@@ -3605,6 +3713,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
 
     if (guiControls.displayMode == 'DISP_REAL') {
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFrameBuff); // render to hdr framebuffer
+      // gl.viewport(0, 0, sim_res_x, sim_res_y);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0); // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
       gl.activeTexture(gl.TEXTURE3);
@@ -3631,9 +3747,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), IterNum);
 
+      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
 
       // gl.activeTexture(gl.TEXTURE0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdrFramebuffer
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -3642,8 +3759,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       //  console.log("Start drawing");
 
       gl.bindVertexArray(lightningVao);
-      // gl.bindBuffer(gl.ARRAY_BUFFER, lightningVertexBuffer);
-
 
       gl.useProgram(lightningProgram);
       gl.uniform2f(gl.getUniformLocation(lightningProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
@@ -3653,11 +3768,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1f(gl.getUniformLocation(lightningProgram, 'iterNum'), IterNum);
 
 
-      gl.drawArrays(gl.TRIANGLES, 0, lineDrawer.arrInd / 2);
+      // gl.drawArrays(gl.TRIANGLES, 0, lineDrawer.arrInd / 2); // draw lightning
 
-      gl.bindVertexArray(fluidVao); // set screenfilling rect again
-
-      console.log(lineDrawer.arrInd, " virtices drawn");
+      gl.bindVertexArray(fluidVao);
 
 
       // draw clouds and terrain
@@ -3679,7 +3792,48 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (SETUP_MODE)
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 10.0);
 
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
+
+
+      // Post processing:
+
+      gl.bindVertexArray(postProcessingVao);
+
+      gl.useProgram(isolateBrightPartsProgram);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, brightPartsFrameBuffer);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0); // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // render bright parts to seperate texture
+
+
+      gl.useProgram(postProcessingProgram);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, brightPartsTexture);
+
+      gl.generateMipmap(gl.TEXTURE_2D);
+
+      // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.drawBuffers([ gl.BACK ]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+      gl.bindVertexArray(fluidVao);
 
       if (guiControls.showDrops) {
         // draw drops over clouds
@@ -3691,6 +3845,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
       }
+
 
     } else {
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
@@ -4043,7 +4198,12 @@ function generateLightningBolt(width, height)
 
   ctx.clearRect(0, 0, width, height);
 
-  ctx.strokeStyle = '#9593FF'; // D9E4EA 9593FF blueish white
+  // const color = '#9593FF'; // 9593FF blueish white
+
+  const colR = 149 * 0.3;
+  const colG = 147 * 0.3;
+  const colB = 255 * 0.3;
+
   ctx.beginPath();
 
   let startX = width / 2.0;
@@ -4071,7 +4231,8 @@ function generateLightningBolt(width, height)
     startY = nextY;
 
 
-    if (Math.random() < 0.015 * (1. - nextY / height)) {
+    if (Math.random() < 0.015 * (1. - nextY / height)) { // branch
+      ctx.strokeStyle = `rgb(${colR * lineWidth}, ${colG * lineWidth}, ${colB * lineWidth})`;
       ctx.stroke();
       drawBranch(nextX, nextY, targetAngle + (Math.random() - 0.5) * 2.5, lineWidth * 0.5 * Math.random());
       ctx.beginPath();
@@ -4079,20 +4240,29 @@ function generateLightningBolt(width, height)
       ctx.lineWidth = lineWidth;
     }
   }
+  ctx.strokeStyle = `rgb(${colR * lineWidth}, ${colG * lineWidth}, ${colB * lineWidth})`;
   ctx.stroke();
 
 
-  // Apply bloom effect
-  ctx.globalCompositeOperation = 'lighter'; // Additive blending
+  // // Apply bloom effect
+  // ctx.globalCompositeOperation = 'lighter'; // Additive blending
 
-  for (let i = 0; i < 4; i++) {
-    // Draw a blurred version of the lightning
-    ctx.filter = 'blur(40px)';
-    ctx.drawImage(lightningCanvas, 0, 0, width, height);
-  }
 
-  ctx.globalCompositeOperation = 'source-over'; // Reset blending
-  ctx.filter = 'none';                          // Reset filter
+  // const prevCanvas = document.createElement('canvas');
+  // prevCanvas.width = width;
+  // prevCanvas.height = height;
+  // const prevCanvasCtx = prevCanvas.getContext('2d');
+  // prevCanvasCtx.filter = 'blur(20)';
+  // prevCanvasCtx.drawImage(lightningCanvas, 0, 0, width, height);
+
+  // for (let i = 0; i < 1; i++) {
+  //   // Draw a blurred version of the lightning
+  //   ctx.filter = 'blur(300px)';
+  //   ctx.drawImage(prevCanvas, 0, 0, width, height);
+  // }
+
+  // // ctx.globalCompositeOperation = 'source-over'; // Reset blending
+  // ctx.filter = 'none'; // Reset filter
 
 
   return ctx.getImageData(0, 0, width, height);
@@ -4122,6 +4292,7 @@ function generateLightningBolt(width, height)
 
       if (Math.random() < 0.018) { // reduce width
 
+        ctx.strokeStyle = `rgb(${colR * line_width}, ${colG * line_width}, ${colB * line_width})`;
         ctx.stroke();
         line_width -= 0.2;
 
@@ -4138,6 +4309,7 @@ function generateLightningBolt(width, height)
         ctx.lineWidth = line_width;
       }
     }
+    ctx.strokeStyle = `rgb(${colR * line_width}, ${colG * line_width}, ${colB * line_width})`;
     ctx.stroke();
   }
 }

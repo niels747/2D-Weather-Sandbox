@@ -61,7 +61,16 @@ vec4 displayLightning(vec2 pos)
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec4(0);
 
-  return texture(lightningTex, lightningTexCoord);
+  vec4 pixVal = texture(lightningTex, lightningTexCoord);
+
+  // pixVal.rgb *= 5.0 * (sin(iterNum * 0.02) - 0.5);
+
+  pixVal.rgb *= 5.0 * (1. / ((mod(float(iterNum), 300.) * 0.15)) - 0.0);
+
+  if (pixVal.b < 1.)
+    pixVal.a = 0.;
+
+  return pixVal;
 }
 
 vec4 displayA380(vec2 pos, float angle)
