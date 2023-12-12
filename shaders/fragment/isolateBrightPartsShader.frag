@@ -15,7 +15,10 @@ void main()
 {
   vec3 outputCol = texture(hdrTex, texCoord).rgb * 1.;
 
-  // outputCol = pow(outputCol, vec3(6.0)); // only keep bright parts
+  //  outputCol = pow(outputCol, vec3(4.0)); // only keep bright parts
+
+
+  outputCol = max(outputCol - vec3(0.9), 0.0); // only keep bright parts
 
   fragmentColor = vec3(outputCol);
 }

@@ -124,6 +124,8 @@ var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25; // 25
 
+let bloomFBOs = [];
+
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
 function screenToSimX(screenX)
@@ -302,6 +304,121 @@ function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse;
 
 function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
 
+
+// Global Classes:
+
+class Vec2D // simple 2D vector
+{
+  x;
+  y;
+  constructor(x, y)
+  {
+    this.x = x;
+    this.y = y;
+  }
+  static fromAngle(angle, mag) // create vector from angle and optional magnitude
+  {
+    if (mag == null)
+      mag = 1.0;
+    let x = -Math.cos(angle) * mag;
+    let y = Math.sin(angle) * mag;
+    return new Vec2D(x, y);
+  }
+
+  copy() { return new Vec2D(this.x, this.y); }
+  add(other)
+  {
+    this.x += other.x;
+    this.y += other.y;
+    return this;
+  }
+  subtract(other)
+  {
+    this.x -= other.x;
+    this.y -= other.y;
+    return this;
+  }
+  mult(mult)
+  {
+    this.x *= mult;
+    this.y *= mult;
+    return this;
+  }
+  div(div)
+  {
+    this.x /= div;
+    this.y /= div;
+    return this;
+  }
+
+  rotate(angle) // rotate vector
+  {
+    let newX = Math.sin(angle) * this.y + Math.cos(angle) * this.x;
+    this.y = Math.cos(angle) * this.y - Math.sin(angle) * this.x;
+    this.x = newX;
+    return this;
+  }
+
+  mag() { return Math.sqrt(this.x * this.x + this.y * this.y); } // get magnitude of vector
+
+  magSq() { return this.x * this.x + this.y * this.y; }          // square of magnitude
+
+  angle()                                                        // get angle of vector
+  {
+    return Math.atan(this.y / -this.x);
+  }
+}
+
+class FBO // wraps texture, frambuffer and info in one
+{
+  width;
+  height;
+  texelSizeX;
+  texelSizeY;
+  texture;
+  frameBuffer;
+
+  constructor(w, h, internalFormat, format, type, texFilter)
+  {
+    this.width = w;
+    this.height = h;
+    gl.activeTexture(gl.TEXTURE0);
+    this.texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, texFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, texFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
+
+    this.frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+    gl.viewport(0, 0, w, h);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    this.texelSizeX = 1.0 / this.width;
+    this.texelSizeY = 1.0 / this.height;
+  }
+}
+
+function createBloomFBOs()
+{
+  let res = new Vec2D(canvas.width, canvas.height);
+
+  bloomFBOs.length = 0;           // empty array
+  for (let i = 0; i < 100; i++) { // max bloom iterations
+    let width = res.x >> i;       // right shift to devide by 2 multiple times
+    let height = res.y >> i;
+
+    console.log('BloomFBO', i, width, height)
+
+    if (width < 2 || height < 2) break; // stop when texture resolution is 2 x 2
+
+    let fbo = new FBO(width, height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR);
+    bloomFBOs.push(fbo);
+  }
+}
 
 class Weatherstation
 {
@@ -949,68 +1066,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-
-  class Vec2D // simple 2D vector
-  {
-    x;
-    y;
-    constructor(x, y)
-    {
-      this.x = x;
-      this.y = y;
-    }
-    static fromAngle(angle, mag) // create vector from angle and optional magnitude
-    {
-      if (mag == null)
-        mag = 1.0;
-      let x = -Math.cos(angle) * mag;
-      let y = Math.sin(angle) * mag;
-      return new Vec2D(x, y);
-    }
-
-    copy() { return new Vec2D(this.x, this.y); }
-    add(other)
-    {
-      this.x += other.x;
-      this.y += other.y;
-      return this;
-    }
-    subtract(other)
-    {
-      this.x -= other.x;
-      this.y -= other.y;
-      return this;
-    }
-    mult(mult)
-    {
-      this.x *= mult;
-      this.y *= mult;
-      return this;
-    }
-    div(div)
-    {
-      this.x /= div;
-      this.y /= div;
-      return this;
-    }
-
-    rotate(angle) // rotate vector
-    {
-      let newX = Math.sin(angle) * this.y + Math.cos(angle) * this.x;
-      this.y = Math.cos(angle) * this.y - Math.sin(angle) * this.x;
-      this.x = newX;
-      return this;
-    }
-
-    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); } // get magnitude of vector
-
-    magSq() { return this.x * this.x + this.y * this.y; }          // square of magnitude
-
-    angle()                                                        // get angle of vector
-    {
-      return Math.atan(this.y / -this.x);
-    }
-  }
 
   const dt = 1. / 60.;
 
@@ -2387,6 +2442,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const postProcessingShader = await loadShader('postProcessingShader.frag');
   const isolateBrightPartsShader = await loadShader('isolateBrightPartsShader.frag');
+  const bloomBlurShader = await loadShader('bloomBlurShader.frag');
 
 
   // create programs
@@ -2408,9 +2464,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const realisticDisplayProgram = createProgram(realDispVertexShader, realisticDisplayShader);
   const IRtempDisplayProgram = createProgram(dispVertexShader, IRtempDisplayShader);
 
-  // const postProcessingProgram = createProgram(simVertexShader, postProcessingShader);
   const postProcessingProgram = createProgram(postProcessingVertexShader, postProcessingShader);
   const isolateBrightPartsProgram = createProgram(postProcessingVertexShader, isolateBrightPartsShader);
+  const bloomBlurProgram = createProgram(postProcessingVertexShader, bloomBlurShader);
 
 
   // Vertex shader program
@@ -3179,6 +3235,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   generateLightningTexture();
 
+
+  createBloomFBOs();
+
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
 
@@ -3326,7 +3385,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(postProcessingProgram);
   // gl.uniform2f(gl.getUniformLocation(postProcessingProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
   gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'hdrTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'brightPartsTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'bloomTex'), 1);
 
 
   gl.useProgram(isolateBrightPartsProgram);
@@ -3795,33 +3854,83 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
 
 
+      gl.disable(gl.BLEND);
+
       // Post processing:
 
       gl.bindVertexArray(postProcessingVao);
+
 
       gl.useProgram(isolateBrightPartsProgram);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, brightPartsFrameBuffer);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFBOs[0].frameBuffer); // brightPartsFrameBuffer
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0.0, 0.0, 0.0, 1.0); // background color
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);                            // background color
       gl.clear(gl.COLOR_BUFFER_BIT);
 
       gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // render bright parts to seperate texture
 
 
+      // BLOOOOM!
+
+
+      let lastFBO = bloomFBOs[0];
+
+      gl.useProgram(bloomBlurProgram);
+      gl.uniform1i(gl.getUniformLocation(bloomBlurProgram, 'bloomTexture'), 0);
+
+
+      // downsample
+      for (let i = 1; i < bloomFBOs.length; i++) {
+        let destFBO = bloomFBOs[i];
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+
+        gl.viewport(0, 0, destFBO.width, destFBO.height);
+
+        // bind texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+        // gl.drawBuffers([ gl.BACK ]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+        lastFBO = destFBO;
+      }
+
+      // upsample and add
+      gl.blendFunc(gl.ONE, gl.ONE); // add to the existing texture in the framebuffer
+      gl.enable(gl.BLEND);
+
+      for (let i = bloomFBOs.length - 2; i >= 0; i--) {
+        let destFBO = bloomFBOs[i];
+
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+
+        gl.viewport(0, 0, destFBO.width, destFBO.height);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+        // gl.drawBuffers([ gl.BACK ]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+        lastFBO = destFBO;
+      }
+
+      gl.disable(gl.BLEND);
+
       gl.useProgram(postProcessingProgram);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
       gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, brightPartsTexture);
+      gl.bindTexture(gl.TEXTURE_2D, bloomFBOs[0].texture);
 
-      gl.generateMipmap(gl.TEXTURE_2D);
 
-      // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 
