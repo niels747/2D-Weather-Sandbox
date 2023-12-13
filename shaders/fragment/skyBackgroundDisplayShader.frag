@@ -63,12 +63,15 @@ vec4 displayLightning(vec2 pos)
 
   vec4 pixVal = texture(lightningTex, lightningTexCoord);
 
-  // pixVal.rgb *= 5.0 * (sin(iterNum * 0.02) - 0.5);
+  float lightningIntensity = min(mod(float(iterNum), 300.) / 30.0, 1.0); // normalised 0. to 1
 
-  pixVal.rgb *= 5.0 * (1. / ((mod(float(iterNum), 300.) * 0.15)) - 0.0);
+  lightningIntensity = 1. - pow(lightningIntensity, 0.1);
 
-  if (pixVal.b < 1.)
-    pixVal.a = 0.;
+  pixVal.rgb *= lightningIntensity * 25.0; // 15.0
+
+
+  // if (pixVal.b < 0.1)
+  //   pixVal.a = 0.;
 
   return pixVal;
 }
@@ -154,8 +157,7 @@ void main()
 
   vec4 lightningCol = displayLightning(vec2(0.55, 0.5));
 
-  mixedCol *= 1.0 - lightningCol.a;
-  mixedCol += lightningCol.rgb * lightningCol.a * 4.0;
+  mixedCol += lightningCol.rgb;
 
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area

@@ -124,7 +124,10 @@ var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25; // 25
 
+let hdrFBO;
+
 let bloomFBOs = [];
+
 
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
@@ -402,6 +405,8 @@ class FBO // wraps texture, frambuffer and info in one
   }
 }
 
+function createHdrFBO() { hdrFBO = new FBO(canvas.width, canvas.height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR); }
+
 function createBloomFBOs()
 {
   let res = new Vec2D(canvas.width, canvas.height);
@@ -411,9 +416,10 @@ function createBloomFBOs()
     let width = res.x >> i;       // right shift to devide by 2 multiple times
     let height = res.y >> i;
 
-    console.log('BloomFBO', i, width, height)
+    //  console.log('BloomFBO', i, width, height)
 
-    if (width < 2 || height < 2) break; // stop when texture resolution is 2 x 2
+    if (width < 2 || height < 2)
+      break; // stop when texture resolution is 2 x 2
 
     let fbo = new FBO(width, height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR);
     bloomFBOs.push(fbo);
@@ -2027,6 +2033,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     soundingGraph.graphCanvas.height = window.innerHeight;
     soundingGraph.graphCanvas.width = window.innerHeight;
+
+    // Render output framebuffers need to match canvas resolution
+
+    createBloomFBOs(); // recreate bloom framebuffers
+
+    createHdr_FBO();   // recreate hdr framebuffer
   });
 
   function logSample()
@@ -3020,10 +3032,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
 
-  const hdrTexture = gl.createTexture(); // hdr image
-
-  const brightPartsTexture = gl.createTexture();
-
   // Static texures:
   const noiseTexture = gl.createTexture();
   const A380Texture = gl.createTexture();
@@ -3041,9 +3049,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightFrameBuff_0 = gl.createFramebuffer();
   const lightFrameBuff_1 = gl.createFramebuffer();
   const precipitationFeedbackFrameBuff = gl.createFramebuffer();
-
-  const hdrFrameBuff = gl.createFramebuffer(); // for rendering image to in float format
-  const brightPartsFrameBuffer = gl.createFramebuffer();
 
   // Set up Textures
   async function setupTextures()
@@ -3156,24 +3161,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
 
-  console.log("Creating hdrTexture: " + canvas.width + ", " + canvas.height)
-  gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, canvas.width, canvas.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFrameBuff);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, hdrTexture, 0);
-
-
-  gl.bindTexture(gl.TEXTURE_2D, brightPartsTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, canvas.width, canvas.height, 0, gl.RGBA, gl.HALF_FLOAT, null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, brightPartsFrameBuffer);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, brightPartsTexture, 0);
-
 
   // load images
   imgElement = await loadImage('resources/noise_texture.jpg');
@@ -3184,8 +3171,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   // gl.texParameteri(
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,
@@ -3235,8 +3220,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   generateLightningTexture();
 
+  createHdrFBO();
 
   createBloomFBOs();
+
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
@@ -3773,7 +3760,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     if (guiControls.displayMode == 'DISP_REAL') {
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFrameBuff); // render to hdr framebuffer
+      gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFBO.frameBuffer); // render to hdr framebuffer
       // gl.viewport(0, 0, sim_res_x, sim_res_y);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0.0, 0.0, 0.0, 1.0); // background color
@@ -3808,29 +3795,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
 
-      // gl.activeTexture(gl.TEXTURE0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdrFramebuffer
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 
-      //  console.log("Start drawing");
+      /*
+      // draw lightning using virtices
+            gl.bindVertexArray(lightningVao);
 
-      gl.bindVertexArray(lightningVao);
-
-      gl.useProgram(lightningProgram);
-      gl.uniform2f(gl.getUniformLocation(lightningProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-      gl.uniform3f(gl.getUniformLocation(lightningProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
-      gl.uniform4f(gl.getUniformLocation(lightningProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
-      gl.uniform1f(gl.getUniformLocation(lightningProgram, 'Xmult'), horizontalDisplayMult);
-      gl.uniform1f(gl.getUniformLocation(lightningProgram, 'iterNum'), IterNum);
+            gl.useProgram(lightningProgram);
+            gl.uniform2f(gl.getUniformLocation(lightningProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
+            gl.uniform3f(gl.getUniformLocation(lightningProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+            gl.uniform4f(gl.getUniformLocation(lightningProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+            gl.uniform1f(gl.getUniformLocation(lightningProgram, 'Xmult'), horizontalDisplayMult);
+            gl.uniform1f(gl.getUniformLocation(lightningProgram, 'iterNum'), IterNum);
 
 
-      // gl.drawArrays(gl.TRIANGLES, 0, lineDrawer.arrInd / 2); // draw lightning
+            gl.drawArrays(gl.TRIANGLES, 0, lineDrawer.arrInd / 2); // draw lightning
 
-      gl.bindVertexArray(fluidVao);
-
+            gl.bindVertexArray(fluidVao);
+      */
 
       // draw clouds and terrain
       gl.useProgram(realisticDisplayProgram);
@@ -3864,7 +3850,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(isolateBrightPartsProgram);
 
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
+      gl.bindTexture(gl.TEXTURE_2D, hdrFBO.texture);
       gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFBOs[0].frameBuffer); // brightPartsFrameBuffer
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(0.0, 0.0, 0.0, 1.0);                            // background color
@@ -3925,7 +3911,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       gl.useProgram(postProcessingProgram);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, hdrTexture);
+      gl.bindTexture(gl.TEXTURE_2D, hdrFBO.texture);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, bloomFBOs[0].texture);
 

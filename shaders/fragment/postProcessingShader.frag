@@ -18,7 +18,13 @@ void main()
 {
   vec3 outputCol = texture(hdrTex, texCoord).rgb * 0.9;
 
-  outputCol += texture(bloomTex, texCoord).rgb * 1.00;
+  vec3 bloom = texture(bloomTex, texCoord).rgb;
+
+  bloom = pow(bloom, vec3(1. / 2.2)); // bloom gamma correction
+
+  // outputCol *= 1. + bloom * 5.0;      // add bloom as light (experiment)
+
+  outputCol += bloom * 1.00; // apply bloom
 
   fragmentColor = vec4(outputCol, 1.0);
 }

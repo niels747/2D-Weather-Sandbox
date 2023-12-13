@@ -174,7 +174,7 @@ void main()
     float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
     vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
-    shadowLight += fireIntensity;
+    shadowLight += fireIntensity * 1.5;
 
     opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                // alpha blending
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
@@ -274,13 +274,7 @@ void main()
 
   finalLight += vec3(shadowLight);
 
-  fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
-
-
-  // vec2 uv = vec2(texCoord.x * texelSize.y / texelSize.x, texCoord.y);
-  // uv *= 10.;
-  // fragmentColor = vec4(vec3(func2D(uv)), 1.0);
-
+  fragmentColor = vec4(max(color * finalLight * exposure, 0.), opacity);
 
   drawCursor(); // over everything else
 }
