@@ -15,7 +15,6 @@ uniform sampler2D planeTex;
 
 uniform sampler2D lightningTex;
 
-uniform float exposure;
 uniform float iterNum;
 
 uniform vec3 planePos;
@@ -38,7 +37,7 @@ float realMod(float a, float b)
 }
 
 
-vec4 displayLightning(vec2 pos)
+vec3 displayLightning(vec2 pos)
 {
   vec2 lightningTexCoord = texCoord;
 
@@ -59,21 +58,29 @@ vec4 displayLightning(vec2 pos)
   lightningTexCoord.x /= 3440. / 1283.;                                                                                     // dimentions                                                                                    // Aspect ratio
 
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
-    return vec4(0);
+    return vec3(0);
 
   vec4 pixVal = texture(lightningTex, lightningTexCoord);
 
-  float lightningIntensity = min(mod(float(iterNum), 300.) / 30.0, 1.0); // normalised 0. to 1
+  // float lightningIntensity = min(mod(float(iterNum), 300.) / 30.0, 1.0); // normalised 0. to 1
 
-  lightningIntensity = 1. - pow(lightningIntensity, 0.1);
+  float iterNumMod = mod(float(iterNum), 300.);
 
-  pixVal.rgb *= lightningIntensity * 25.0; // 15.0
+  if (iterNumMod < 14.) {
+    iterNumMod = mod(iterNumMod, 7.);
+  } else {
+    iterNumMod -= 7.;
+  }
 
+  float lightningIntensity = min(iterNumMod / 10.0, 1.0); // normalised 0. to 1
 
-  // if (pixVal.b < 0.1)
-  //   pixVal.a = 0.;
+  lightningIntensity = 1. - pow(lightningIntensity, 0.005);
 
-  return pixVal;
+  // pixVal.rgb *= vec3(0.3, 0.4, 1.0);
+
+  pixVal.rgb *= lightningIntensity * 1750.0; // 15.0
+
+  return pixVal.rgb * pixVal.a;
 }
 
 vec4 displayA380(vec2 pos, float angle)
@@ -135,32 +142,21 @@ void main()
 
   float val = pow(map_range(texCoord.y, 0., 3.2, 1.0, 0.1), 5.0); // pow 3 map 1.0 to 0.3
 
-
-  val = pow(val, 1. / 2.2); // gamma correction
+  val = pow(val, 1. / 2.2);                                       // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
-
-
-  const float timePerIteration = 0.00008;          // app.js line 118
-  const float speed_kmh = 250.0;
-  float speed_kmpi = speed_kmh * timePerIteration; // km per iteration
-  float areaWidth = 100.0;                         // km
-
-                                                   // vec2 planePos = vec2(0.5 - iterNum * speed_kmpi / areaWidth, 0.1); // 0.5 - iterNum * speed_kmpi / areaWidth
-
-  // float angle = iterNum * 0.01;
 
   vec4 A380Col = displayA380(planePos.xy, planePos.z);
 
   mixedCol *= 1.0 - A380Col.a;
-  mixedCol += A380Col.rgb;
+  mixedCol += A380Col.rgb * A380Col.a;
 
 
-  vec4 lightningCol = displayLightning(vec2(0.55, 0.5));
+  vec3 lightningCol = displayLightning(vec2(0.55, 0.5));
 
-  mixedCol += lightningCol.rgb;
+  mixedCol += lightningCol;
 
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
 
-  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3) * exposure, 1.0);
+  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3), 1.0);
 }

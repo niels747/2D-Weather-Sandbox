@@ -10,6 +10,8 @@ in vec2 texCoordX0Yp; // up
 
 uniform vec2 texelSize;
 
+uniform float exposure;
+
 uniform sampler2D hdrTex;
 uniform sampler2D bloomTex;
 out vec4 fragmentColor;
@@ -24,7 +26,7 @@ void main()
 
   // outputCol *= 1. + bloom * 5.0;      // add bloom as light (experiment)
 
-  outputCol += bloom * 1.00; // apply bloom
+  outputCol += bloom * 0.990; // apply bloom
 
   fragmentColor = vec4(outputCol, 1.0);
 }
