@@ -11,7 +11,10 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 
 #define maxWaterTemp 40.0
 
-#define snowMeltRate 0.0003
+#define fullWhiteSnowHeight 10.0 // snow height at witch full whiteness is displayed and max albedo is achieved
+#define snowMassToHeight 0.05
+
+#define snowMeltRate 0.000015
 #define ALBEDO_SNOW 0.85
 /*
 #define ALBEDO_DRYSOIL 0.35

@@ -236,13 +236,11 @@ void main()
 
       // base[2]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
 
-      if (wall[0] == 1) { // 1 above / next to land surface
-        // base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
+      if (wall[0] == 1) {                                                // 1 above / next to land surface
 
         float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
 
-        // lightPower *= map_rangeC(snowCover, 0., 100.0, 1., 0.);
-        lightPower *= map_rangeC(snowCover, 100., 0.0, 1. - ALBEDO_SNOW, 1.);
+        lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
 
         base[3] += lightPower / influenceDevider;                                                                                    // sun heating land
 
@@ -255,9 +253,9 @@ void main()
           water[3] = min(water[3] + (max(abs(base[0]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
         }
 
-      } else if (wall[0] == 2) {                                                                                 // 1 above / next to water surface
-        float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[3];                                         // water temperature
-        LocalWaterTemperature = clamp(LocalWaterTemperature, CtoK(0.0), CtoK(maxWaterTemp));                     // limit water temperature. needed for first iteration of old file
+      } else if (wall[0] == 2) {                                         // 1 above / next to water surface
+        float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[3]; // water temperature
+        // LocalWaterTemperature = clamp(LocalWaterTemperature, CtoK(0.0), CtoK(maxWaterTemp));                     // limit water temperature. needed for first iteration of old file
         base[3] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                         // air heated or cooled by water
 
         water[0] += max((maxWater(LocalWaterTemperature) - water[0]) * waterEvaporation / influenceDevider, 0.); // water evaporating
@@ -283,15 +281,15 @@ void main()
       if (wallX0Yp[1] == 0 && wall[0] == 2) {        // if above is wall and this is water
         wall[0] = wallX0Yp[0];                       // land can't be over water. copy walltype from above
         base[3] = texture(baseTex, texCoordX0Yp)[3]; // copy temperature from above
-        base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp));
+                                                     // base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // why?
       }
 
 
-    } else if (wall[2] == 0) {                                      // at/in surface layer
+    } else if (wall[2] == 0) {                                                          // at/in surface layer
 
-      if (wall[0] == 1) {                                           // land wall
-        water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
-        water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
+      if (wall[0] == 1) {                                                               // land wall
+        water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0);                     // rain accumulation
+        water[3] = clamp(water[3] + precipFeedback[3] * snowMassToHeight, 0.0, 4000.0); // snow accumulation in cm
 
         // if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
         if (int(iterNum) % 700 == 0) {                                                                                                // fire spread at fixed rate
@@ -321,14 +319,12 @@ void main()
         if (base[3] > 500.0) { // set water temperature for older savefiles
           base[3] = CtoK(25.0);
         }
-        // base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range, really only needed for first iteration after loading old save file without water temperature
+        base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
 
-      } else if (wall[0] == 3 && int(iterNum) % 300 == 0) { // fire wall
-
-        // wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
-        wall[3] -= 1;  // reduce vegetation
+      } else if (wall[0] == 3 && int(iterNum) % 300 == 0) {      // fire wall
+        wall[3] -= 1;                                            // reduce vegetation
         if (wall[3] < minimalFireVegitation)
-          wall[0] = 1; // turn off fire
+          wall[0] = 1;                                           // turn off fire
       }
     }
   }

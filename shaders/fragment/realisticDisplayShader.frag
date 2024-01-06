@@ -79,10 +79,9 @@ vec3 getWallColor(float depth)
   vec3 color = mix(surfCol, groundCol, clamp(depth * 0.35, 0., 1.)); // * 0.15
 
 
-  color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb; // add noise texture
+  color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb;                                // add noise texture
 
-  // add snow at surface
-  color = mix(color, vec3(1.0), clamp(water[3] / 100. - max(depth * 0.3, 0.), 0.0, 1.0)); // mix in white for snow cover
+  color = mix(color, vec3(1.0), clamp(min(water[3], fullWhiteSnowHeight) / fullWhiteSnowHeight - max(depth * 0.3, 0.), 0.0, 1.0)); // mix in white for snow cover
 
   return color;
 }
@@ -210,8 +209,11 @@ void main()
         vec4 texCol;
         if (wallX0Ym[0] == 1) {                            // if land
           float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
-          texCol = mix(surfaceTexture(FOR_NORM, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(FOR_SNOW, vec2(treeTexCoordX, treeTexCoordY)), snow / 100.);
-        } else                                             // fire
+          if (snow * 0.01 / cellHeight > heightAboveGround)
+            texCol = vec4(1);                              // show white snow
+          else
+            texCol = mix(surfaceTexture(FOR_NORM, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(FOR_SNOW, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
+        } else // fire
           texCol = surfaceTexture(FOR_FIRE, vec2(treeTexCoordX, treeTexCoordY));
 
         if (texCol.a > 0.5) {   // if not transparent

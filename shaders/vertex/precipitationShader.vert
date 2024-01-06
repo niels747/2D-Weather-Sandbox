@@ -243,8 +243,8 @@ void main()
 
       feedback[MASS] = totalMass;
 
-#define pntSize 12.                         // 16
-      float pntSurface = pntSize * pntSize; // suface area
+#define pntSize 12.                               // 16
+      const float pntSurface = pntSize * pntSize; // suface area
 
       feedback[MASS] /= pntSurface;
       feedback[HEAT] /= pntSurface;

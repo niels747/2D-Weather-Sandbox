@@ -257,6 +257,15 @@ function printTemp(tempC)
     return tempC.toFixed(1) + '°C';
 }
 
+function printSnowHeight(snowHeight_cm)
+{
+  if (guiControls.imperialUnits) {
+    let snowHeight_inches = snowHeight_cm * 0.393701;
+    return snowHeight_inches.toFixed(1) + '"'; // inches
+  } else
+    return snowHeight_cm.toFixed(0) + ' cm';
+}
+
 function printDistance(km)
 {
   if (guiControls.imperialUnits) {
@@ -1304,7 +1313,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var contextAttributes = {
     alpha : false,
     desynchronized : false,
-    antialias : false,
+    antialias : true,
     depth : false,
     failIfMajorPerformanceCaveat : false,
     powerPreference : 'high-performance',
@@ -1801,12 +1810,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
-          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                       // temperature
-        } else if (wallTextureValues[4 * y + 0] == 2 && wallTextureValues[4 * y + 2] == 0) { // if this is water surface
-          c.fillStyle = 'lightblue';
-          c.lineWidth = 1.0;
-          var waterTempC = KtoC(potentialTemp);
-          c.fillText('' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 20, scrYpos + 17); // water surface temperature
+          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);  // temperature
+        } else if (wallTextureValues[4 * y + 2] == 0) { // is surface layer
+          if (wallTextureValues[4 * y + 0] == 1) {      // is land
+            c.fillStyle = 'white';
+            c.lineWidth = 1.0;
+            var snowHeight_cm = waterTextureValues[4 * y + 3];
+            if (snowHeight_cm > 0) {
+              c.fillText('❄' + printSnowHeight(snowHeight_cm), 100, scrYpos + 17); // display snow height
+            }
+          } else if (wallTextureValues[4 * y + 0] == 2) {                          // is water
+            c.fillStyle = 'lightblue';
+            c.lineWidth = 1.0;
+            var waterTempC = KtoC(potentialTemp);                                                           // water temperature is stored as absolute, not dependant on height
+            c.fillText('🌊 🌡' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 33, scrYpos + 17); // display water surface temperature
+          }
         }
       }
       c.lineWidth = 2.0; // 3
@@ -2836,7 +2854,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
-  // gl.uniform1fv(gl.getUniformLocation(setupProgram, 'initial_T'), initial_T);
+  gl.uniform1f(gl.getUniformLocation(setupProgram, 'simHeight'), guiControls.simHeight);
 
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
 

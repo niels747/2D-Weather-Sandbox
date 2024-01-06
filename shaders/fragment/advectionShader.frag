@@ -166,8 +166,8 @@ void main()
       if (water[3] > 0.0 && tempC > 0.0) {               // snow melting on ground
         float melting = min(tempC * snowMeltRate, water[3]);
         water[3] -= melting;
-        base[3] += melting * meltingHeat; // signal snow melting, will be applied in pressure shader
-        water[2] += melting;              // melting snow adds water to soil
+        base[3] += melting / snowMassToHeight * meltingHeat; // signal snow melting mass, cooling will be applied in pressure shader
+        water[2] += melting;                                 // melting snow adds water to soil
       }
 
       if (water[2] > 0.0 && tempC > 0.0) { // water evaporating from ground
@@ -257,7 +257,7 @@ void main()
           break;
         case 15:
           if (wall[1] == 0 && wall[0] == 1 && texture(wallTex, texCoordX0Yp)[1] != 0) { // if land wall and no wall above
-            water[3] += userInputValues[2] * 10.0;                                      // snow
+            water[3] += userInputValues[2] * 0.5;                                       // snow
           }
           break;
         case 16:
@@ -278,21 +278,20 @@ void main()
           }
         }
       } else {
-        if (wall[1] == 0) {                      // remove wall only if it is a wall and not bottem layer
+        if (wall[1] == 0) {                 // remove wall only if it is a wall and not bottem layer
 
-          if (userInputType == 13) {             // fire
-            if (wall[0] == 3)                    // extinguish fire
+          if (userInputType == 13) {        // fire
+            if (wall[0] == 3)               // extinguish fire
               wall[0] = 1;
-          } else if (userInputType == 14) {      // moisture
+          } else if (userInputType == 14) { // moisture
             water[2] += userInputValues[2] * 10.0;
-          } else if (userInputType == 15) {      // snow
-            water[3] += userInputValues[2] * 10.0;
-          } else if (userInputType == 16) {      // vegetation
-            wall[3] = max(wall[3] - 1, 0);       // remove vegetation
-          } else if (texCoord.y > texelSize.y) { // remove wall
-
-            wall[1] = 255;                       // remove wall
-            base[0] = 0.0;                       // reset all properties to prevent NaN bug
+          } else if (userInputType == 15) {
+            water[3] += userInputValues[2] * 0.5; // remove snow
+          } else if (userInputType == 16) {
+            wall[3] = max(wall[3] - 1, 0);        // remove vegetation
+          } else if (texCoord.y > texelSize.y) {
+            wall[1] = 255;                        // remove wall
+            base[0] = 0.0;                        // reset all properties to prevent NaN bug
             base[1] = 0.0;
             base[2] = 0.0;
             base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));
