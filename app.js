@@ -1467,6 +1467,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Water Vapor / Cloud' : 'TOOL_WATER',
         'Land' : 'TOOL_WALL_LAND',
         'Lake / Sea' : 'TOOL_WALL_SEA',
+        'Urban' : 'TOOL_WALL_URBAN',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
         'Moisture' : 'TOOL_WALL_MOIST',
@@ -2127,7 +2128,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function mouseDownEvent(e)
   {
     // event.preventDefault(); // caused problems with dat.gui
-    console.log('mousedown');
+    // console.log('mousedown');
     if (e.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
@@ -2312,7 +2313,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WALL_LAND';
     } else if (event.code == 'KeyR') {
       guiControls.tool = 'TOOL_WALL_SEA';
-    } else if (event.code == 'KeyT') {
+    } /*else if (event.code == 'Key?') {
+      guiControls.tool = 'TOOL_WALL_URBAN';
+    }*/
+    else if (event.code == 'KeyT') {
       guiControls.tool = 'TOOL_WALL_FIRE';
     } else if (event.code == 'KeyY') {
       guiControls.tool = 'TOOL_SMOKE';
@@ -2824,10 +2828,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  // gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); //  LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);                   // horizontal
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // vertical
 
 
   var texelSizeX = 1.0 / sim_res_x;
@@ -3098,12 +3103,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 12;
         else if (guiControls.tool == 'TOOL_WALL_FIRE')
           inputType = 13;
-        else if (guiControls.tool == 'TOOL_WALL_MOIST')
+        else if (guiControls.tool == 'TOOL_WALL_URBAN')
           inputType = 14;
+
+
+        // Surface environment modifiers
+        else if (guiControls.tool == 'TOOL_WALL_MOIST')
+          inputType = 20;
         else if (guiControls.tool == 'TOOL_WALL_SNOW')
-          inputType = 15;
+          inputType = 21;
         else if (guiControls.tool == 'TOOL_VEGETATION')
-          inputType = 16;
+          inputType = 22;
 
         var intensity = guiControls.intensity;
 
@@ -3538,11 +3548,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     return ' ' + hourStr + ':' + minuteStr;
   }
 
-  function updateSunlight(input)
+  function updateSunlight(deltaT_hours)
   {
-    if (input != 'MANUAL_ANGLE') {
-      if (input != null) {
-        guiControls.timeOfDay += input; // day angle in degrees
+    if (deltaT_hours != 'MANUAL_ANGLE') {
+      if (deltaT_hours != null) {
+        guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
+        guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
         if (guiControls.timeOfDay >= 24.0)
           guiControls.timeOfDay = 0.0;
       }
@@ -3562,7 +3573,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.sunAngle = 180.0 - guiControls.sunAngle;
       }
     }
-    let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0
+    let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
     // Calculations visualized: https://www.desmos.com/calculator/kzr76zj5hq
     if (Math.abs(sunAngleForShaders) < 1.54) {
       sunIsUp = true;

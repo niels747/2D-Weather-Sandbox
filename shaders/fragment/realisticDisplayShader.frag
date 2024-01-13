@@ -19,16 +19,16 @@ uniform sampler2D noiseTex;
 uniform sampler2D surfaceTextureMap;
 uniform sampler2D curlTex;
 
-#define CITY 0
-#define FOR_FIRE 1
-#define FOR_SNOW 2
-#define FOR_NORM 3
+#define URBAN 0
+#define FIRE_FOREST 1
+#define SNOW_FOREST 2
+#define FOREST 3
 
 
 uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
 
-uniform float cellHeight;
+uniform float cellHeight; // in meters
 
 uniform float dryLapse;
 uniform float sunAngle;
@@ -57,12 +57,11 @@ float opacity = 1.0;
 
 vec4 surfaceTexture(int index, vec2 pos)
 {
-  pos.y = clamp(pos.y, 0., 1.);
-
-  pos = pos / 4.0;
-
-  pos.y += float(index) * 0.25 + 0.001;
-
+#define numTextures 4.;             // number of textures in the map
+  const float texRelHeight = 1. / numTextures;
+  pos.y = clamp(pos.y, 0.01, 0.99); // make sure position is within the subtexture
+  pos /= numTextures;
+  pos.y += float(index) * texRelHeight;
   return texture(surfaceTextureMap, pos);
 }
 
@@ -72,7 +71,7 @@ vec3 getWallColor(float depth)
   vec3 earthCol = vec3(0.5, 0.2, 0.1);
   vec3 grassCol = vec3(0.0, 0.7, 0.2);
 
-  vec3 surfCol = mix(earthCol, grassCol, min(float(wall[3]) / 50., 1.));
+  vec3 surfCol = mix(earthCol, grassCol, min(float(wall[VEGETATION]) / 50., 1.));
 
   const vec3 groundCol = vec3(0.70);                                 // gray rock
 
@@ -102,7 +101,7 @@ void main()
 
   // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
 
-  float cloudwater = water[1];
+  float cloudwater = water[CLOUD];
 
   if (texCoord.y < 0.) {         // < texelSize.y below simulation area
 
@@ -111,7 +110,7 @@ void main()
     // ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
     // ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
 
-    float depth = float(-wall[2]) - fragCoord.y; // -1.0?
+    float depth = float(-wall[VERT_DISTANCE]) - fragCoord.y; // -1.0?
 
     color = getWallColor(depth);
 
@@ -120,26 +119,30 @@ void main()
 
   } else if (texCoord.y > 1.0) {                                 // above simulation area
     // color = vec3(0); // no need to set
-    opacity = 0.0;           // completely transparent
-  } else if (wall[1] == 0) { // is wall
-                             // color = getWallColor(texCoord);
-    switch (wall[0]) {       // wall type
-                             // case 0:            // normal wall
-                             //   color = vec3(0, 0, 0);
-                             //   break;
-    case 3:                  // Fire wall
-    case 1:                  // land wall
+    opacity = 0.0;                  // completely transparent
+  } else if (wall[DISTANCE] == 0) { // is wall
+                                    // color = getWallColor(texCoord);
+    switch (wall[TYPE]) {
+      // case WALLTYPE_INERT:
+      //   color = vec3(0, 0, 0);
+      //   break;
+
+    case WALLTYPE_URBAN:
+      // color = vec3(0.5); // grey
+      // break;
+    case WALLTYPE_FIRE:
+    case WALLTYPE_LAND:
 
       ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
       ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
       // horizontally interpolate depth value
-      float interpDepth = mix(mix(float(-wallXmY0[2]), float(-wall[2]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[2]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
+      float interpDepth = mix(mix(float(-wallXmY0[VERT_DISTANCE]), float(-wall[VERT_DISTANCE]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[VERT_DISTANCE]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
       float depth = interpDepth - fract(fragCoord.y); // - 1.0 ?
 
       color = getWallColor(depth);
 
       break;
-    case 2: // water wall
+    case WALLTYPE_WATER:
       color = vec3(0, 0.5, 1.0);
       break;
     }
@@ -157,19 +160,16 @@ void main()
 
     float vaporDensity = max(cloudwater * 13.6, 0.0);
 
-    vaporDensity += water[2] * 0.8; // precipitation
+    vaporDensity += water[PRECIPITATION] * 0.8; // visualize precipitation
 
     // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
     float cloudOpacity = clamp(1.0 - (1.0 / (1. + vaporDensity)), 0.0, 1.0);
-
-
-    // cloudOpacity += clamp(1. - (1. / (water[2] + 1.)), 0.0, 1.0); // precipitation
 
     const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
     const vec3 smokeThickCol = vec3(0., 0., 0.);
     const vec3 fireCol = vec3(1.0, 0.7, 0.0);
 
-    float smokeOpacity = clamp(1. - (1. / (water[3] + 1.)), 0.0, 1.0);
+    float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
     float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
     vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
@@ -179,65 +179,119 @@ void main()
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
     opacity = clamp(opacity, 0.0, 1.0);
 
-    if (wall[1] == 1) { // adjacent to wall cell
+    if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
       float localX = fract(fragCoord.x);
       float localY = fract(fragCoord.y);
-
       ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+      if (wall[VERT_DISTANCE] == 1) { // adjacent to wall cell
 
-      if (wallX0Ym[1] == 0 && (wallX0Ym[0] == 1 || wallX0Ym[0] == 3)) {        // land or fire wall below
 
-#define maxTreeHeight 40.0                                                     // height in meters when vegetation max = 127
-#define treeTexAspect 0.2855                                                   // height / width of tree texture
+        if (wallX0Ym[VERT_DISTANCE] == 0 && (wallX0Ym[TYPE] == WALLTYPE_LAND || wallX0Ym[TYPE] == WALLTYPE_FIRE)) { // land or fire wall below
 
-        float treeTexHeightNorm = maxTreeHeight / cellHeight;                  // example: 40 / 120 = 0.333
+#define maxTreeHeight 40.0                                                                                          // height in meters when vegetation max = 127
+#define texAspect 1. / 2.0                                                                                          // height / width of tree texture
 
-        float localY = mod(fragCoord.y, 1.);                                   // bottem = 0 top = 1
+          float treeTexHeightNorm = maxTreeHeight / cellHeight;                                                     // example: 40 / 120 = 0.333
 
-        float treeTexCoordY = localY / treeTexHeightNorm;                      // full height trees
+          float treeTexCoordY = localY / treeTexHeightNorm;                                                         // full height trees
 
-        treeTexCoordY += map_rangeC(float(wallX0Ym[3]), 127., 50., 0., 1.0);   // apply trees height depending on vegetation
+          treeTexCoordY += map_rangeC(float(wallX0Ym[VEGETATION]), 127., 50., 0., 1.0);                             // apply trees height depending on vegetation
 
-        float treeTexCoordX = fragCoord.x * treeTexAspect / treeTexHeightNorm; // static scaled trees
+          float treeTexCoordX = fragCoord.x * texAspect / treeTexHeightNorm;                                        // static scaled trees
 
-        float heightAboveGround = localY / treeTexHeightNorm;
+          float heightAboveGround = localY / treeTexHeightNorm;
 
-        treeTexCoordX -= base.x * heightAboveGround * 1.00; // 2.5  trees waving with the wind effect
+          treeTexCoordX -= base.x * heightAboveGround * 1.00; // 2.5  trees waving with the wind effect
 
-        treeTexCoordY = 1. - treeTexCoordY;                 // texture is upside down
+          treeTexCoordX *= 0.72;                              // Trees only go up to 72% of the texture height
+          treeTexCoordY *= 0.72;                              // Trees only go up to 72% of the texture height
+          treeTexCoordY = 1. - treeTexCoordY;                 // texture is upside down
 
-        vec4 texCol;
-        if (wallX0Ym[0] == 1) {                            // if land
-          float snow = texture(waterTex, texCoordX0Ym)[3]; // snow on land below
-          if (snow * 0.01 / cellHeight > heightAboveGround)
-            texCol = vec4(1);                              // show white snow
-          else
-            texCol = mix(surfaceTexture(FOR_NORM, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(FOR_SNOW, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
-        } else // fire
-          texCol = surfaceTexture(FOR_FIRE, vec2(treeTexCoordX, treeTexCoordY));
+          vec4 texCol;
+          if (wallX0Ym[TYPE] == WALLTYPE_LAND) {                // land below
+            float snow = texture(waterTex, texCoordX0Ym)[SNOW]; // snow on land below
+            if (snow * 0.01 / cellHeight > heightAboveGround)
+              texCol = vec4(1);                                 // show white snow
+            else
+              texCol = mix(surfaceTexture(FOREST, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(SNOW_FOREST, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
+          } else if (wallX0Ym[TYPE] == WALLTYPE_FIRE) {
+            texCol = surfaceTexture(FIRE_FOREST, vec2(treeTexCoordX, treeTexCoordY));
+          }
+          if (texCol.a > 0.5) {                  // if not transparent
+            color = texCol.rgb;
+            if (wallX0Ym[TYPE] == WALLTYPE_FIRE) // fire below
+              shadowLight = 1.0;
 
-        if (texCol.a > 0.5) {   // if not transparent
-          color = texCol.rgb;
-          if (wallX0Ym[0] == 3) // if fire wall
-            shadowLight = 1.0;
-        }
-        opacity = 1. - (1. - opacity) * (1. - texCol.a); // alpha blending
+            opacity = 1. - (1. - opacity) * (1. - texCol.a); // alpha blending
+          }
 
-        // draw 45° slopes
-        if (texture(wallTex, texCoordXmY0)[1] == 0) { // wall to the left and below
-          if (localX + localY < 1.0) {
-            opacity = 1.0;
-            water = texture(waterTex, texCoordX0Ym);
-            color = getWallColor(-0.6);
-            shadowLight = minShadowLight; // fire should not light ground
+          // draw 45° slopes
+          if (texture(wallTex, texCoordXmY0)[DISTANCE] == 0) { // wall to the left and below
+            if (localX + localY < 1.0) {
+              opacity = 1.0;
+              water = texture(waterTex, texCoordX0Ym);
+              color = getWallColor(-0.6);
+              shadowLight = minShadowLight; // fire should not light ground
+            }
+          }
+          if (texture(wallTex, texCoordXpY0)[DISTANCE] == 0) { // wall to the right and below
+            if (localY - localX < 0.0) {
+              opacity = 1.0;
+              water = texture(waterTex, texCoordX0Ym);
+              color = getWallColor(-0.6);
+              shadowLight = minShadowLight; // fire should not light ground
+            }
           }
         }
-        if (texture(wallTex, texCoordXpY0)[1] == 0) { // wall to the right and below
-          if (localY - localX < 0.0) {
-            opacity = 1.0;
-            water = texture(waterTex, texCoordX0Ym);
-            color = getWallColor(-0.6);
-            shadowLight = minShadowLight; // fire should not light ground
+      }
+      if (wallX0Ym[TYPE] == WALLTYPE_URBAN) {
+
+#define maxBuildingHeight 400. // height in meters upto wich the urban texture reaches
+
+        float heightAboveGround = localY + float(wall[VERT_DISTANCE] - 1);
+
+        float urbanTexHeightNorm = maxBuildingHeight / cellHeight; // example: 200 / 40 = 5
+
+        float urbanTexCoordX = mod(fragCoord.x, resolution.x) * texAspect / urbanTexHeightNorm;
+        float urbanTexCoordY = heightAboveGround / urbanTexHeightNorm;
+
+        // urbanTexCoordY += map_rangeC(float(wallX0Ym[VEGETATION]), 127., 50., 0., 1.0); // building height
+
+        urbanTexCoordY = 1.0 - urbanTexCoordY;
+
+        vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
+        if (texCol.a > 0.5) {                    // if not transparent
+
+          if (abs(sunAngle) > PI * 0.5 - 0.05) { // night time
+            shadowLight = length(texCol.rgb);    // city lights
+            texCol.rgb *= vec3(1.0, 0.8, 0.5);   // yellowish windows
+          } else {                               // day time
+            texCol.rgb *= vec3(0.8, 0.9, 1.0);   // Blueish windows
+
+            if (length(texCol.rgb) < 0.1)
+              texCol.rgb = texture(noiseTex, fragCoord * 0.3).rgb * 0.3;
+          }
+          color = texCol.rgb;
+          opacity = texCol.a;
+        }
+
+        if (wall[VERT_DISTANCE] == 1) {
+          // draw 45° slopes
+          if (texture(wallTex, texCoordXmY0)[DISTANCE] == 0) { // wall to the left and below
+            if (localX + localY < 1.0) {
+              opacity = 1.0;
+              water = texture(waterTex, texCoordX0Ym);
+              color = getWallColor(-0.6);
+              shadowLight = minShadowLight; // fire should not light ground
+            }
+          }
+          if (texture(wallTex, texCoordXpY0)[DISTANCE] == 0) { // wall to the right and below
+            if (localY - localX < 0.0) {
+              opacity = 1.0;
+              water = texture(waterTex, texCoordX0Ym);
+              color = getWallColor(-0.6);
+              shadowLight = minShadowLight; // fire should not light ground
+            }
           }
         }
       }
