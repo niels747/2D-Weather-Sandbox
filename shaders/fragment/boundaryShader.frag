@@ -84,22 +84,22 @@ void main()
 
     base[TEMPERATURE] += light[NET_HEATING] * IR_rate; // IR heating/cooling effect
 
-    base[TEMPERATURE] += precipFeedback[1];            // rain cools air
-    water[TOTAL] += precipFeedback[2];                 // rain adds water to air
+    base[TEMPERATURE] += precipFeedback[HEAT];         // rain cools air and riming heats air
+    water[TOTAL] += precipFeedback[VAPOR];             // rain adds water to air
     // recalculate cloud water after changing total water
     water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0);
     // 0.004 for rain visualisation
-    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.998 - 0.00005 + precipFeedback[0] * 0.008, 0.0);
+    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.998 - 0.00005 + precipFeedback[MASS] * 0.008, 0.0);
 
     // rain removes smoke from air
-    water[SMOKE] /= 1. + max(-precipFeedback[2] * 0.3, 0.0) + precipFeedback[0] * 0.003; // rain formation in clouds removes smoke
-                                                                                         // quickly , falling rain slower
-    water[SMOKE] -= precipFeedback[0] * 0.0002;                                          // falling rain slowly removes smoke
-                                                                                         // linearly to remove last little bit
+    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.3, 0.0) + precipFeedback[MASS] * 0.003; // rain formation in clouds removes smoke
+                                                                                                // quickly , falling rain slower
+    water[SMOKE] -= precipFeedback[MASS] * 0.0002;                                              // linearly to remove last little bit
 
-    water[SMOKE] -= max((water[3] - 4.0) * 0.01, 0.);                                    // dissipate fire color to smoke
 
-    water[SMOKE] = max(water[SMOKE], 0.0);                                               // snow and smoke can't go below 0
+    water[SMOKE] -= max((water[SMOKE] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
+
+    water[SMOKE] = max(water[SMOKE], 0.0);                // snow and smoke can't go below 0
 
     // GRAVITY
     // temperature is calculated for Vy location
@@ -113,9 +113,9 @@ void main()
 
     // float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult;
 
-    gravityForce -= water[CLOUD] * gravMult * waterWeight;      // cloud water weight added to gravity force
+    gravityForce -= water[CLOUD] * gravMult * waterWeight;         // cloud water weight added to gravity force
 
-    gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
+    gravityForce -= precipFeedback[MASS] * gravMult * waterWeight; // precipitation weigth added to gravity force
 
     base[VY] += gravityForce;
 
@@ -295,13 +295,33 @@ void main()
         }
       }
 
-    } else if (wall[VERT_DISTANCE] == 0) {                                                                                                                                       // at/in surface layer
+    } else if (wall[VERT_DISTANCE] == 0) {                                                       // at/in surface layer
 
-      if (wall[TYPE] == WALLTYPE_LAND) {                                                                                                                                         // land wall
-        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipFeedback[2], 0.0, 100.0);                                                                                      // rain accumulation
-        water[SNOW] = clamp(water[SNOW] + precipFeedback[3] * snowMassToHeight, 0.0, 4000.0);                                                                                    // snow accumulation in cm
+      if (wall[TYPE] == WALLTYPE_LAND) {                                                         // land wall
+        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipFeedback[VAPOR], 0.0, 100.0);  // rain accumulation
+        water[SNOW] = clamp(water[SNOW] + precipFeedback[SNOW] * snowMassToHeight, 0.0, 4000.0); // snow accumulation in cm
 
-        if (int(iterNum) % 700 == 0) {                                                                                                                                           // fire spread at fixed rate
+
+        if (int(iterNum) % 700 == 0) { // fire and snow spread at fixed rate
+
+
+          // average out snow cover
+          float numNeighbors = 0.;
+          float totalNeighborSnow = 0.0;
+
+          if (wallXmY0[VERT_DISTANCE] == 0 && wallXmY0[TYPE] == WALLTYPE_LAND) { // left is land
+            totalNeighborSnow += texture(waterTex, texCoordXmY0)[SNOW];
+            numNeighbors += 1.;
+          }
+          if (wallXpY0[VERT_DISTANCE] == 0 && wallXpY0[TYPE] == WALLTYPE_LAND) { // right is land
+            totalNeighborSnow += texture(waterTex, texCoordXpY0)[SNOW];
+            numNeighbors += 1.;
+          }
+          if (numNeighbors > 0.) { // prevent devide by 0
+            float avgNeighborSnow = totalNeighborSnow / numNeighbors;
+            water[SNOW] += (avgNeighborSnow - water[SNOW]) * 0.1;
+          }
+
 
           if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 2.3)) // if left or right is on fire or fire is blowing over
             wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire

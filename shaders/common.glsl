@@ -62,6 +62,12 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 #define IR_DOWN 2     // IR coming down                                       >= 0
 #define IR_UP 3       // IR going  up                                         >= 0
 
+// Precipitation feedback
+#define MASS 0
+#define HEAT 1
+#define VAPOR 2
+// #define SNOW 3
+
 
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
