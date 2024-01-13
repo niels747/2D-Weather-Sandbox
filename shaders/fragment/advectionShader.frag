@@ -243,26 +243,25 @@ void main()
           break;
         case 13:
           if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
-            wall[TYPE] = WALLTYPE_FIRE;                                                                              // Fire
+            wall[TYPE] = WALLTYPE_FIRE;
             setWall = true;
           }
           break;
         case 14:
           if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
-            wall[TYPE] = WALLTYPE_URBAN;                                                                             // Urban
-            setWall = true;
+            wall[TYPE] = WALLTYPE_URBAN;
           }
           break;
 
 
         case 20:
           if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
-            water[2] += userInputValues[INTENSITY] * 10.0;                                                           // soil moisture
+            water[SOIL_MOISTURE] += userInputValues[INTENSITY] * 10.0;
           }
           break;
         case 21:
-          if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
-            water[3] += userInputValues[INTENSITY] * 0.5;                                                            // snow
+          if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
+            water[SNOW] += userInputValues[INTENSITY] * 0.5;
           }
           break;
         case 22:

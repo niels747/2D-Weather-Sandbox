@@ -295,25 +295,26 @@ void main()
         }
       }
 
-    } else if (wall[VERT_DISTANCE] == 0) {                                                       // at/in surface layer
+    } else if (wall[VERT_DISTANCE] == 0) { // at/in surface layer
 
-      if (wall[TYPE] == WALLTYPE_LAND) {                                                         // land wall
+      switch (wall[TYPE]) {
+      case WALLTYPE_URBAN:
+        wall[VEGETATION] = min(wall[VEGETATION], 75);                                            // limit vegetation in urban areas
+      case WALLTYPE_LAND:
         water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipFeedback[VAPOR], 0.0, 100.0);  // rain accumulation
         water[SNOW] = clamp(water[SNOW] + precipFeedback[SNOW] * snowMassToHeight, 0.0, 4000.0); // snow accumulation in cm
 
-
-        if (int(iterNum) % 700 == 0) { // fire and snow spread at fixed rate
-
+        if (int(iterNum) % 700 == 0) {                                                           // fire and snow spread at fixed rate
 
           // average out snow cover
           float numNeighbors = 0.;
           float totalNeighborSnow = 0.0;
 
-          if (wallXmY0[VERT_DISTANCE] == 0 && wallXmY0[TYPE] == WALLTYPE_LAND) { // left is land
+          if (wallXmY0[VERT_DISTANCE] == 0 && (wallXmY0[TYPE] == WALLTYPE_LAND || wallXmY0[TYPE] == WALLTYPE_URBAN)) {
             totalNeighborSnow += texture(waterTex, texCoordXmY0)[SNOW];
             numNeighbors += 1.;
           }
-          if (wallXpY0[VERT_DISTANCE] == 0 && wallXpY0[TYPE] == WALLTYPE_LAND) { // right is land
+          if (wallXpY0[VERT_DISTANCE] == 0 && (wallXpY0[TYPE] == WALLTYPE_LAND || wallXpY0[TYPE] == WALLTYPE_URBAN)) {
             totalNeighborSnow += texture(waterTex, texCoordXpY0)[SNOW];
             numNeighbors += 1.;
           }
@@ -326,9 +327,8 @@ void main()
           if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 2.3)) // if left or right is on fire or fire is blowing over
             wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
         }
-
-
-      } else if (wall[TYPE] == WALLTYPE_WATER) { // water surface
+        break;
+      case WALLTYPE_WATER:
         // average out temperature
         float numNeighbors = 0.;
         float totalNeighborTemp = 0.0;
@@ -349,11 +349,13 @@ void main()
           base[TEMPERATURE] = CtoK(25.0);
         }
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
-
-      } else if (wall[TYPE] == WALLTYPE_FIRE && int(iterNum) % 300 == 0) {           // fire wall
-        wall[VEGETATION] -= 1;                                                       // reduce vegetation
-        if (wall[VEGETATION] < minimalFireVegitation)
-          wall[TYPE] = WALLTYPE_LAND;                                                // turn off fire
+        break;
+      case WALLTYPE_FIRE:
+        if (int(iterNum) % 300 == 0) {
+          wall[VEGETATION] -= 1;        // reduce vegetation
+          if (wall[VEGETATION] < minimalFireVegitation)
+            wall[TYPE] = WALLTYPE_LAND; // turn off fire
+        }
       }
     }
   }

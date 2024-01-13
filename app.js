@@ -1811,9 +1811,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
-          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);  // temperature
-        } else if (wallTextureValues[4 * y + 2] == 0) { // is surface layer
-          if (wallTextureValues[4 * y + 0] == 1) {      // is land
+          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                  // temperature
+        } else if (wallTextureValues[4 * y + 2] == 0) {                                 // is surface layer
+          if (wallTextureValues[4 * y + 0] == 1 || wallTextureValues[4 * y + 0] == 4) { // is land or urban
             c.fillStyle = 'white';
             c.lineWidth = 1.0;
             var snowHeight_cm = waterTextureValues[4 * y + 3];
