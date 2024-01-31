@@ -5,11 +5,15 @@ precision highp isampler2D;
 
 in vec2 fragCoord;
 in vec2 texCoord;     // this
+in vec2 texCoordXmY0; // left
+in vec2 texCoordX0Ym; // down
 in vec2 texCoordXpY0; // right
 in vec2 texCoordX0Yp; // up
 
+
 uniform sampler2D baseTex;
 uniform isampler2D wallTex;
+uniform sampler2D polarVortexTex;
 
 uniform float dragMultiplier;
 
@@ -24,6 +28,7 @@ float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
+layout(location = 3) out float polarVortex;
 
 void main()
 {
@@ -33,11 +38,37 @@ void main()
 
   wall = texture(wallTex, texCoord);
 
+
+  vec2 polarVortexTexCoord = texCoord + vec2(-wind * 0.00001, 0);
+  vec2 polarVortexTexCoordXmY0 = polarVortexTexCoord + vec2(-texelSize.x, 0.);
+  vec2 polarVortexTexCoordX0Ym = polarVortexTexCoord + vec2(0., -texelSize.y);
+  vec2 polarVortexTexCoordXpY0 = polarVortexTexCoord + vec2(texelSize.x, 0.);
+  vec2 polarVortexTexCoordX0Yp = polarVortexTexCoord + vec2(0., texelSize.y);
+
+  polarVortex = texture(polarVortexTex, polarVortexTexCoord)[0];
+
+  base.x += polarVortex * 0.00030; // substract acumulated velocity
+
+
+  if (abs(wind) < 0.001)
+    polarVortex -= base.x * 0.0020; // acumulate horizontal velocity
+
+
+  if (texCoord.y < 0.99) {
+    float polarVortexAvg = (texture(polarVortexTex, polarVortexTexCoordXmY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Ym)[0] + texture(polarVortexTex, polarVortexTexCoordXpY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Yp)[0]) / 4.;
+    polarVortex -= (polarVortex - polarVortexAvg) * 0.01; // smooth texture
+  }
+
+
+  // polarVortex *= 0.9999999; // dacay
+
+
   if (wall[1] == 0) // is wall
   {
     base[0] = 0.0;  // velocities in wall are 0
     base[1] = 0.0;  // this will make a wall not let any pressure trough and
-                    // thereby reflect any pressure waves back
+    // thereby reflect any pressure waves back
+    polarVortex = 0.0;
   } else {
 
     // The velocity through the cell changes proportionally to the pressure
@@ -58,6 +89,6 @@ void main()
     // dragMultiplier; base[1] -= base[1] * base[1] * base[1] * base[1] *
     // base[1] * dragMultiplier;
 
-    base[0] += wind * 0.000001;
+    // base[0] += wind * 0.000001;
   }
 }

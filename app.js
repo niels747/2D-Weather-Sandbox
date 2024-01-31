@@ -1435,7 +1435,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(velocityProgram);
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
       })
-      .name('Wind');
+      .name('Pressure System Movement');
 
     fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.001, 0.00001)
       .onChange(function() {
@@ -1650,16 +1650,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     var display_folder = datGui.addFolder('Display');
 
     display_folder
-      .add(guiControls, 'displayMode', {
-        '1 Temperature -26°C to 30°C' : 'DISP_TEMPERATURE',
-        '2 Water Vapor' : 'DISP_WATER',
-        '3 Realistic' : 'DISP_REAL',
-        '4 Horizontal Velocity' : 'DISP_HORIVEL',
-        '5 Vertical Velocity' : 'DISP_VERTVEL',
-        '6 IR Heating / Cooling' : 'DISP_IRHEATING',
-        '7 IR Down -60°C to 26°C' : 'DISP_IRDOWNTEMP',
-        '8 IR Up -26°C to 30°C' : 'DISP_IRUPTEMP',
-      })
+      .add(guiControls, 'displayMode',
+           {'1 Temperature -26°C to 30°C' : 'DISP_TEMPERATURE', '2 Water Vapor' : 'DISP_WATER', '3 Realistic' : 'DISP_REAL', '4 Horizontal Velocity' : 'DISP_HORIVEL', '5 Vertical Velocity' : 'DISP_VERTVEL', '6 IR Heating / Cooling' : 'DISP_IRHEATING', '7 IR Down -60°C to 26°C' : 'DISP_IRDOWNTEMP', '8 IR Up -26°C to 30°C' : 'DISP_IRUPTEMP', '9 Polar Vortex' : 'DISP_POLAR_VORTEX'})
       .name('Display Mode')
       .listen();
     display_folder.add(guiControls, 'exposure', 0.5, 5.0, 0.01)
@@ -2287,6 +2279,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.displayMode = 'DISP_IRDOWNTEMP';
     } else if (event.key == 8) {
       guiControls.displayMode = 'DISP_IRUPTEMP';
+      DISP_POLAR_VORTEX
+    } else if (event.key == 0) {
+      guiControls.displayMode = 'DISP_POLAR_VORTEX';
     } else if (event.key == 'ArrowLeft') {
       leftPressed = true;  // <
     } else if (event.key == 'ArrowUp') {
@@ -2664,6 +2659,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const curlTexture = gl.createTexture();
   const vortForceTexture = gl.createTexture();
 
+  const polarVortexTexture_0 = gl.createTexture();
+  const polarVortexTexture_1 = gl.createTexture();
+
   const lightTexture_0 = gl.createTexture();
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
@@ -2679,6 +2677,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const curlFrameBuff = gl.createFramebuffer();
   const vortForceFrameBuff = gl.createFramebuffer();
+
+  const polarVortexFrameBuff = gl.createFramebuffer();
 
   const lightFrameBuff_0 = gl.createFramebuffer();
   const lightFrameBuff_1 = gl.createFramebuffer();
@@ -2727,6 +2727,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
+    gl.bindTexture(gl.TEXTURE_2D, polarVortexTexture_0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, sim_res_x, sim_res_y, 0, gl.RED, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    gl.bindTexture(gl.TEXTURE_2D, polarVortexTexture_1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, sim_res_x, sim_res_y, 0, gl.RED, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
   setupTextures();
@@ -2738,12 +2749,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTexture_0, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, waterTexture_0, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, wallTexture_0, 0);
-
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, polarVortexTexture_0, 0);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTexture_1, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, waterTexture_1, 0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, wallTexture_1, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, polarVortexTexture_1, 0);
 
 
   gl.bindTexture(gl.TEXTURE_2D, curlTexture);
@@ -2752,9 +2764,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, curlTexture,
-                          0); // attach the texture as the first color attachment
-
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, curlTexture, 0); // attach the texture as the first color attachment
 
   gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, sim_res_x, sim_res_y, 0, gl.RG, gl.FLOAT, null);
@@ -2763,6 +2773,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, vortForceTexture, 0);
+
 
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT,
@@ -2879,11 +2890,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(pressureProgram, 'polarVortexTex'), 2);
   gl.uniform2f(gl.getUniformLocation(pressureProgram, 'texelSize'), texelSizeX, texelSizeY);
 
   gl.useProgram(velocityProgram);
   gl.uniform1i(gl.getUniformLocation(velocityProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(velocityProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(velocityProgram, 'polarVortexTex'), 2);
   gl.uniform2f(gl.getUniformLocation(velocityProgram, 'texelSize'), texelSizeX, texelSizeY);
 
   // gl.uniform1fv(gl.getUniformLocation(velocityProgram, 'initial_T'), initial_T);
@@ -3167,8 +3180,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, polarVortexTexture_0);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calc curl
@@ -3224,8 +3239,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, polarVortexTexture_1);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calc light
@@ -3419,7 +3436,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
       }
 
-    } else {
+    } else { // not real display mode
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
         gl.useProgram(temperatureDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
@@ -3455,7 +3472,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
-      } else {
+      } else { // use universal display shader for displaymodes that just show one parameter
         gl.useProgram(universalDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
@@ -3485,6 +3502,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
           gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 50000.0);
+          break;
+        case 'DISP_POLAR_VORTEX':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, polarVortexTexture_0);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
           break;
         }
       }

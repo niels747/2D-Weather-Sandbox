@@ -9,9 +9,11 @@ in vec2 texCoordX0Ym; // down
 
 uniform sampler2D baseTex;
 uniform isampler2D wallTex;
+uniform sampler2D polarVortexTex;
 
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
+layout(location = 3) out float polarVortex;
 
 void main()
 {
@@ -19,7 +21,9 @@ void main()
   vec4 baseXmY0 = texture(baseTex, texCoordXmY0);
   vec4 baseX0Ym = texture(baseTex, texCoordX0Ym);
 
-  wall = texture(wallTex, texCoord); // pass trough
+  wall = texture(wallTex, texCoord);                  // pass trough
+
+  polarVortex = texture(polarVortexTex, texCoord)[0]; // pass trough
 
   ivec2 wallX0Ym = texture(wallTex, texCoordX0Ym).xy;
   if (wallX0Ym[1] == 0 && wallX0Ym[0] == 1) { // cell below is land wall
