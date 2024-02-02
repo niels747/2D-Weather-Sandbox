@@ -11,7 +11,10 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 
 #define maxWaterTemp 40.0
 
-#define snowMeltRate 0.0003
+#define fullWhiteSnowHeight 10.0 // snow height at witch full whiteness is displayed and max albedo is achieved
+#define snowMassToHeight 0.05
+
+#define snowMeltRate 0.000015
 #define ALBEDO_SNOW 0.85
 /*
 #define ALBEDO_DRYSOIL 0.35
@@ -19,6 +22,53 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 #define ALBEDO_GRASS 0.20
 #define ALBEDO_FOREST 0.10
 */
+
+
+// TEXTURE DESCRIPTIONS AND DEFINES
+
+// base texture: RGBA32F
+// .x  Horizontal velocity                              -1.0 to 1.0
+// .y  Vertical   velocity                              -1.0 to 1.0
+#define VX 0
+#define VY 1
+#define PRESSURE 2    // Pressure                                          >= 0
+#define TEMPERATURE 3 // Temperature in air and water, indicator in wall
+
+// water texture: RGBA32F
+#define TOTAL 0         // Vapor + cloud water             >= 0
+#define CLOUD 1         // cloud water                     >= 0
+#define PRECIPITATION 2 // precipitation in air            >= 0
+#define SOIL_MOISTURE 2 // moisture in surface             >= 0
+#define SMOKE 3         // smoke/dust in air               >= 0 for smoke/dust
+#define SNOW 3          // snow at surface in cm           0 to 40000
+
+// wall texture: RGBA8I
+#define TYPE 0 //             walltype:
+
+#define WALLTYPE_INERT 0
+#define WALLTYPE_LAND 1
+#define WALLTYPE_WATER 2 // lake / sea
+#define WALLTYPE_FIRE 3
+#define WALLTYPE_URBAN 4
+
+#define DISTANCE 1      // manhattan distance to nearest wall                   0 to 127
+#define VERT_DISTANCE 2 // height above/below ground. Surface = 0               -127 to 127
+#define VEGETATION 3    // vegetation 0 to 127     grass from 0 to 50, trees from 51 to 127
+
+
+//  lighting texture: RGBA32F
+#define SUNLIGHT 0    // sunlight                                             0 to 1.0
+#define NET_HEATING 1 // net heating effect of IR + sun absorbed by smoke
+#define IR_DOWN 2     // IR coming down                                       >= 0
+#define IR_UP 3       // IR going  up                                         >= 0
+
+// Precipitation feedback
+#define MASS 0
+#define HEAT 1
+#define VAPOR 2
+// #define SNOW 3
+
+
 // Universal Functions
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
 

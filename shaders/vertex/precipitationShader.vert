@@ -1,25 +1,9 @@
 #version 300 es
 precision highp float;
 
-// Base texture:
-#define PRES 2
-#define TEMP 3
-
-// Water texture:
-#define TOTAL 0
-#define CLOUD 1
-#define RAIN 2
-#define SNOW 3
-
-// mass:
+// Two types of mass:
 #define WATER 0
 #define ICE 1
-
-// feedback
-#define MASS 0
-#define HEAT 1
-#define VAPOR 2
-// #define SNOW 3
 
 
 in vec2 dropPosition;
@@ -74,8 +58,8 @@ float newDensity;
 void disableDroplet()
 {
   gl_PointSize = 1.;
-  newMass[WATER] = -2. - dropPosition.x; // disable droplet by making it negative and save position as seed for spawning
-  newMass[ICE] = dropPosition.y;         // save position as seed for random function when spawning later
+  newMass[WATER] = -2. - dropPosition.x; // disable droplet by making it negative and save position as seed for respawning
+  newMass[ICE] = dropPosition.y;         // save position as seed for random function when respawning later
 }
 
 void main()
@@ -98,9 +82,9 @@ void main()
     vec4 water = texture(waterTex, texCoord);
 
     // check if position is okay to spawn
-    float realTemp = potentialToRealT(base[TEMP]); // in Kelvin
+    float realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
 
-#define initalMass 0.05                            // 0.05 initial droplet mass
+#define initalMass 0.05                                   // 0.05 initial droplet mass
     float thresHold;
     if (realTemp > CtoK(0.0))
       thresHold = aboveZeroThreshold; // in above freezing conditions coalescence only happens in really dense clouds
@@ -108,9 +92,9 @@ void main()
       //  treshHold = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), subZeroThreshold, initalMass), initalMass);
       thresHold = subZeroThreshold;
 
-    if (water[CLOUD] > thresHold && base[TEMP] < 500.) { // if cloudwater above thresHold and not wall
-                                                         // float spawnChance = (water[1] - thresHold) * 1000.0 / inactiveDroplets;
-                                                         // if (spawnChance > rand2d(mass.xy)) {
+    if (water[CLOUD] > thresHold && base[TEMPERATURE] < 500.) { // if cloudwater above thresHold and not wall
+                                                                // float spawnChance = (water[1] - thresHold) * 1000.0 / inactiveDroplets;
+                                                                // if (spawnChance > rand2d(mass.xy)) {
       float spawnChance = (water[CLOUD] - thresHold) / inactiveDroplets * resolution.x * resolution.y * spawnChanceMult;
 
       float nrmRand = random(mass[WATER] * 0.3724 + iterNum + random(mass[ICE])); // normalized random value
@@ -134,7 +118,8 @@ void main()
     if (feedback[VAPOR] < 0.0) { // is taking water from texture so has spawned
       gl_PointSize = 1.0;
       gl_Position = vec4(newPos, 0.0, 1.0);
-    } else {                                                                    // still inactive
+    } else {                                                                    // still inactive`
+      gl_PointSize = 1.0;
       feedback[MASS] = 1.0;                                                     // count 1 inactive droplet
       gl_Position = vec4(vec2(-1. + texelSize.x, -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (0, 0) to count inactive droplets
     }
@@ -145,7 +130,7 @@ void main()
     vec4 water = texture(waterTex, texCoord);
     vec4 base = texture(baseTex, texCoord);
 
-    float realTemp = potentialToRealT(base[TEMP]); // in Kelvin
+    float realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
 
     float totalMass = newMass[WATER] + newMass[ICE];
 
@@ -156,10 +141,10 @@ void main()
 
       disableDroplet();
 
-    } else if (newPos.y < -1.0 /* || base[TEMP] > 500. */ || water[TOTAL] > 1000.) { // water[TOTAL] > 1000.     base[TEMP] < 500.      to low or wall
+    } else if (newPos.y < -1.0 /* || base[TEMPERATURE] > 500. */ || water[TOTAL] > 1000.) { // water[TOTAL] > 1000.     base[TEMPERATURE] < 500.      to low or wall
 
-      if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[TEMP] > 500.) // if above cell was already wall. because of fast fall speed
-        newPos.y += texelSize.y * 1.;                                                // *2. ? move position up so that the water/snow is correcty added to the ground
+      if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[TEMPERATURE] > 500.) // if above cell was already wall. because of fast fall speed
+        newPos.y += texelSize.y * 1.;                                                       // *2. ? move position up so that the water/snow is correcty added to the ground
 
       //  feedback[2] = newMass[0]; // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
 
@@ -177,8 +162,8 @@ void main()
       float growth = water[CLOUD] * growthRate * surfaceArea;
 
       // Hail growth enhancement:
-      if (realTemp < CtoK(0.0) && density == 1.0) {   // below freezing
-        growth += surfaceArea * water[RAIN] * 0.0030; // rain freezing onto hail
+      if (realTemp < CtoK(0.0) && density == 1.0) {            // below freezing
+        growth += surfaceArea * water[PRECIPITATION] * 0.0030; // rain freezing onto hail
       }
 
       feedback[VAPOR] -= growth * 1.0; // takes water from the air
@@ -206,7 +191,7 @@ void main()
                          1.0); // density increases upto 1.0 as snow melts
       }
 
-      float dropletTemp = potentialToRealT(base[TEMP]);                                              // should be wetbulb temperature...
+      float dropletTemp = potentialToRealT(base[TEMPERATURE]);                                       // should be wetbulb temperature...
 
       if (newMass[ICE] > 0.0)                                                                        // if any ice
         dropletTemp = min(dropletTemp, CtoK(0.0));                                                   // temp can not be more than 0 C
@@ -243,15 +228,20 @@ void main()
 
       feedback[MASS] = totalMass;
 
-#define pntSize 12.                         // 16
-      float pntSurface = pntSize * pntSize; // suface area
 
-      feedback[MASS] /= pntSurface;
-      feedback[HEAT] /= pntSurface;
-      feedback[VAPOR] /= pntSurface;
-
-      gl_PointSize = pntSize;
     } // update
+
+
+#define pntSize 12.                             // 16
+    const float pntSurface = pntSize * pntSize; // suface area
+
+    feedback[MASS] /= pntSurface;
+    feedback[HEAT] /= pntSurface;
+    feedback[VAPOR] /= pntSurface;
+    feedback[SNOW] /= pntSize; // only width matters
+
+    gl_PointSize = pntSize;
+
 
     gl_Position = vec4(newPos, 0.0, 1.0);
   } // active

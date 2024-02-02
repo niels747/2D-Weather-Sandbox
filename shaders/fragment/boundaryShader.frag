@@ -76,28 +76,30 @@ void main()
 
   bool nextToWall = false;
 
-  wall[2] = wallX0Ym[2] + 1;       // height above ground is counted
+  wall[VERT_DISTANCE] = wallX0Ym[VERT_DISTANCE] + 1;   // height above ground is counted
 
-  if (wall[1] != 0) {              // is fluid, not wall
+  if (wall[DISTANCE] != 0) {                           // is fluid, not wall
 
-    base[3] += light[1] * IR_rate; // IR effect
+    wall[TYPE] = wallX0Ym[TYPE];                       // copy wall type from wall below
 
-    base[3] += precipFeedback[1];  // rain cools air
-    water[0] += precipFeedback[2]; // rain adds water to air
+    base[TEMPERATURE] += light[NET_HEATING] * IR_rate; // IR heating/cooling effect
+
+    base[TEMPERATURE] += precipFeedback[HEAT];         // rain cools air and riming heats air
+    water[TOTAL] += precipFeedback[VAPOR];             // rain adds water to air
     // recalculate cloud water after changing total water
-    water[1] = max(water[0] - maxWater(realTemp), 0.0);
+    water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0);
     // 0.004 for rain visualisation
-    water[2] = max(water[2] * 0.998 - 0.00005 + precipFeedback[0] * 0.008, 0.0);
+    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.998 - 0.00005 + precipFeedback[MASS] * 0.008, 0.0);
 
     // rain removes smoke from air
-    water[3] /= 1. + max(-precipFeedback[2] * 0.3, 0.0) + precipFeedback[0] * 0.003; // rain formation in clouds removes smoke
-                                                                                     // quickly , falling rain slower
-    water[3] -= precipFeedback[0] * 0.0002;                                          // falling rain slowly removes smoke
-                                                                                     // linearly to remove last little bit
+    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.3, 0.0) + precipFeedback[MASS] * 0.003; // rain formation in clouds removes smoke
+                                                                                                // quickly , falling rain slower
+    water[SMOKE] -= precipFeedback[MASS] * 0.0002;                                              // linearly to remove last little bit
 
-    water[3] -= max((water[3] - 4.0) * 0.01, 0.);                                    // dissipate fire color to smoke
 
-    water[3] = max(water[3], 0.0);                                                   // snow and smoke can't go below 0
+    water[SMOKE] -= max((water[SMOKE] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
+
+    water[SMOKE] = max(water[SMOKE], 0.0);                // snow and smoke can't go below 0
 
     // GRAVITY
     // temperature is calculated for Vy location
@@ -107,57 +109,57 @@ void main()
 
     // gravity for convection interpolated between this and above cell to fix wierd waves
     // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
-    float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
+    float gravityForce = ((base[TEMPERATURE] + baseX0Yp[TEMPERATURE]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
 
     // float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult;
 
-    gravityForce -= water[1] * gravMult * waterWeight;          // cloud water weight added to gravity force
+    gravityForce -= water[CLOUD] * gravMult * waterWeight;         // cloud water weight added to gravity force
 
-    gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
+    gravityForce -= precipFeedback[MASS] * gravMult * waterWeight; // precipitation weigth added to gravity force
 
-    base[1] += gravityForce;
+    base[VY] += gravityForce;
 
     // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
 
     float snowCover = 0.;
 
-    if (wallX0Ym[1] == 0) {                           // below is wall
+    if (wallX0Ym[DISTANCE] == 0) {                       // below is wall
       nextToWall = true;
-      wall[1] = 1;                                    // dist to nearest wall = 1
-      wall[0] = wallX0Ym[0];                          // copy wall type from wall below
-      snowCover = texture(waterTex, texCoordX0Ym)[3]; // get snow amount
-      wall[2] = 1;                                    // directly above ground
+      wall[DISTANCE] = 1;                                // dist to nearest wall = 1
+                                                         // wall[TYPE] = wallX0Ym[TYPE];                       // copy wall type from wall below
+      snowCover = texture(waterTex, texCoordX0Ym)[SNOW]; // get snow amount
+      wall[VERT_DISTANCE] = 1;                           // directly above ground
     }
 
-    if (wallXmY0[1] == 0) { // left is wall
+    if (wallXmY0[DISTANCE] == 0) {            // left is wall
       nextToWall = true;
-      wall[1] = 1;          // dist to nearest wall = 1
-      wall[0] = wallXmY0[0];
+      wall[DISTANCE] = 1;                     // dist to nearest wall = 1
+                                              //  wall[TYPE] = wallXmY0[TYPE];
 
-      if (wallXmY0[0] == 2) { // if left is water, build a dyke
-        wall[0] = 1;
-        wall[1] = 0;
+      if (wallXmY0[TYPE] == WALLTYPE_WATER) { // if left is water, build a dyke
+        wall[TYPE] = WALLTYPE_LAND;
+        wall[DISTANCE] = 0;
       }
 
-      if (wallXpY0[1] == 0)        // left and right is wall, make this wall to fill narrow gaps
-        wall[1] = 0;
-    } else if (wallXpY0[1] == 0) { // right is wall
+      if (wallXpY0[DISTANCE] == 0)            // left and right is wall, make this wall to fill narrow gaps
+        wall[DISTANCE] = 0;
+    } else if (wallXpY0[DISTANCE] == 0) {     // right is wall
       nextToWall = true;
-      wall[1] = 1;                 // dist to nearest wall = 1
-      wall[0] = wallXpY0[0];
+      wall[DISTANCE] = 1;                     // dist to nearest wall = 1
+                                              //  wall[TYPE] = wallXpY0[TYPE];
 
-      if (wallXpY0[0] == 2) { // if right is water, build a dyke
-        wall[0] = 1;
-        wall[1] = 0;
+      if (wallXpY0[TYPE] == WALLTYPE_WATER) { // if right is water, build a dyke
+        wall[TYPE] = WALLTYPE_LAND;
+        wall[DISTANCE] = 0;
       }
     }
-    if (wallX0Yp[1] == 0) { // above is wall
+    if (wallX0Yp[DISTANCE] == 0) {                                                                                                          // above is wall
       nextToWall = true;
-      wall[1] = 1;          // dist to nearest wall = 1
-      wall[0] = wallX0Yp[0];
+      wall[DISTANCE] = 1;                                                                                                                   // dist to nearest wall = 1
+                                                                                                                                            // wall[TYPE] = wallX0Yp[TYPE];
 
-      if (texCoord.y < 0.99 && (wallX0Yp[0] == 1 || wallX0Yp[0] == 2)) { // Fill in land and sea below
-        wall[1] = 0;                                                     //  set this to wall
+      if (texCoord.y < 0.99 && (wallX0Yp[TYPE] == WALLTYPE_LAND || wallX0Yp[TYPE] == WALLTYPE_URBAN || wallX0Yp[TYPE] == WALLTYPE_WATER)) { // Fill in land and sea below
+        wall[DISTANCE] = 0;                                                                                                                 //  set this to wall
       }
     }
 
@@ -177,25 +179,25 @@ void main()
       // find nearest wall
       int nearest = 255;
       int nearestType = 0;
-      if (wallX0Ym[1] < nearest) {
-        nearest = wallX0Ym[1];
-        nearestType = wallX0Ym[0];
+      if (wallX0Ym[DISTANCE] < nearest) {
+        nearest = wallX0Ym[DISTANCE];
+        nearestType = wallX0Ym[TYPE];
       }
-      if (wallX0Yp[1] < nearest) {
-        nearest = wallX0Yp[1];
-        nearestType = wallX0Yp[0];
+      if (wallX0Yp[DISTANCE] < nearest) {
+        nearest = wallX0Yp[DISTANCE];
+        nearestType = wallX0Yp[TYPE];
       }
-      if (wallXmY0[1] < nearest) {
-        nearest = wallXmY0[1];
-        nearestType = wallXmY0[0];
+      if (wallXmY0[DISTANCE] < nearest) {
+        nearest = wallXmY0[DISTANCE];
+        nearestType = wallXmY0[TYPE];
       }
-      if (wallXpY0[1] < nearest) {
-        nearest = wallXpY0[1];
-        nearestType = wallXpY0[0];
+      if (wallXpY0[DISTANCE] < nearest) {
+        nearest = wallXpY0[DISTANCE];
+        nearestType = wallXpY0[TYPE];
       }
 
-      wall[1] = nearest + 1; // add one to dist to wall
-      wall[0] = nearestType; // type = type of nearest wall
+      wall[DISTANCE] = nearest + 1; // add one to dist to wall
+                                    // wall[TYPE] = nearestType;     // type = type of nearest wall
     }
 
     /*
@@ -226,109 +228,134 @@ void main()
           }
         }*/
 
-    if (wall[2] <= wallVerticalInfluence) {                  // within vertical range of wall
+    if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {      // within vertical range of wall
 
       float influenceDevider = float(wallVerticalInfluence); // devide by how many cells it's aplied to
 
-      wall[3] = wallX0Ym[3];                                 // vegetation is copied from below
+      wall[VEGETATION] = wallX0Ym[VEGETATION];               // vegetation is copied from below
 
       // base[2] *= 0.995; // 0.999
 
       // base[2]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
 
-      if (wall[0] == 1) { // 1 above / next to land surface
-        // base[3] += lightHeatingConst * light[0] * cos(sunAngle) / (1. + snowCover) / influenceDevider; // sun heating land
+      switch (wall[TYPE]) {
+      case WALLTYPE_URBAN:
+        water[SMOKE] += 0.00001; // City produces smog
+      case WALLTYPE_LAND:
 
         float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
 
-        // lightPower *= map_rangeC(snowCover, 0., 100.0, 1., 0.);
-        lightPower *= map_rangeC(snowCover, 100., 0.0, 1. - ALBEDO_SNOW, 1.);
+        lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
 
-        base[3] += lightPower / influenceDevider;                                                                                    // sun heating land
+        base[TEMPERATURE] += lightPower / influenceDevider;                                                                                       // sun heating land
 
-        float evaporation = max((maxWater(realTemp) - water[0]) * landEvaporation * (float(wall[3]) / 127.) / influenceDevider, 0.); // water evaporating from land proportional to vegitation
+        float evaporation = max((maxWater(realTemp) - water[TOTAL]) * landEvaporation * (float(wall[VEGETATION]) / 127.) / influenceDevider, 0.); // water evaporating from land proportional to vegitation
 
-        water[0] += evaporation;
-        base[3] -= evaporation * evapHeat;
+        water[TOTAL] += evaporation;
+        base[TEMPERATURE] -= evaporation * evapHeat;
 
-        if (wall[3] < 10) {                                                      // Dry desert area
-          water[3] = min(water[3] + (max(abs(base[0]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
+        if (wall[VEGETATION] < 10) {                                                      // Dry desert area
+          water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
         }
+        break;
+      case WALLTYPE_WATER:
+        float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
+        base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                       // air heated or cooled by water
 
-      } else if (wall[0] == 2) {                                                                                 // 1 above / next to water surface
-        float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[3];                                         // water temperature
-        LocalWaterTemperature = clamp(LocalWaterTemperature, CtoK(0.0), CtoK(maxWaterTemp));                     // limit water temperature. needed for first iteration of old file
-        base[3] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                         // air heated or cooled by water
+        water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
 
-        water[0] += max((maxWater(LocalWaterTemperature) - water[0]) * waterEvaporation / influenceDevider, 0.); // water evaporating
-
-      } else if (wall[0] == 3 && wall[2] == 1) {                                                                 // forest fire & one above surface
-        float fireIntensity = float(wall[3]) * 0.00015;
-        base[3] += fireIntensity;                                                                                // heat
-        water[3] += fireIntensity * 2.0;                                                                         // smoke
-        water[0] += fireIntensity * 0.50;                                                                        // extra water from burning trees, both from water in the wood and
-                                                                                                                 // from burning of hydrogen and hydrocarbons
+        break;
+      case WALLTYPE_FIRE:
+        if (wall[VERT_DISTANCE] == 1) {         // forest fire & one above surface
+          float fireIntensity = float(wall[VEGETATION]) * 0.00015;
+          base[TEMPERATURE] += fireIntensity;   // heat
+          water[SMOKE] += fireIntensity * 2.0;  // smoke
+          water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
+        }
       }
     }
 
   } else { // this is wall
 
 
-    wall[2] = wallX0Yp[2] - 1;                       // height below ground is counted
+    wall[VERT_DISTANCE] = wallX0Yp[VERT_DISTANCE] - 1; // height below ground is counted
 
-    if (wall[2] < 0) {                               // below surface
-      water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
-      wall[3] = wallX0Yp[3];                         // vegetation is copied from above
-
-      if (wallX0Yp[1] == 0 && wall[0] == 2) {        // if above is wall and this is water
-        wall[0] = wallX0Yp[0];                       // land can't be over water. copy walltype from above
-        base[3] = texture(baseTex, texCoordX0Yp)[3]; // copy temperature from above
-        base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp));
+    if (wall[VERT_DISTANCE] < 0) {                     // below surface
+      if (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) {
+        water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
+        wall[VEGETATION] = wallX0Yp[VEGETATION];       // vegetation is copied from above
       }
 
-
-    } else if (wall[2] == 0) {                                      // at/in surface layer
-
-      if (wall[0] == 1) {                                           // land wall
-        water[2] = clamp(water[2] + precipFeedback[2], 0.0, 100.0); // rain accumulation
-        water[3] = clamp(water[3] + precipFeedback[3], 0.0, 100.0); // snow accumulation
-
-        // if (random(iterNum + texCoord.x) < 0.001) { // fire updated randomly
-        if (int(iterNum) % 700 == 0) {                                                                                                // fire spread at fixed rate
-
-          if (wall[3] >= minimalFireVegitation && (wallXmY0[0] == 3 || wallXpY0[0] == 3 || texture(waterTex, texCoordX0Yp)[3] > 2.3)) // if left or right is on fire or fire is blowing over
-            wall[0] = 3;                                                                                                              // spread fire
+      if (wallX0Yp[DISTANCE] == 0) {                                       // if above is wall
+        if (wallX0Yp[TYPE] != WALLTYPE_WATER) {                            // above is not water
+          wall[TYPE] = wallX0Yp[TYPE];                                     // copy walltype from above
+        } else if (wall[TYPE] == WALLTYPE_WATER) {                         // this is water
+                                                                           //   wall[TYPE] = wallX0Yp[TYPE];                                     // land can't be over water. copy walltype from above
+          base[TEMPERATURE] = texture(baseTex, texCoordX0Yp)[TEMPERATURE]; // copy water temperature from above
         }
+      }
+
+    } else if (wall[VERT_DISTANCE] == 0) { // at/in surface layer
+
+      switch (wall[TYPE]) {
+      case WALLTYPE_URBAN:
+        wall[VEGETATION] = min(wall[VEGETATION], 75);                                            // limit vegetation in urban areas
+      case WALLTYPE_LAND:
+        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipFeedback[VAPOR], 0.0, 100.0);  // rain accumulation
+        water[SNOW] = clamp(water[SNOW] + precipFeedback[SNOW] * snowMassToHeight, 0.0, 4000.0); // snow accumulation in cm
+
+        if (int(iterNum) % 700 == 0) {                                                           // fire and snow spread at fixed rate
+
+          // average out snow cover
+          float numNeighbors = 0.;
+          float totalNeighborSnow = 0.0;
+
+          if (wallXmY0[VERT_DISTANCE] == 0 && (wallXmY0[TYPE] == WALLTYPE_LAND || wallXmY0[TYPE] == WALLTYPE_URBAN)) {
+            totalNeighborSnow += texture(waterTex, texCoordXmY0)[SNOW];
+            numNeighbors += 1.;
+          }
+          if (wallXpY0[VERT_DISTANCE] == 0 && (wallXpY0[TYPE] == WALLTYPE_LAND || wallXpY0[TYPE] == WALLTYPE_URBAN)) {
+            totalNeighborSnow += texture(waterTex, texCoordXpY0)[SNOW];
+            numNeighbors += 1.;
+          }
+          if (numNeighbors > 0.) { // prevent devide by 0
+            float avgNeighborSnow = totalNeighborSnow / numNeighbors;
+            water[SNOW] += (avgNeighborSnow - water[SNOW]) * 0.1;
+          }
 
 
-      } else if (wall[0] == 2) { // water surface
+          if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 2.3)) // if left or right is on fire or fire is blowing over
+            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
+        }
+        break;
+      case WALLTYPE_WATER:
         // average out temperature
         float numNeighbors = 0.;
         float totalNeighborTemp = 0.0;
 
-        if (wallXmY0[0] == 2) { // left is water
-          totalNeighborTemp += texture(baseTex, texCoordXmY0)[3];
+        if (wallXmY0[TYPE] == WALLTYPE_WATER) { // left is water
+          totalNeighborTemp += texture(baseTex, texCoordXmY0)[TEMPERATURE];
           numNeighbors += 1.;
         }
-        if (wallXpY0[0] == 2) { // right is water
-          totalNeighborTemp += texture(baseTex, texCoordXpY0)[3];
+        if (wallXpY0[TYPE] == WALLTYPE_WATER) { // right is water
+          totalNeighborTemp += texture(baseTex, texCoordXpY0)[TEMPERATURE];
           numNeighbors += 1.;
         }
         if (numNeighbors > 0.) { // prevent devide by 0
           float avgNeighborTemp = totalNeighborTemp / numNeighbors;
-          base[3] += (avgNeighborTemp - base[3]) * 0.25;
+          base[TEMPERATURE] += (avgNeighborTemp - base[TEMPERATURE]) * 0.25;
         }
-        if (base[3] > 500.0) { // set water temperature for older savefiles
-          base[3] = CtoK(25.0);
+        if (base[TEMPERATURE] > 500.0) { // set water temperature for older savefiles
+          base[TEMPERATURE] = CtoK(25.0);
         }
-        // base[3] = clamp(base[3], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range, really only needed for first iteration after loading old save file without water temperature
-
-      } else if (wall[0] == 3 && int(iterNum) % 300 == 0) { // fire wall
-
-        // wall[3] -= int(random(iterNum + texCoord.x * 13.7) * 10.0); // reduce vegetation
-        wall[3] -= 1;  // reduce vegetation
-        if (wall[3] < minimalFireVegitation)
-          wall[0] = 1; // turn off fire
+        base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
+        break;
+      case WALLTYPE_FIRE:
+        if (int(iterNum) % 300 == 0) {
+          wall[VEGETATION] -= 1;        // reduce vegetation
+          if (wall[VEGETATION] < minimalFireVegitation)
+            wall[TYPE] = WALLTYPE_LAND; // turn off fire
+        }
       }
     }
   }

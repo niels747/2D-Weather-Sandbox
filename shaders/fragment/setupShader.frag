@@ -6,6 +6,8 @@ uniform vec2 texelSize;
 
 uniform float dryLapse;
 
+uniform float simHeight;
+
 uniform float seed;
 uniform float heightMult;
 
@@ -40,6 +42,7 @@ void main()
   // WALL SETUP
 
   float height = 0.0;
+  float height_m = 0.0;
 
   if (heightMult < 0.05) { // all sea
 
@@ -49,14 +52,15 @@ void main()
 
     height = 0.005;
 
-  } else { // generate mountains
+  } else { // generate hills / mountains
     float var = fragCoord.x * 0.001;
 
-    for (float i = 2.0; i < 1000.0; i *= 1.5) {
+    for (float i = 2.0; i < 1000.0; i *= 1.5) { // add multiple frequencies of noise together
       height += noise(var * i + rand(seed + i) * 10.) * 0.5 / i;
     }
 
     height *= heightMult;
+    height_m = height * simHeight; // sim height
   }
 
   if (texCoord.y < texelSize.y || texCoord.y < height) {                                             // set to wall
@@ -70,12 +74,11 @@ void main()
 
       wall[3] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
 
-      if (height > 0.15 && height - texCoord.y < texelSize.y * 2.0)
-        water[3] = 100.0;                                         // set snow
+      water[3] = max(map_rangeC(height_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                          // set snow
     }
-  } else {                                                        // not wall
-    wall[1] = 255;                                                // reset distance to wall
-    base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y))); // set temperature
+  } else {                                                                                           // air, not wall
+    wall[1] = 255;                                                                                   // reset distance to wall
+    base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                    // set temperature
 
     float realTemp = potentialToRealT(base[3]);
 
@@ -86,5 +89,5 @@ void main()
 
     water[1] = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
   }
-  wall[2] = 100;                                        // preset height above ground to prevent water being deleted in boundaryshader ln 250*
+  wall[2] = 100;                                        // preset height above ground to prevent water being deleted in boundaryshader ln 250*`
 }

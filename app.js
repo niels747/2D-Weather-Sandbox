@@ -262,6 +262,15 @@ function printTemp(tempC)
     return tempC.toFixed(1) + '°C';
 }
 
+function printSnowHeight(snowHeight_cm)
+{
+  if (guiControls.imperialUnits) {
+    let snowHeight_inches = snowHeight_cm * 0.393701;
+    return snowHeight_inches.toFixed(1) + '"'; // inches
+  } else
+    return snowHeight_cm.toFixed(0) + ' cm';
+}
+
 function printDistance(km)
 {
   if (guiControls.imperialUnits) {
@@ -1362,7 +1371,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var contextAttributes = {
     alpha : false,
     desynchronized : false,
-    antialias : true, // false
+    antialias : true,
     depth : false,
     failIfMajorPerformanceCaveat : false,
     powerPreference : 'high-performance',
@@ -1516,6 +1525,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Water Vapor / Cloud' : 'TOOL_WATER',
         'Land' : 'TOOL_WALL_LAND',
         'Lake / Sea' : 'TOOL_WALL_SEA',
+        'Urban' : 'TOOL_WALL_URBAN',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
         'Moisture' : 'TOOL_WALL_MOIST',
@@ -1859,12 +1869,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
-          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                       // temperature
-        } else if (wallTextureValues[4 * y + 0] == 2 && wallTextureValues[4 * y + 2] == 0) { // if this is water surface
-          c.fillStyle = 'lightblue';
-          c.lineWidth = 1.0;
-          var waterTempC = KtoC(potentialTemp);
-          c.fillText('' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 20, scrYpos + 17); // water surface temperature
+          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                  // temperature
+        } else if (wallTextureValues[4 * y + 2] == 0) {                                 // is surface layer
+          if (wallTextureValues[4 * y + 0] == 1 || wallTextureValues[4 * y + 0] == 4) { // is land or urban
+            c.fillStyle = 'white';
+            c.lineWidth = 1.0;
+            var snowHeight_cm = waterTextureValues[4 * y + 3];
+            if (snowHeight_cm > 0) {
+              c.fillText('❄' + printSnowHeight(snowHeight_cm), 100, scrYpos + 17); // display snow height
+            }
+          } else if (wallTextureValues[4 * y + 0] == 2) {                          // is water
+            c.fillStyle = 'lightblue';
+            c.lineWidth = 1.0;
+            var waterTempC = KtoC(potentialTemp);                                                           // water temperature is stored as absolute, not dependant on height
+            c.fillText('🌊 🌡' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 33, scrYpos + 17); // display water surface temperature
+          }
         }
       }
       c.lineWidth = 2.0; // 3
@@ -2173,7 +2192,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function mouseDownEvent(e)
   {
     // event.preventDefault(); // caused problems with dat.gui
-
+    // console.log('mousedown');
     if (e.button == 0) { // left
       leftMousePressed = true;
       if (SETUP_MODE) {
@@ -2358,7 +2377,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WALL_LAND';
     } else if (event.code == 'KeyR') {
       guiControls.tool = 'TOOL_WALL_SEA';
-    } else if (event.code == 'KeyT') {
+    } /*else if (event.code == 'Key?') {
+      guiControls.tool = 'TOOL_WALL_URBAN';
+    }*/
+    else if (event.code == 'KeyT') {
       guiControls.tool = 'TOOL_WALL_FIRE';
     } else if (event.code == 'KeyY') {
       guiControls.tool = 'TOOL_SMOKE';
@@ -3198,7 +3220,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);        // horizontal
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
 
 
   function generateLightningTexture(imgElement)
@@ -3254,7 +3277,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
-  // gl.uniform1fv(gl.getUniformLocation(setupProgram, 'initial_T'), initial_T);
+  gl.uniform1f(gl.getUniformLocation(setupProgram, 'simHeight'), guiControls.simHeight);
 
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
 
@@ -3509,12 +3532,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 12;
         else if (guiControls.tool == 'TOOL_WALL_FIRE')
           inputType = 13;
-        else if (guiControls.tool == 'TOOL_WALL_MOIST')
+        else if (guiControls.tool == 'TOOL_WALL_URBAN')
           inputType = 14;
+
+
+        // Surface environment modifiers
+        else if (guiControls.tool == 'TOOL_WALL_MOIST')
+          inputType = 20;
         else if (guiControls.tool == 'TOOL_WALL_SNOW')
-          inputType = 15;
+          inputType = 21;
         else if (guiControls.tool == 'TOOL_VEGETATION')
-          inputType = 16;
+          inputType = 22;
 
         var intensity = guiControls.intensity;
 
@@ -4077,11 +4105,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     return ' ' + hourStr + ':' + minuteStr;
   }
 
-  function updateSunlight(input)
+  function updateSunlight(deltaT_hours)
   {
-    if (input != 'MANUAL_ANGLE') {
-      if (input != null) {
-        guiControls.timeOfDay += input; // day angle in degrees
+    if (deltaT_hours != 'MANUAL_ANGLE') {
+      if (deltaT_hours != null) {
+        guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
+        guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
         if (guiControls.timeOfDay >= 24.0)
           guiControls.timeOfDay = 0.0;
       }
@@ -4101,7 +4130,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.sunAngle = 180.0 - guiControls.sunAngle;
       }
     }
-    let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0
+    let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
     // Calculations visualized: https://www.desmos.com/calculator/kzr76zj5hq
     if (Math.abs(sunAngleForShaders) < 1.54) {
       sunIsUp = true;
