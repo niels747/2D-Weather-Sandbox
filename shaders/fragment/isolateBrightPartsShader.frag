@@ -9,7 +9,7 @@ in vec2 texCoordXpY0; // right
 in vec2 texCoordX0Yp; // up
 
 uniform sampler2D hdrTex;
-out vec3 fragmentColor; // vec4 ?
+out vec3 fragmentColor;
 
 void main()
 {
@@ -18,7 +18,9 @@ void main()
   //  outputCol = pow(outputCol, vec3(4.0)); // only keep bright parts
 
 
-  outputCol = max(outputCol - vec3(0.9), 0.0); // only keep bright parts
+  // outputCol = max(outputCol - vec3(0.9), 0.0); // only keep bright parts
+
+  outputCol *= 0.02;
 
   fragmentColor = vec3(outputCol);
 }

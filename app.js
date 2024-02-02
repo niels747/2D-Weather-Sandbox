@@ -1434,10 +1434,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
-    gl.useProgram(realisticDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
-    gl.useProgram(skyBackgroundDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
+    gl.useProgram(postProcessingProgram);
+    gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
 
   function setupDatGui(strGuiControls)
@@ -1722,10 +1720,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .listen();
     display_folder.add(guiControls, 'exposure', 0.5, 5.0, 0.01)
       .onChange(function() {
-        gl.useProgram(realisticDisplayProgram);
-        gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
-        gl.useProgram(skyBackgroundDisplayProgram);
-        gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
+        gl.useProgram(postProcessingProgram);
+        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
       })
       .name('Exposure');
 
@@ -1774,8 +1770,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function startSimulation()
   {
     SETUP_MODE = false;
-    gl.useProgram(realisticDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+    gl.useProgram(postProcessingProgram);
+    gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
     datGui.show(); // unhide
 
     clockEl = document.createElement('div');
@@ -3762,13 +3758,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       cursorType = 0;     // cursor off sig
     }
 
-    gl.useProgram(realisticDisplayProgram);
+    gl.useProgram(postProcessingProgram);
 
     if (cursorType != 0 && !sunIsUp) {
       // working at night
-      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 5.0);
+      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 5.0);
     } else {
-      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
     }
 
     if (inputType == 0) {
@@ -3778,6 +3774,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
     // render to canvas
+    gl.useProgram(realisticDisplayProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
@@ -3867,9 +3864,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'), 0.0);
       }
 
-
       if (SETUP_MODE)
-        gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 10.0);
+        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 10.0);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
 

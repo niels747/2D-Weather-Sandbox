@@ -28,5 +28,5 @@ void main()
 
   outputCol += bloom * 0.990; // apply bloom
 
-  fragmentColor = vec4(outputCol, 1.0);
+  fragmentColor = vec4(outputCol * exposure, 1.0);
 }

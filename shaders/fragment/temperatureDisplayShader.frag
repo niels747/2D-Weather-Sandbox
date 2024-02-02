@@ -64,5 +64,5 @@ void main()
 
   // drawDirLines(base.xy);
   // drawIsoLines(base[2]);
-  drawCursor();
+  drawCursor(cursor, view);
 }

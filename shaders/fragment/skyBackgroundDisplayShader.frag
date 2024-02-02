@@ -21,20 +21,9 @@ uniform vec3 planePos;
 
 out vec4 fragmentColor;
 
+#include "commonDisplay.glsl"
+
 float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
-
-vec3 hsv2rgb(vec3 c)
-{
-  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
-float realMod(float a, float b)
-{
-  // proper modulo to handle negative numbers
-  return mod(mod(a, b) + b, b);
-}
 
 
 vec3 displayLightning(vec2 pos)
@@ -45,7 +34,7 @@ vec3 displayLightning(vec2 pos)
   // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
   lightningTexCoord.y -= pos.y;
 
-  const float simHeight = 12000.0;
+  const float simHeight = 12000.0; // TODO: Should be uniform!
   float cellHeight = simHeight / resolution.y;
 
   float scaleMult = 60.0 / cellHeight; // 6000
@@ -78,7 +67,7 @@ vec3 displayLightning(vec2 pos)
 
   // pixVal.rgb *= vec3(0.3, 0.4, 1.0);
 
-  pixVal.rgb *= lightningIntensity * 1750.0; // 15.0
+  pixVal.rgb *= lightningIntensity * 125000.0;
 
   return pixVal.rgb * pixVal.a;
 }
@@ -91,7 +80,7 @@ vec4 displayA380(vec2 pos, float angle)
   // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
   planeTexCoord.y -= pos.y;
 
-  const float simHeight = 12000.0;
+  const float simHeight = 12000.0; // TODO: Should be uniform!
   float cellHeight = simHeight / resolution.y;
 
   float scaleMult = 60.0 / cellHeight; // 6000
@@ -158,5 +147,5 @@ void main()
 
   // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
 
-  fragmentColor = vec4(mixedCol * (light * 1.0 + 0.3), 1.0);
+  fragmentColor = vec4(mixedCol * (light * 1.0 + minShadowLight), 1.0);
 }
