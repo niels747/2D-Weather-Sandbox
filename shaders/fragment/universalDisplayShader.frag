@@ -49,5 +49,5 @@ void main()
   } else {
     fragmentColor = vec4(1.0 + val, 1.0 + val, 1.0, 1.0);
   }
-  drawCursor();
+  drawCursor(cursor, view);
 }

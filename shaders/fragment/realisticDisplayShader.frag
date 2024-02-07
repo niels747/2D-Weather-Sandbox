@@ -33,7 +33,6 @@ uniform float cellHeight; // in meters
 uniform float dryLapse;
 uniform float sunAngle;
 
-uniform float exposure;
 uniform vec3 view;   // Xpos  Ypos    Zoom
 uniform vec4 cursor; // Xpos   Ypos  Size   type
 
@@ -84,9 +83,6 @@ vec3 getWallColor(float depth)
 
   return color;
 }
-
-
-#define minShadowLight 0.10 // 0.15
 
 
 void main()
@@ -168,13 +164,13 @@ void main()
 
     const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
     const vec3 smokeThickCol = vec3(0., 0., 0.);
-    const vec3 fireCol = vec3(1.0, 0.7, 0.0);
+    const vec3 fireCol = vec3(1.0, 0.7, 0.0) * 10.0;
 
     float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
     float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
     vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
-    shadowLight += fireIntensity;
+    shadowLight += fireIntensity * 1.5;
 
     opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                // alpha blending
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
@@ -315,13 +311,7 @@ void main()
 
   finalLight += vec3(shadowLight);
 
-  fragmentColor = vec4(clamp(color * finalLight * exposure, 0., 1.), opacity);
+  fragmentColor = vec4(max(color * finalLight, 0.), opacity);
 
-
-  // vec2 uv = vec2(texCoord.x * texelSize.y / texelSize.x, texCoord.y);
-  // uv *= 10.;
-  // fragmentColor = vec4(vec3(func2D(uv)), 1.0);
-
-
-  drawCursor(); // over everything else
+  drawCursor(cursor, view); // over everything else
 }

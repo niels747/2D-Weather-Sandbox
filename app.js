@@ -124,6 +124,11 @@ var NUM_DROPLETS;
 // NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25; // 25
 
+let hdrFBO;
+
+let bloomFBOs = [];
+
+
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
 function screenToSimX(screenX)
@@ -311,6 +316,124 @@ function realToPotentialT(realT, y) { return realT + (y / sim_res_y) * dryLapse;
 
 function potentialToRealT(potentialT, y) { return potentialT - (y / sim_res_y) * dryLapse; }
 
+
+// Global Classes:
+
+class Vec2D // simple 2D vector
+{
+  x;
+  y;
+  constructor(x, y)
+  {
+    this.x = x;
+    this.y = y;
+  }
+  static fromAngle(angle, mag) // create vector from angle and optional magnitude
+  {
+    if (mag == null)
+      mag = 1.0;
+    let x = -Math.cos(angle) * mag;
+    let y = Math.sin(angle) * mag;
+    return new Vec2D(x, y);
+  }
+
+  copy() { return new Vec2D(this.x, this.y); }
+  add(other)
+  {
+    this.x += other.x;
+    this.y += other.y;
+    return this;
+  }
+  subtract(other)
+  {
+    this.x -= other.x;
+    this.y -= other.y;
+    return this;
+  }
+  mult(mult)
+  {
+    this.x *= mult;
+    this.y *= mult;
+    return this;
+  }
+  div(div)
+  {
+    this.x /= div;
+    this.y /= div;
+    return this;
+  }
+
+  rotate(angle) // rotate vector
+  {
+    let newX = Math.sin(angle) * this.y + Math.cos(angle) * this.x;
+    this.y = Math.cos(angle) * this.y - Math.sin(angle) * this.x;
+    this.x = newX;
+    return this;
+  }
+
+  mag() { return Math.sqrt(this.x * this.x + this.y * this.y); } // get magnitude of vector
+
+  magSq() { return this.x * this.x + this.y * this.y; }          // square of magnitude
+
+  angle()                                                        // get angle of vector
+  {
+    return Math.atan(this.y / -this.x);
+  }
+}
+
+class FBO // wraps texture, frambuffer and info in one
+{
+  width;
+  height;
+  texelSizeX;
+  texelSizeY;
+  texture;
+  frameBuffer;
+
+  constructor(w, h, internalFormat, format, type, texFilter)
+  {
+    this.width = w;
+    this.height = h;
+    gl.activeTexture(gl.TEXTURE0);
+    this.texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, texFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, texFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
+
+    this.frameBuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+    gl.viewport(0, 0, w, h);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    this.texelSizeX = 1.0 / this.width;
+    this.texelSizeY = 1.0 / this.height;
+  }
+}
+
+function createHdrFBO() { hdrFBO = new FBO(canvas.width, canvas.height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR); }
+
+function createBloomFBOs()
+{
+  let res = new Vec2D(canvas.width, canvas.height);
+
+  bloomFBOs.length = 0;           // empty array
+  for (let i = 0; i < 100; i++) { // max bloom iterations
+    let width = res.x >> i;       // right shift to devide by 2 multiple times
+    let height = res.y >> i;
+
+    //  console.log('BloomFBO', i, width, height)
+
+    if (width < 2 || height < 2)
+      break; // stop when texture resolution is 2 x 2
+
+    let fbo = new FBO(width, height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR);
+    bloomFBOs.push(fbo);
+  }
+}
 
 class Weatherstation
 {
@@ -959,68 +1082,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  class Vec2D // simple 2D vector
-  {
-    x;
-    y;
-    constructor(x, y)
-    {
-      this.x = x;
-      this.y = y;
-    }
-    static fromAngle(angle, mag) // create vector from angle and optional magnitude
-    {
-      if (mag == null)
-        mag = 1.0;
-      let x = -Math.cos(angle) * mag;
-      let y = Math.sin(angle) * mag;
-      return new Vec2D(x, y);
-    }
-
-    copy() { return new Vec2D(this.x, this.y); }
-    add(other)
-    {
-      this.x += other.x;
-      this.y += other.y;
-      return this;
-    }
-    subtract(other)
-    {
-      this.x -= other.x;
-      this.y -= other.y;
-      return this;
-    }
-    mult(mult)
-    {
-      this.x *= mult;
-      this.y *= mult;
-      return this;
-    }
-    div(div)
-    {
-      this.x /= div;
-      this.y /= div;
-      return this;
-    }
-
-    rotate(angle) // rotate vector
-    {
-      let newX = Math.sin(angle) * this.y + Math.cos(angle) * this.x;
-      this.y = Math.cos(angle) * this.y - Math.sin(angle) * this.x;
-      this.x = newX;
-      return this;
-    }
-
-    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); } // get magnitude of vector
-
-    magSq() { return this.x * this.x + this.y * this.y; }          // square of magnitude
-
-    angle()                                                        // get angle of vector
-    {
-      return Math.atan(this.y / -this.x);
-    }
-  }
-
   const dt = 1. / 60.;
 
   class PhysicsObject
@@ -1300,9 +1361,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  // before: in cell coordinats
-  // now: in meters
-
   var airplane = new Airplane();
 
 
@@ -1376,10 +1434,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
-    gl.useProgram(realisticDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
-    gl.useProgram(skyBackgroundDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
+    gl.useProgram(postProcessingProgram);
+    gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
 
   function setupDatGui(strGuiControls)
@@ -1664,10 +1720,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .listen();
     display_folder.add(guiControls, 'exposure', 0.5, 5.0, 0.01)
       .onChange(function() {
-        gl.useProgram(realisticDisplayProgram);
-        gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
-        gl.useProgram(skyBackgroundDisplayProgram);
-        gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'exposure'), guiControls.exposure);
+        gl.useProgram(postProcessingProgram);
+        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
       })
       .name('Exposure');
 
@@ -1716,8 +1770,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function startSimulation()
   {
     SETUP_MODE = false;
-    gl.useProgram(realisticDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+    gl.useProgram(postProcessingProgram);
+    gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
     datGui.show(); // unhide
 
     clockEl = document.createElement('div');
@@ -1994,6 +2048,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     soundingGraph.graphCanvas.height = window.innerHeight;
     soundingGraph.graphCanvas.width = window.innerHeight;
+
+    // Render output framebuffers need to match canvas resolution
+
+    createBloomFBOs(); // recreate bloom framebuffers
+
+    createHdrFBO();    // recreate hdr framebuffer
   });
 
   function logSample()
@@ -2390,8 +2450,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const dispVertexShader = await loadShader('dispShader.vert');
   const realDispVertexShader = await loadShader('realDispShader.vert');
   const precipDisplayVertexShader = await loadShader('precipDisplayShader.vert');
-
-  // const errorTest = loadShader("nonexisting.vert");
+  const postProcessingVertexShader = await loadShader('postProcessingShader.vert');
 
   const pressureShader = await loadShader('pressureShader.frag');
   const velocityShader = await loadShader('velocityShader.frag');
@@ -2410,6 +2469,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const skyBackgroundDisplayShader = await loadShader('skyBackgroundDisplayShader.frag');
   const realisticDisplayShader = await loadShader('realisticDisplayShader.frag');
   const IRtempDisplayShader = await loadShader('IRtempDisplayShader.frag');
+
+  const postProcessingShader = await loadShader('postProcessingShader.frag');
+  const isolateBrightPartsShader = await loadShader('isolateBrightPartsShader.frag');
+  const bloomBlurShader = await loadShader('bloomBlurShader.frag');
+
 
   // create programs
   const pressureProgram = createProgram(simVertexShader, pressureShader);
@@ -2430,6 +2494,270 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const realisticDisplayProgram = createProgram(realDispVertexShader, realisticDisplayShader);
   const IRtempDisplayProgram = createProgram(dispVertexShader, IRtempDisplayShader);
 
+  const postProcessingProgram = createProgram(postProcessingVertexShader, postProcessingShader);
+  const isolateBrightPartsProgram = createProgram(postProcessingVertexShader, isolateBrightPartsShader);
+  const bloomBlurProgram = createProgram(postProcessingVertexShader, bloomBlurShader);
+
+
+  // Vertex shader program
+  const vsSource = `
+     attribute vec4 aVertexPosition;
+     void main(void) {
+         gl_Position = aVertexPosition;
+     }
+     `;
+
+  // Fragment shader program
+  const fsSource = `#version 300 es
+  precision highp float;
+  out vec4 fragmentColor;
+     void main() {
+      fragmentColor = vec4(1.0, 1.0, 1.0, 1.0); // White color
+     }
+     `;
+
+
+  // Initialize shaders
+  function initShaderProgram(gl, vsSource, fsSource)
+  {
+    //  const vertexShader = loadShader_l(gl, gl.VERTEX_SHADER, vsSource);
+
+    const fragmentShader = loadShader_l(gl, gl.FRAGMENT_SHADER, fsSource);
+
+    const shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, dispVertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+      console.error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+      return null;
+    }
+
+    return shaderProgram;
+  }
+
+  // Load shader
+  function loadShader_l(gl, type, source)
+  {
+    const shader = gl.createShader(type);
+
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+
+    return shader;
+  }
+
+  const lightningProgram = initShaderProgram(gl, vsSource, fsSource);
+
+
+  class LineDrawer
+  {
+    constructor()
+    {
+      this.vertices = [];
+      this.continueLine = false;
+    }
+
+    // vertices = new Float32Array(1000000); // buffer size is fixed, but does not have to be filled
+
+    arrInd = 0;
+
+    lastX;
+    lastY;
+
+
+    continueLine; // boolean
+    ltX;          // last top point
+    ltY;
+    lbX;          // last bottem point
+    lbY;
+
+
+    moveTo(x, y)
+    {
+      this.lastX = x;
+      this.lastY = y;
+      this.continueLine = false;
+    }
+
+    addLine(x0, y0, x1, y1, r)
+    {
+      let dx = x1 - x0;
+      let dy = y1 - y0;
+
+      let length = Math.sqrt(dx * dx + dy * dy);
+
+      dx /= length;
+      dy /= length;
+
+      this.vertices[this.arrInd++] = x0 - r * -dy / sim_aspect; // bottem left
+      this.vertices[this.arrInd++] = y0 - r * dx;
+
+      this.vertices[this.arrInd++] = x0 + r * -dy / sim_aspect; // top left
+      this.vertices[this.arrInd++] = y0 + r * dx;
+
+      this.vertices[this.arrInd++] = this.lbX = x1 - r * -dy / sim_aspect; // bottem right
+      this.vertices[this.arrInd++] = this.lbY = y1 - r * dx;
+
+      this.vertices[this.arrInd++] = this.lbX; // bottem right
+      this.vertices[this.arrInd++] = this.lbY;
+
+      this.vertices[this.arrInd++] = x0 + r * -dy / sim_aspect; // top left
+      this.vertices[this.arrInd++] = y0 + r * dx;
+
+      this.vertices[this.arrInd++] = this.ltX = x1 + r * -dy / sim_aspect; // top right
+      this.vertices[this.arrInd++] = this.ltY = y1 + r * dx;
+
+      this.lastX = x1;
+      this.lastY = y1;
+
+      this.continueLine = true;
+    }
+
+    lineTo(x1, y1, r)
+    {
+      let x0 = this.lastX;
+      let y0 = this.lastY;
+
+      if (!this.continueLine) { // not continuing an existing line
+        this.addLine(x0, y0, x1, y1, r);
+        return;
+      }
+
+      // continue line:
+
+      let dx = x1 - x0;
+      let dy = y1 - y0;
+
+      let length = Math.sqrt(dx * dx + dy * dy);
+
+      dx /= length;
+      dy /= length;
+
+
+      this.vertices[this.arrInd++] = this.lbX; // bottem left
+      this.vertices[this.arrInd++] = this.lbY;
+
+      this.vertices[this.arrInd++] = this.ltX; // top left
+      this.vertices[this.arrInd++] = this.ltY;
+
+      this.vertices[this.arrInd++] = this.lbX = x1 - r * -dy / sim_aspect; // bottem right
+      this.vertices[this.arrInd++] = this.lbY = y1 - r * dx;
+
+      this.vertices[this.arrInd++] = this.lbX; // bottem right
+      this.vertices[this.arrInd++] = this.lbY;
+
+      this.vertices[this.arrInd++] = this.ltX; // top left
+      this.vertices[this.arrInd++] = this.ltY;
+
+      this.vertices[this.arrInd++] = this.ltX = x1 + r * -dy / sim_aspect; // top right
+      this.vertices[this.arrInd++] = this.ltY = y1 + r * dx;
+
+      this.lastX = x1;
+      this.lastY = y1;
+      this.continueLine = true;
+    }
+  }
+
+  let lineDrawer = new LineDrawer();
+
+
+  // Draw lightning
+
+  let angle = 0.0;
+  let startX = 0;
+  let startY = canvas.height / 2;
+  angle = Math.PI / 6.;
+  let width = 4.0;
+  const targetAngle = 0.0;
+
+  while (startY > 0.) {
+
+    let nextX = startX + Math.sin(angle);
+    let nextY = startY - Math.cos(angle);
+
+    angle += (Math.random() - 0.5) * 0.7;
+
+    angle -= (angle - targetAngle) * 0.08; // keep it going in a general direction
+
+    lineDrawer.lineTo(nextX / canvas.width / sim_aspect, nextY / canvas.height * 2.0 - 1.0, width / canvas.width);
+
+    startX = nextX;
+    startY = nextY;
+
+    if (Math.random() < 0.015 * (1. - nextY / canvas.height)) {
+      drawBranch(nextX, nextY, targetAngle + (Math.random() - 0.5) * 2.5, width * 0.5 * Math.random());
+      //  lineDrawer.lineTo(nextX / canvas.width, nextY / canvas.height);
+      lineDrawer.moveTo(nextX / canvas.width / sim_aspect, nextY / canvas.height * 2.0 - 1.0);
+    }
+  }
+
+  function drawBranch(startX, startY, targetAngle, width)
+  {
+    let angle = targetAngle;
+
+    //  ctx.moveTo(startX, startY);
+    //  ctx.lineWidth = width;
+
+    // lineDrawer.lineTo(startX, startY, width / canvas.width);
+
+    while (startY < canvas.height) {
+
+      const nextX = startX + Math.sin(angle);
+      const nextY = startY - Math.cos(angle);
+
+      angle += (Math.random() - 0.5) * 0.7;
+
+      angle -= (angle - targetAngle) * 0.08; // keep it going in a general direction
+
+                                             //  ctx.lineTo(nextX, nextY);
+      lineDrawer.lineTo(nextX / canvas.width / sim_aspect, nextY / canvas.height * 2.0 - 1.0, width / canvas.width);
+
+      startX = nextX;
+      startY = nextY;
+
+      if (Math.random() < 0.025) { // reduce width
+
+        width -= 0.05;
+
+        if (width < 0.1)
+          return;
+
+        if (Math.random() < 0.1) { // branch 0.005
+
+          drawBranch(nextX, nextY, targetAngle + (Math.random() - 0.5) * 1.5, width);
+        }
+        lineDrawer.moveTo(nextX / canvas.width / sim_aspect, nextY / canvas.height * 2.0 - 1.0); // move back to last position after drawing branch
+      }
+    }
+  }
+
+
+  var lightningVao = gl.createVertexArray(); // vertex array object to store
+  // bufferData and vertexAttribPointer
+  gl.bindVertexArray(lightningVao);
+
+  const lightningVertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, lightningVertexBuffer);
+  // gl.bufferData(gl.ARRAY_BUFFER, lineDrawer.vertices, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(lineDrawer.vertices), gl.STATIC_DRAW);
+
+
+  const position = gl.getAttribLocation(lightningProgram, "vertPosition");
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(position);
+
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+
   await loadingBar.set(80, 'Setting up textures');
 
   // // quad that fills the screen, so fragment shader is run for every pixel //
@@ -2439,7 +2767,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // ( x.5 ) fragcoordinates in the fragmentshaders I figured this out
   // experimentally. It took me days! Without it the linear interpolation would
   // get fucked up because of the tiny offsets
-  const quadVertices = [
+  const fluidQuadVertices = [
     // X, Y,  U, V
     1.0,
     -1.0,
@@ -2462,9 +2790,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var fluidVao = gl.createVertexArray(); // vertex array object to store
   // bufferData and vertexAttribPointer
   gl.bindVertexArray(fluidVao);
-  var VertexBufferObject = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, VertexBufferObject);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadVertices), gl.STATIC_DRAW);
+  var fluidVertexBufferObject = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, fluidVertexBufferObject);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fluidQuadVertices), gl.STATIC_DRAW);
   var positionAttribLocation = gl.getAttribLocation(pressureProgram,
                                                     'vertPosition'); // 0 these positions are the same for every program,
   // since they all use the same vertex shader
@@ -2491,6 +2819,60 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindVertexArray(null);
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+
+  const postProcessingQuadVertices = [
+    1.0,  // X
+    -1.0, // Y
+    1.0,  // U
+    0.0,  // V
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    -1.0,
+    1.0,
+    0.0,
+    1.0,
+  ];
+
+  var postProcessingVao = gl.createVertexArray(); // vertex array object to store
+  // bufferData and vertexAttribPointer
+  gl.bindVertexArray(postProcessingVao);
+  var postProcessingVertexBufferObject = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, postProcessingVertexBufferObject);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(postProcessingQuadVertices), gl.STATIC_DRAW);
+  positionAttribLocation = gl.getAttribLocation(postProcessingProgram,
+                                                'vertPosition'); // 0 these positions are the same for every program,
+  // since they all use the same vertex shader
+  texCoordAttribLocation = gl.getAttribLocation(postProcessingProgram, 'vertTexCoord'); // 1
+  gl.enableVertexAttribArray(positionAttribLocation);
+  gl.enableVertexAttribArray(texCoordAttribLocation);
+  gl.vertexAttribPointer(
+    positionAttribLocation,             // Attribute location
+    2,                                  // Number of elements per attribute
+    gl.FLOAT,                           // Type of elements
+    gl.FALSE,
+    4 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+    0                                   // Offset from the beginning of a single vertex to this attribute
+  );
+  gl.vertexAttribPointer(
+    texCoordAttribLocation,             // Attribute location
+    2,                                  // Number of elements per attribute
+    gl.FLOAT,                           // Type of elements
+    gl.FALSE,
+    4 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
+    2 * Float32Array.BYTES_PER_ELEMENT  // Offset from the beginning of a
+    // single vertex to this attribute
+  );
+
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
 
   // Precipitation setup
 
@@ -2673,6 +3055,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const A380Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
 
+  const lightningTexture = gl.createTexture(); // often regenerated
+
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
   const frameBuff_1 = gl.createFramebuffer();
@@ -2795,6 +3179,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
 
+
   // load images
   imgElement = await loadImage('resources/noise_texture.jpg');
 
@@ -2828,11 +3213,40 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); //  LINEAR
+  // gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);                   // horizontal
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // vertical
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);        // horizontal
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
+
+
+  function generateLightningTexture(imgElement)
+  {
+    gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+    gl.generateMipmap(gl.TEXTURE_2D);                                                // optional
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+    console.log("New lightning texture generated");
+  }
+
+  let lightningWorkerReady = false;
+
+  const lightningGeneratorWorker = new Worker("./lightningGenerator.js");
+  lightningGeneratorWorker.onmessage = (imgElement) => {
+    lightningWorkerReady = true;
+    generateLightningTexture(imgElement.data);
+  };
+
+  lightningGeneratorWorker.postMessage("test message");
+
+
+  createHdrFBO();
+
+  createBloomFBOs();
 
 
   var texelSizeX = 1.0 / sim_res_x;
@@ -2977,6 +3391,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 8);
+  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightningTex'), 9);
+
+  gl.useProgram(postProcessingProgram);
+  // gl.uniform2f(gl.getUniformLocation(postProcessingProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
+  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'hdrTex'), 0);
+  gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'bloomTex'), 1);
+
+
+  gl.useProgram(isolateBrightPartsProgram);
+  // gl.uniform2f(gl.getUniformLocation(isolateBrightPartsProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
+  gl.uniform1i(gl.getUniformLocation(isolateBrightPartsProgram, 'hdrTex'), 0);
 
 
   // console.time('Set uniforms');
@@ -3311,6 +3736,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           airplane.move();
         }
 
+
+        if ((IterNum + 150) % 300 == 0 && lightningWorkerReady) {
+          lightningGeneratorWorker.postMessage("dont matter");
+          lightningWorkerReady = false;
+        }
+
       } // end of simulation part
 
       if (guiControls.showGraph) {
@@ -3327,13 +3758,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       cursorType = 0;     // cursor off sig
     }
 
-    gl.useProgram(realisticDisplayProgram);
+    gl.useProgram(postProcessingProgram);
 
     if (cursorType != 0 && !sunIsUp) {
       // working at night
-      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 5.0);
+      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 5.0);
     } else {
-      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), guiControls.exposure);
+      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
     }
 
     if (inputType == 0) {
@@ -3343,6 +3774,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
     // render to canvas
+    gl.useProgram(realisticDisplayProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
@@ -3358,6 +3790,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
 
     if (guiControls.displayMode == 'DISP_REAL') {
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFBO.frameBuffer); // render to hdr framebuffer
+      // gl.viewport(0, 0, sim_res_x, sim_res_y);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0); // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
       gl.activeTexture(gl.TEXTURE3);
@@ -3374,20 +3814,42 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, A380Texture);
 
+
+      gl.activeTexture(gl.TEXTURE9);
+      gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
+
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), IterNum);
 
+      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
 
-      // gl.activeTexture(gl.TEXTURE0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdrFramebuffer
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-      // draw clouds
+
+      /*
+      // draw lightning using virtices
+            gl.bindVertexArray(lightningVao);
+
+            gl.useProgram(lightningProgram);
+            gl.uniform2f(gl.getUniformLocation(lightningProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
+            gl.uniform3f(gl.getUniformLocation(lightningProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+            gl.uniform4f(gl.getUniformLocation(lightningProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+            gl.uniform1f(gl.getUniformLocation(lightningProgram, 'Xmult'), horizontalDisplayMult);
+            gl.uniform1f(gl.getUniformLocation(lightningProgram, 'iterNum'), IterNum);
+
+
+            gl.drawArrays(gl.TRIANGLES, 0, lineDrawer.arrInd / 2); // draw lightning
+
+            gl.bindVertexArray(fluidVao);
+      */
+
+      // draw clouds and terrain
       gl.useProgram(realisticDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
@@ -3402,11 +3864,101 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'), 0.0);
       }
 
-
       if (SETUP_MODE)
-        gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'exposure'), 10.0);
+        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 10.0);
 
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
+
+
+      gl.disable(gl.BLEND);
+
+      // Post processing:
+
+      gl.bindVertexArray(postProcessingVao);
+
+
+      gl.useProgram(isolateBrightPartsProgram);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, hdrFBO.texture);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFBOs[0].frameBuffer); // brightPartsFrameBuffer
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);                            // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // render bright parts to seperate texture
+
+
+      // BLOOOOM!
+
+
+      let lastFBO = bloomFBOs[0];
+
+      gl.useProgram(bloomBlurProgram);
+      gl.uniform1i(gl.getUniformLocation(bloomBlurProgram, 'bloomTexture'), 0);
+
+
+      // downsample
+      for (let i = 1; i < bloomFBOs.length; i++) {
+        let destFBO = bloomFBOs[i];
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+
+        gl.viewport(0, 0, destFBO.width, destFBO.height);
+
+        // bind texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+        // gl.drawBuffers([ gl.BACK ]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+        lastFBO = destFBO;
+      }
+
+      // upsample and add
+      gl.blendFunc(gl.ONE, gl.ONE); // add to the existing texture in the framebuffer
+      gl.enable(gl.BLEND);
+
+      for (let i = bloomFBOs.length - 2; i >= 0; i--) {
+        let destFBO = bloomFBOs[i];
+
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+
+        gl.viewport(0, 0, destFBO.width, destFBO.height);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+        // gl.drawBuffers([ gl.BACK ]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+        lastFBO = destFBO;
+      }
+
+      gl.disable(gl.BLEND);
+
+      gl.useProgram(postProcessingProgram);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, hdrFBO.texture);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, bloomFBOs[0].texture);
+
+
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.drawBuffers([ gl.BACK ]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+
+      gl.bindVertexArray(fluidVao);
 
       if (guiControls.showDrops) {
         // draw drops over clouds
@@ -3418,6 +3970,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
       }
+
 
     } else {
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
