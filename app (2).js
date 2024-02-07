@@ -40,7 +40,7 @@ const guiControls_default = {
   globalDrying : 0.00001,
   globalHeating : 0.0,
   sunIntensity : 1.0,
-  waterTemperature : 25, // only in degrees C, sorry Americans
+  waterTemperature : 120, // only in degrees C, sorry Americans
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
   evapHeat : 1.9,           // 1.9    Real: 2260 J/g
