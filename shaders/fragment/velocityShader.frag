@@ -20,9 +20,12 @@ uniform float dragMultiplier;
 uniform float wind;
 
 uniform vec2 texelSize;
-// uniform vec2 resolution;
+uniform vec2 resolution; // not used
+uniform float dryLapse;  // not used
 
 uniform vec4 initial_Tv[126];
+
+#include "common.glsl"
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
@@ -47,11 +50,13 @@ void main()
 
   polarVortex = texture(polarVortexTex, polarVortexTexCoord)[0];
 
-  base.x += polarVortex * 0.00030; // substract acumulated velocity
+  base[VX] += polarVortex * 0.00030; // substract acumulated velocity
 
 
-  if (abs(wind) < 0.001)
-    polarVortex -= base.x * 0.0020; // acumulate horizontal velocity
+  // if (abs(wind) < 0.001)
+  polarVortex -= base.x * 0.0020; // acumulate horizontal velocity
+
+                                  // base[VY] += sin(texCoord.x * PI + ) * 0.001;
 
 
   if (texCoord.y < 0.99) {
@@ -60,7 +65,7 @@ void main()
   }
 
 
-  // polarVortex *= 0.9999999; // dacay
+  // polarVortex *= 0.9999999; // decay
 
 
   if (wall[1] == 0) // is wall

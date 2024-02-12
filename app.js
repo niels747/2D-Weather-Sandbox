@@ -236,13 +236,7 @@ function maxWater(Td)
                   wf_pow); // w = ((Td)/(250))^(18) // Td in Kelvin, w in grams per m^3
 }
 
-function dewpoint(W)
-{
-  //  if (W < 0.00001) // can't remember why this was here...
-  //    return 0.0;
-  //  else
-  return wf_devider * Math.pow(W, 1.0 / wf_pow);
-}
+function dewpoint(W) { return wf_devider * Math.pow(W, 1.0 / wf_pow); }
 
 function relativeHumd(T, W) { return (W / maxWater(T)) * 100.0; }
 
