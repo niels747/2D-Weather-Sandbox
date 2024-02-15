@@ -1766,8 +1766,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues); // read a vertical culumn of cells
 
       gl.readBuffer(gl.COLOR_ATTACHMENT2);
-      var wallTextureValues = new Int8Array(4 * sim_res_y);
-      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+      var wallTextureValues = new Int32Array(4 * sim_res_y);
+      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.INT, wallTextureValues); // read a vertical column of cells
 
 
       const graphBottem = this.graphCanvas.height - 40; // in pixels
