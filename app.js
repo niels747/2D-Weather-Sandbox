@@ -21,6 +21,8 @@ var gl;
 
 var clockEl;
 
+var simDateTime;
+
 var SETUP_MODE = false;
 
 var loadingBar;
@@ -1300,9 +1302,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  // before: in cell coordinats
-  // now: in meters
-
   var airplane = new Airplane();
 
 
@@ -1484,13 +1483,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var radiation_folder = datGui.addFolder('Radiation');
 
-    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.9, 0.01).onChange(function() { updateSunlight(); }).name('Time of day').listen();
+    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.96, 0.01).onChange(onUpdateTimeOfDaySlider).name('Time of day').listen();
 
     radiation_folder.add(guiControls, 'dayNightCycle').name('Day/Night Cycle').listen();
 
-    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1).onChange(function() { updateSunlight(); }).name('Latitude').listen();
+    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1).onChange(updateSunlight).name('Latitude').listen();
 
-    radiation_folder.add(guiControls, 'month', 1.0, 12.9, 0.1).onChange(function() { updateSunlight(); }).name('Month').listen();
+    radiation_folder.add(guiControls, 'month', 1.0, 12.99, 0.01).onChange(onUpdateMonthSlider).name('Month').listen();
 
     radiation_folder.add(guiControls, 'sunAngle', -10.0, 190.0, 0.1)
       .onChange(function() {
@@ -1728,6 +1727,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     clockEl.style.fontFamily = 'Monospace';
     clockEl.style.fontSize = '35px';
     clockEl.style.color = 'white';
+
+    simDateTime = new Date(2000, Math.floor(guiControls.month) - 1, (guiControls.month % 1) * 30.417);
+
+    // initialize date
+    onUpdateTimeOfDaySlider();
+    onUpdateMonthSlider();
 
     updateSunlight('MANUAL_ANGLE'); // set angle from savefile
   }
@@ -3543,19 +3548,48 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
     // Simple 24 hour clock:
-    let hourStr = pad(Math.floor(hours), 2);
-    let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-    return ' ' + hourStr + ':' + minuteStr;
+    //  let hourStr = pad(Math.floor(hours), 2);
+    //  let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
+
+    let hourStr = pad(simDateTime.getHours(), 2);
+    let minuteStr = pad(simDateTime.getMinutes(), 2);
+
+    // const date = new Date(2000, Math.floor(guiControls.month) - 1, (guiControls.month % 1) * 30.417);
+    const month = simDateTime.toLocaleString('en-us', {month : 'short'});
+    const day = simDateTime.getDate();
+
+
+    return ' ' + hourStr + ':' + minuteStr + '  ' + month + ' ' + day;
+  }
+
+  function onUpdateTimeOfDaySlider()
+  {
+    let minutes = (guiControls.timeOfDay % 1) * 60;
+    simDateTime.setHours(guiControls.timeOfDay, minutes);
+    updateSunlight();
+  }
+
+  function onUpdateMonthSlider()
+  {
+    let month = guiControls.month - 0.96;
+    let date = (month % 1) * 30;
+    simDateTime.setMonth(month, date);
+    updateSunlight();
   }
 
   function updateSunlight(deltaT_hours)
   {
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {
-        guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
-        guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
+        //  guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
+        //   guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
         if (guiControls.timeOfDay >= 24.0)
           guiControls.timeOfDay = 0.0;
+
+        simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000);
+        console.log("set sliders from date")
+        guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60.0;
+        guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.0;
       }
 
       let timeOfDayRad = (guiControls.timeOfDay / 24.0) * 2.0 * Math.PI; // convert to radians
