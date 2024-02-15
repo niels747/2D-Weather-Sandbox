@@ -3581,13 +3581,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   {
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {
-        //  guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
-        //   guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
-        if (guiControls.timeOfDay >= 24.0)
-          guiControls.timeOfDay = 0.0;
-
-        simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000);
-        console.log("set sliders from date")
+        simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
         guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60.0;
         guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.0;
       }
