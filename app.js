@@ -3527,39 +3527,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     return num;
   }
 
-  function timeFormat(hours)
+  function dateTimeStr()
   {
-    if (guiControls.imperialUnits) { // for Americans
-      if (hours < 12.0) {
-        let hour = Math.floor(hours);
-        if (hour == 0)
-          hour = 12;
-        let hourStr = pad(hour, 2);
-        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-        return ' ' + hourStr + ':' + minuteStr + ' AM';
-      } else {
-        hours -= 12;
-        let hour = Math.floor(hours);
-        if (hour == 0)
-          hour = 12;
-        let hourStr = pad(hour, 2);
-        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-        return ' ' + hourStr + ':' + minuteStr + ' PM';
-      }
+    var timeStr;
+    if (guiControls.imperialUnits) { // 12 hour clock for Americans
+      timeStr = simDateTime.toLocaleString('en-US', {hour12 : true, hour : 'numeric', minute : 'numeric'});
+    } else {                         // 24 hour clock
+      timeStr = simDateTime.toLocaleString('nl-NL', {hour12 : false, hour : 'numeric', minute : 'numeric'});
     }
-    // Simple 24 hour clock:
-    //  let hourStr = pad(Math.floor(hours), 2);
-    //  let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
 
-    let hourStr = pad(simDateTime.getHours(), 2);
-    let minuteStr = pad(simDateTime.getMinutes(), 2);
-
-    // const date = new Date(2000, Math.floor(guiControls.month) - 1, (guiControls.month % 1) * 30.417);
-    const month = simDateTime.toLocaleString('en-us', {month : 'short'});
-    const day = simDateTime.getDate();
-
-
-    return ' ' + hourStr + ':' + minuteStr + '  ' + month + ' ' + day;
+    const monthStr = simDateTime.toLocaleString('en-us', {month : 'short', day : 'numeric'});
+    return timeStr + '&nbsp; ' + monthStr;
   }
 
   function onUpdateTimeOfDaySlider()
@@ -3624,7 +3602,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), sunAngleForShaders);
 
     if (guiControls.dayNightCycle)
-      clockEl.innerHTML = timeFormat(guiControls.timeOfDay); // update clock
+      clockEl.innerHTML = dateTimeStr(); // update clock
     else
       clockEl.innerHTML = "";
   }
