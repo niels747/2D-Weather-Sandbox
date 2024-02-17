@@ -3146,6 +3146,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 
 
+      for (i = 0; i < weatherStations.length; i++) { // initial measurement at weather stations
+        weatherStations[i].measure();
+      }
+
       // guiControls.IterPerFrame = 1.0 / timePerIteration * 3600 / 60.0;
 
 
