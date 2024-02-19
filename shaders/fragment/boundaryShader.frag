@@ -324,7 +324,7 @@ void main()
           }
 
 
-          if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 2.3)) // if left or right is on fire or fire is blowing over
+          if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
             wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
         }
         break;
