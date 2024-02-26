@@ -11,38 +11,29 @@ out float density_out;
 
 uniform vec2 texelSize;
 uniform vec2 aspectRatios; // sim   canvas
-uniform vec3 view; // Xpos  Ypos    Zoom
-
-//float gold_noise(in)
+uniform vec3 view;         // Xpos  Ypos    Zoom
 
 void main()
 {
-    vec2 outpos = dropPosition;
+  vec2 outpos = dropPosition;
 
-    outpos.x += view.x;
-    outpos.y += view.y * aspectRatios[0];
+  outpos.x += view.x;
+  outpos.y += view.y * aspectRatios[0];
 
-    outpos *= view[2]; // zoom
+  outpos *= view[2]; // zoom
 
-    outpos.y *= aspectRatios[1] / aspectRatios[0];
+  outpos.y *= aspectRatios[1] / aspectRatios[0];
 
-    gl_Position = vec4(outpos, 0.0, 1.0);
+  gl_Position = vec4(outpos, 0.0, 1.0);
 
-    //gl_PointSize = view[2]*1.2;
+  float size = 4.0; // 4.0
 
-    //gl_PointSize = 4.;
-    //gl_PointSize = 20.;
+  // if(mass[1] > 0. && density == 1.0) // hail
+  //   size = 0.6;
 
-    float size = 4.0; // 4.0 oldschool
+  gl_PointSize = view[2] * size / aspectRatios[0];
 
-    //float size = 100.0; // realistic
-
-    //if(mass[1] > 0. && density == 1.0) // hail
-    //  size = 0.6;
-
-    gl_PointSize = view[2] * size / aspectRatios[0];
-
-    position_out = dropPosition;
-    mass_out = mass;
-    density_out = density;
+  position_out = dropPosition;
+  mass_out = mass;
+  density_out = density;
 }
