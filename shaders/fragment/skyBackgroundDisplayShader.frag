@@ -61,13 +61,13 @@ vec3 displayLightning(vec2 pos)
     iterNumMod -= 7.;
   }
 
-  float lightningIntensity = min(iterNumMod / 10.0, 1.0); // normalised 0. to 1
+  float lightningIntensity = min(iterNumMod / 10.0, 1.0);   // normalised 0. to 1
 
-  lightningIntensity = 1. - pow(lightningIntensity, 0.005);
+  lightningIntensity = 1. - pow(lightningIntensity, 0.005); // 0.005
 
   // pixVal.rgb *= vec3(0.3, 0.4, 1.0);
 
-  pixVal.rgb *= lightningIntensity * 125000.0;
+  pixVal.rgb *= lightningIntensity * 30000.0; //
 
   return pixVal.rgb * pixVal.a;
 }
@@ -140,12 +140,14 @@ void main()
   mixedCol += A380Col.rgb * A380Col.a;
 
 
-  vec3 lightningCol = displayLightning(vec2(0.55, 0.5));
-
-  mixedCol += lightningCol;
+  // mixedCol += displayLightning(vec2(0.05, 0.5));
 
 
-  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show top of simulation area
+  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show red line at top of simulation area
 
-  fragmentColor = vec4(mixedCol * (light * 1.0 + minShadowLight), 1.0);
+  vec3 finalColor = mixedCol * (light * 1.0 + minShadowLight);
+
+  finalColor += displayLightning(vec2(0.05, 0.5));
+
+  fragmentColor = vec4(finalColor, 1.0);
 }

@@ -1175,7 +1175,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       airplaneMode = true;
       this.#camFollow = true;
       let M = 400 * 1000;                                                                                                           // mass: 400 tons
-      let L = 30.0;                                                                                                                 // effective length in meters
+      let L = 50.0;                                                                                                                 // effective length in meters
       let I = 1 / 12 * M * L * L;                                                                                                   // moment of inertial
       this.phys = new PhysicsObject(M, I, mouseXinSim * sim_res_x * cellHeight, mouseYinSim * sim_res_y * cellHeight, -100.0, 0.0); // 400 tons
       this.phys.angle = 5.0 * degToRad;
@@ -3737,10 +3737,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         }
 
 
-        if ((IterNum + 150) % 300 == 0 && lightningWorkerReady) {
-          lightningGeneratorWorker.postMessage("dont matter");
-          lightningWorkerReady = false;
-        }
+        // if ((IterNum + 150) % 300 == 0 && lightningWorkerReady) { // Generate new lightning texture
+        //   lightningGeneratorWorker.postMessage("dont matter");
+        //   lightningWorkerReady = false;
+        // }
 
       } // end of simulation part
 
@@ -3762,7 +3762,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     if (cursorType != 0 && !sunIsUp) {
       // working at night
-      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 5.0);
+      gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 2.0);
     } else {
       gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
     }
