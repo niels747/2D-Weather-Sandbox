@@ -21,6 +21,8 @@ var gl;
 
 var clockEl;
 
+var simDateTime;
+
 var SETUP_MODE = false;
 
 var loadingBar;
@@ -37,7 +39,7 @@ const guiControls_default = {
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
   globalEffectsHeight : 5000,
-  globalDrying : 0.00001,
+  globalDrying : 0.00000, // 0.00001
   globalHeating : 0.0,
   sunIntensity : 1.0,
   waterTemperature : 25, // only in degrees C, sorry Americans
@@ -48,8 +50,8 @@ const guiControls_default = {
   waterWeight : 0.5,        // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
-  subZeroThreshold : 0.01,  // 0.05
-  spawnChance : 0.00002,    // 0.0005
+  subZeroThreshold : 0.00,  // 0.01
+  spawnChance : 0.00002,    // 30. 10 to 50
   snowDensity : 0.2,        // 0.3
   fallSpeed : 0.0003,
   growthRate0C : 0.0001,    // 0.0005
@@ -64,7 +66,7 @@ const guiControls_default = {
   exposure : 1.0,
   timeOfDay : 9.9,
   latitude : 45.0,
-  month : 6.67, // Northern himisphere solstice
+  month : 6.65, // Northern hemisphere summer solstice
   sunAngle : 9.9,
   dayNightCycle : true,
   greenhouseGases : 0.001,
@@ -118,10 +120,9 @@ var frameBuff_0;
 var dryLapse;
 
 
-const timePerIteration = 0.00008; // (0.00008 = 0.288 sec, at 40m cell size that means the speed of light & sound = 138.88 m/s = 500 km/h) in hours
+const timePerIteration = 0.00008; // in hours (0.00008 = 0.288 sec, at 40m cell size that means the speed of light & sound = 138.88 m/s = 500 km/h)
 
 var NUM_DROPLETS;
-// NUM_DROPLETS = (sim_res_x * sim_res_y) / NUM_DROPLETS_DEVIDER
 const NUM_DROPLETS_DEVIDER = 25; // 25
 
 let hdrFBO;
@@ -463,7 +464,6 @@ class Weatherstation
 
     let thisObj = this;
     this.#canvas.addEventListener('mousedown', function(event) {
-      console.log("Weatherstation event");
       if (guiControls.tool == 'TOOL_STATION') {
         thisObj.destroy();       // remove weather station
         event.stopPropagation(); // prevent mousedown on body from firing
@@ -1166,6 +1166,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys = new PhysicsObject(1, 1, 0, 0);
       this.phys.pos.x = -99.0;
       this.phys.pos.y = -99.0;
+      this.#OAT = 0.0;
     }
 
     enableAirplaneMode()
@@ -1540,13 +1541,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var radiation_folder = datGui.addFolder('Radiation');
 
-    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.9, 0.01).onChange(function() { updateSunlight(); }).name('Time of day').listen();
+    radiation_folder.add(guiControls, 'timeOfDay', 0.0, 23.96, 0.01).onChange(onUpdateTimeOfDaySlider).name('Time of day').listen();
 
     radiation_folder.add(guiControls, 'dayNightCycle').name('Day/Night Cycle').listen();
 
     radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1).onChange(function() { updateSunlight(); }).name('Latitude').listen();
 
-    radiation_folder.add(guiControls, 'month', 1.0, 12.9, 0.1).onChange(function() { updateSunlight(); }).name('Month').listen();
+    radiation_folder.add(guiControls, 'month', 1.0, 12.99, 0.01).onChange(onUpdateMonthSlider).name('Month').listen();
 
     radiation_folder.add(guiControls, 'sunAngle', -10.0, 190.0, 0.1)
       .onChange(function() {
@@ -1647,7 +1648,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'spawnChanceMult'), guiControls.spawnChance);
       })
-      .name('Spawn Rate');
+      .name('Spawn Rate')
+      .listen();
 
     precipitation_folder.add(guiControls, 'snowDensity', 0.1, 0.9, 0.01)
       .onChange(function() {
@@ -1749,7 +1751,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var advanced_folder = datGui.addFolder('Advanced');
 
-    advanced_folder.add(guiControls, 'enablePrecipitation').name('Enable Precipitation');
+    advanced_folder.add(guiControls, 'enablePrecipitation')
+      .onChange(function() {
+        initRainDrops();
+        setupPrecipitationBuffers();
+        guiControls.inactiveDroplets = NUM_DROPLETS;
+      })
+      .name('Enable Precipitation');
 
     advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).onChange(function() { guiControls.auto_IterPerFrame = false; }).name('Iterations / Frame').listen();
 
@@ -1783,6 +1791,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     clockEl.style.fontSize = '35px';
     clockEl.style.color = 'white';
 
+    simDateTime = new Date(2000, Math.floor(guiControls.month) - 1, (guiControls.month % 1) * 30.417);
+
+    // initialize date
+    onUpdateTimeOfDaySlider();
+    onUpdateMonthSlider();
+
     updateSunlight('MANUAL_ANGLE'); // set angle from savefile
   }
 
@@ -1815,8 +1829,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues); // read a vertical culumn of cells
 
       gl.readBuffer(gl.COLOR_ATTACHMENT2);
-      var wallTextureValues = new Int8Array(4 * sim_res_y);
-      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+      var wallTextureValues = new Int32Array(4 * sim_res_y);
+      gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.INT, wallTextureValues); // read a vertical column of cells
 
 
       const graphBottem = this.graphCanvas.height - 40; // in pixels
@@ -2084,8 +2098,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT,
                   lightTextureValues); // read single cell
 
-    console.log('');
-    console.log('');
+    console.log(' ');
+    console.log(' ');
     console.log('Sample at:      X: ' + simXpos + ' (' + simXpos * cellHeight / 1000 + ' km)', '  Y: ' + simYpos + ' (' + simYpos * cellHeight / 1000 + ' km)');
     console.log('BASE-----------------------------------------');
     console.log('[0] X-vel:', baseTextureValues[0]);
@@ -2114,6 +2128,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[3] IR up:     ', lightTextureValues[3].toFixed(2), 'W/m²', KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + ' °C');
     console.log('Net IR up:     ', (lightTextureValues[3] - lightTextureValues[2]).toFixed(2), 'W/m²');
   }
+
 
   var middleMousePressed = false;
   var leftMousePressed = false;
@@ -2194,16 +2209,25 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (SETUP_MODE) {
         startSimulation();
       } else if (guiControls.tool == 'TOOL_STATION') {
-        let simXpos = mouseXinSim * sim_res_x;
-        let simYpos = mouseYinSim * sim_res_y;
+        let simXpos = Math.floor(mouseXinSim * sim_res_x);
+        let simYpos = Math.floor(mouseYinSim * sim_res_y);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
         gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
-        var wallTextureValues = new Int8Array(4);
-        gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
 
-        if (wallTextureValues[1] > 0) // only place if cell is not wall
+        var wallTextureValues = new Int8Array(4 * sim_res_y);
+        gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+
+        if (wallTextureValues[simYpos * 4 + 1] > 0) {                                         // place at mouse position of cell is not wall
           weatherStations.push(new Weatherstation(simXpos, simYpos));
+        } else {
+          for (let curSimYpos = simYpos; curSimYpos < sim_res_y; curSimYpos++) { // find first cell above that is not wall
+            if (wallTextureValues[curSimYpos * 4 + 1] > 0) {                     // surface reached
+              weatherStations.push(new Weatherstation(simXpos, curSimYpos));
+              break;
+            }
+          }
+        }
       }
     } else if (e.button == 1) {
       // middle mouse button
@@ -2326,6 +2350,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyS') {
       // S: log sample at mouse location
       logSample();
+    } else if (event.code == 'KeyX') {
+      // Sample droplets around mouse location
+      logDropletsSample();
     } else if (event.code == 'KeyA') {
       if (airplaneMode)
         airplane.disableAirplaneMode();
@@ -2397,10 +2424,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         setupTextures();
         gl.bindVertexArray(fluidVao);
       }
-    } else if (event.key == 'PageUp') {
+    } else if (event.code == 'PageUp') {
       adjIterPerFrame(1);
+      guiControls.auto_IterPerFrame = false;
     } else if (event.code == 'PageDown') {
       adjIterPerFrame(-1);
+      guiControls.auto_IterPerFrame = false;
+    } else if (event.code == 'End') {
+      guiControls.auto_IterPerFrame = true;
     }
   });
 
@@ -2882,28 +2913,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.useProgram(precipitationProgram);
 
-  var dropPositionAttribLocation = 0;
-  var massAttribLocation = 1;
-  var densityAttribLocation = 2;
-
-  var rainDrops = [];
-
-  if (initialRainDrops) {
-    rainDrops = initialRainDrops;
-  } else {
-    // generate droplets
-    for (var i = 0; i < NUM_DROPLETS; i++) {
-      // seperate push for each element is fastest
-      rainDrops.push((Math.random() - 0.5) * 2.0); // X
-      rainDrops.push((Math.random() - 0.5) * 2.0); // Y
-      rainDrops.push(-10.0 + Math.random());       // water negative to disable
-      rainDrops.push(Math.random());               // ice
-      rainDrops.push(0.0);                         // density
-    }
-  }
-  // console.log(NUM_DROPLETS);
-  // console.log(rainDrops.length);
-  // console.log(rainDrops);
+  const dropPositionAttribLocation = 0;
+  const massAttribLocation = 1;
+  const densityAttribLocation = 2;
 
   var even = true; // used to switch between precipitation buffers
 
@@ -2914,6 +2926,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const precipVertexBuffer_1 = gl.createBuffer();
   const precipitationTF_1 = gl.createTransformFeedback();
 
+
+  var rainDrops;
+
+  function initRainDrops()
+  {
+    rainDrops = [];
+    // generate inactive droplets with random values to be used as seeds for random spawning
+    for (var i = 0; i < NUM_DROPLETS; i++) {
+      // seperate push for each element is fastest
+      rainDrops.push(Math.random());         // X
+      rainDrops.push(Math.random());         // Y
+      rainDrops.push(-10.0 + Math.random()); // water negative to disable
+      rainDrops.push(Math.random());         // ice
+      rainDrops.push(Math.random());         // density
+    }
+  }
 
   function setupPrecipitationBuffers()
   {
@@ -3001,9 +3029,72 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null); // buffers are bound via VAO's
+    gl.bindVertexArray(fluidVao);         // set screenfilling rect again
+  }
+
+
+  function logDropletsSample()
+  { // log data of all the droplets within the brush
+    const valsPerDroplet = 5;
+    tempDroplets = new Float32Array(valsPerDroplet * NUM_DROPLETS);
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, precipVertexBuffer_0); // x, y, water, ice, density
+    gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, tempDroplets);
+
+    console.log(' ');
+    console.log(' ');
+    console.log('DROPLETS:-----------------------------------------');
+    console.log(' ');
+
+    let numInBrush = 0;
+    let duplicates = 0;
+
+    for (let n = 0; n < NUM_DROPLETS; n++) {
+      let i = n * valsPerDroplet;
+      let X = tempDroplets[i + 0];
+      let Y = tempDroplets[i + 1];
+      let x = (X + 1.0) / 2.0;
+      let y = (Y + 1.0) / 2.0;
+      let water = tempDroplets[i + 2];
+      let ice = tempDroplets[i + 3];
+      let density = tempDroplets[i + 4];
+
+      let dx = (mouseXinSim - x) * sim_aspect;
+      let dy = mouseYinSim - y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < guiControls.brushSize / 2.0 / sim_res_y) {
+        console.log("x:", x);
+        console.log("y:", y);
+        console.log("water:", water);
+        console.log("Ice:", ice);
+        console.log("Density:", density);
+        console.log(" ");
+        numInBrush++;
+      }
+
+      // check for duplicates
+      if (n < NUM_DROPLETS - 1) {
+        for (let d = n + 1; d < NUM_DROPLETS; d++) {
+          let j = d * valsPerDroplet;
+          if (X == tempDroplets[j + 0] && Y == tempDroplets[j + 1]) {
+            duplicates++;
+            break;
+          }
+        }
+      }
+    }
+    console.log(NUM_DROPLETS, "total droplets. ", numInBrush, "droplets logged. ", duplicates, " duplicates found");
+  }
+
+
+  if (initialRainDrops) {
+    rainDrops = initialRainDrops;
+  } else {
+    initRainDrops();
   }
 
   setupPrecipitationBuffers();
+
 
   /*
 
@@ -3566,6 +3657,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1i(gl.getUniformLocation(advectionProgram, 'userInputType'), inputType);
 
 
+      for (i = 0; i < weatherStations.length; i++) { // initial measurement at weather stations
+        weatherStations[i].measure();
+      }
+
       // guiControls.IterPerFrame = 1.0 / timePerIteration * 3600 / 60.0;
 
 
@@ -3690,7 +3785,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum);
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum % 777);
               gl.enable(gl.BLEND);
               gl.blendFunc(gl.ONE, gl.ONE); // add everything together
               gl.activeTexture(gl.TEXTURE0);
@@ -4075,40 +4170,41 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     return num;
   }
 
-  function timeFormat(hours)
+  function dateTimeStr()
   {
-    if (guiControls.imperialUnits) { // for Americans
-      if (hours < 12.0) {
-        let hour = Math.floor(hours);
-        if (hour == 0)
-          hour = 12;
-        let hourStr = pad(hour, 2);
-        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-        return ' ' + hourStr + ':' + minuteStr + ' AM';
-      } else {
-        hours -= 12;
-        let hour = Math.floor(hours);
-        if (hour == 0)
-          hour = 12;
-        let hourStr = pad(hour, 2);
-        let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-        return ' ' + hourStr + ':' + minuteStr + ' PM';
-      }
+    var timeStr;
+    if (guiControls.imperialUnits) { // 12 hour clock for Americans
+      timeStr = simDateTime.toLocaleString('en-US', {hour12 : true, hour : 'numeric', minute : 'numeric'});
+    } else {                         // 24 hour clock
+      timeStr = simDateTime.toLocaleString('nl-NL', {hour12 : false, hour : 'numeric', minute : 'numeric'});
     }
-    // Simple 24 hour clock:
-    let hourStr = pad(Math.floor(hours), 2);
-    let minuteStr = pad(Math.floor((hours % 1) * 60), 2);
-    return ' ' + hourStr + ':' + minuteStr;
+
+    const monthStr = simDateTime.toLocaleString('en-us', {month : 'short', day : 'numeric'});
+    return timeStr + '&nbsp; ' + monthStr;
+  }
+
+  function onUpdateTimeOfDaySlider()
+  {
+    let minutes = (guiControls.timeOfDay % 1) * 60;
+    simDateTime.setHours(guiControls.timeOfDay, minutes);
+    updateSunlight();
+  }
+
+  function onUpdateMonthSlider()
+  {
+    let month = guiControls.month - 0.96;
+    let date = (month % 1) * 30;
+    simDateTime.setMonth(month, date);
+    updateSunlight();
   }
 
   function updateSunlight(deltaT_hours)
   {
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {
-        guiControls.timeOfDay += deltaT_hours;    // day angle in degrees
-        guiControls.month += deltaT_hours / 730.; // ~730 hours in a month
-        if (guiControls.timeOfDay >= 24.0)
-          guiControls.timeOfDay = 0.0;
+        simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
+        guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60.0;
+        guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.0;
       }
 
       let timeOfDayRad = (guiControls.timeOfDay / 24.0) * 2.0 * Math.PI; // convert to radians
@@ -4149,7 +4245,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), sunAngleForShaders);
 
     if (guiControls.dayNightCycle)
-      clockEl.innerHTML = timeFormat(guiControls.timeOfDay); // update clock
+      clockEl.innerHTML = dateTimeStr(); // update clock
     else
       clockEl.innerHTML = "";
   }

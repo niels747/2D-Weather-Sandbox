@@ -61,13 +61,15 @@
 - [x] Show water temperature in sounding graph
 - [x] Improve fire
 - [x] Add plane flying mode. Experience the turbulent clouds by flying a realistic plane trough the clouds at realistic scale and speed!
+- [x] Add urban surface type with building textures
+- [x] Improve precipitation spawning system
 
 # In Progress
 - [ ] Add lightning effect
 
 # Future:
-- [ ] Add sounds
-- [ ] Add urban surface type with building textures
+- [ ] Make soil and vegetation color change with soil moisture
+- [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add realistic albedo's for different surface types
 - [ ] Make soil and vegetation color change with soil moisture
 - [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
@@ -81,4 +83,5 @@
 - [ ] Make precipitation work on all mobile devices
 - [ ] Simulate realistic atmospheric pressure
 - [ ] Add forces to simulate coriolis effect and pressure systems to make weather more dynamic
+- [ ] Add sounds
 - [ ] Add weather balloons

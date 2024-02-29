@@ -97,26 +97,26 @@ float random(float f)
   return fract(r2);
 }
 
-float random2d(float x, float y)
+float random2d(vec2 s)
 {
   const uint mantissaMask = 0x007FFFFFu;
   const uint one = 0x3F800000u;
 
-  uint h = hash(floatBitsToUint(x));
+  uint h = hash(floatBitsToUint(s.x) + hash(floatBitsToUint(s.y)));
   h &= mantissaMask;
   h |= one;
 
   float r2 = uintBitsToFloat(h);
-  return mod(r2 - 1.0, 1.0);
+  return mod(r2, 1.0);
 }
 
 float rand2d(vec2 co)
 {
-  highp float a = 12.9898;
-  highp float b = 78.233;
-  highp float c = 43758.5453;
-  highp float dt = dot(co.xy, vec2(a, b));
-  highp float sn = mod(dt, 3.14);
+  const float a = 12.9898;
+  const float b = 78.233;
+  const float c = 43758.5453123;
+  float dt = dot(co.xy, vec2(a, b));
+  float sn = mod(dt, 3.14);
   return fract(sin(sn) * c);
 }
 
@@ -287,3 +287,49 @@ float simplesque2D(vec2 p, float seed)
 }
 
 float func2D(vec2 p, float seed) { return simplesque2D(p * 4., seed) * .66 + simplesque2D(p * 8., seed) * 0.34; }
+
+
+// src: https://www.shadertoy.com/view/WttXWX
+
+// --- choose one:
+// #define hashi(x) lowbias32(x)
+// #define hashi(x) triple32(x)
+
+// #define hash(x) (float(hashi(x)) / float(0xffffffffU))
+
+
+// bias: 0.17353355999581582 ( very probably the best of its kind )
+uint lowbias32(uint x)
+{
+  x ^= x >> 16;
+  x *= 0x7feb352dU;
+  x ^= x >> 15;
+  x *= 0x846ca68bU;
+  x ^= x >> 16;
+  return x;
+}
+
+// bias: 0.020888578919738908 = minimal theoretic limit
+uint triple32(uint x)
+{
+  x ^= x >> 17;
+  x *= 0xed5ad4bbU;
+  x ^= x >> 11;
+  x *= 0xac4c1b51U;
+  x ^= x >> 15;
+  x *= 0x31848babU;
+  x ^= x >> 14;
+  return x;
+}
+
+float hash2(int x) { return float(triple32(uint(x))) / float(0xffffffffU); }
+
+
+// float h = hash( V.x + hashi(V.y) ); // clean 2D hash
+//  float h = hash( V.x + (V.y<<16) );  // 2D hash (should be ok too )
+
+float rand2(vec2 s)
+{
+  // return hash( x + hashi(y) ); // clean 2D hash
+  return hash2(int(s.x * 379071.) + int(s.y * 756398.) << 16); // 2D hash (should be ok too )
+}
