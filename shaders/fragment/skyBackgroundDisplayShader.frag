@@ -42,9 +42,10 @@ vec3 displayLightning(vec2 pos)
   lightningTexCoord.x *= scaleMult * aspectRatios.x;
   lightningTexCoord.y *= -scaleMult;
 
-  lightningTexCoord /= 0.7;                                                                                                 // scale
+  lightningTexCoord /= 0.7; // scale
 
-  lightningTexCoord.x /= 3440. / 1283.;                                                                                     // dimentions                                                                                    // Aspect ratio
+                            // lightningTexCoord.x /= 3440. / 1283.;                                                                                     // dimentions
+  lightningTexCoord.x /= 10000. / 5000.;                                                                                    // dimentions                                                                               // Aspect ratio
 
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec3(0);
@@ -69,7 +70,9 @@ vec3 displayLightning(vec2 pos)
 
   pixVal.rgb *= lightningIntensity * 30000.0; //
 
-  return pixVal.rgb * pixVal.a;
+  const vec3 lightningCol = vec3(0.584, 0.576, 1.0);
+
+  return pixVal.rgb * lightningCol;
 }
 
 vec4 displayA380(vec2 pos, float angle)
@@ -139,11 +142,6 @@ void main()
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb * A380Col.a;
 
-
-  // mixedCol += displayLightning(vec2(0.05, 0.5));
-
-
-  // if (texCoord.y > 2.99 && texCoord.x > 0.5) mixedCol.r = 1.;// show red line at top of simulation area
 
   vec3 finalColor = mixedCol * (light * 1.0 + minShadowLight);
 

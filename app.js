@@ -3146,7 +3146,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const A380Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
 
-  const lightningTexture = gl.createTexture(); // often regenerated
+  const lightningTextures = [];
+  const numLightningTextures = 10;
 
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
@@ -3311,28 +3312,33 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
 
 
-  function generateLightningTexture(imgElement)
+  await loadingBar.set(85, 'Generating lightning textures');
+
+  function generateLightningTexture(i, imgElement)
   {
-    gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+    lightningTextures[i] = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, lightningTextures[i]);
+    // console.log(imgElement, lightningTextures[i], i);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, imgElement.width, imgElement.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, imgElement);
     gl.generateMipmap(gl.TEXTURE_2D);                                                // optional
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-
-    console.log("New lightning texture generated");
   }
 
-  let lightningWorkerReady = false;
+  // let lightningWorkerReady = false;
 
-  const lightningGeneratorWorker = new Worker("./lightningGenerator.js");
-  lightningGeneratorWorker.onmessage = (imgElement) => {
-    lightningWorkerReady = true;
-    generateLightningTexture(imgElement.data);
-  };
+  for (let i = 0; i < numLightningTextures; i++) {
 
-  lightningGeneratorWorker.postMessage("test message");
+    const lightningGeneratorWorker = new Worker("./lightningGenerator.js");
+    lightningGeneratorWorker.onmessage = (imgElement) => {
+      // lightningWorkerReady = true;
+      generateLightningTexture(i, imgElement.data);
+    };
+
+    lightningGeneratorWorker.postMessage({width : 10000, height : 5000}); // 10000 5000
+  }
 
 
   createHdrFBO();
@@ -3909,9 +3915,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, A380Texture);
 
+      let lightningTexNum = Math.floor(IterNum / 300) % numLightningTextures;
+      console.log(lightningTexNum)
 
       gl.activeTexture(gl.TEXTURE9);
-      gl.bindTexture(gl.TEXTURE_2D, lightningTexture);
+      gl.bindTexture(gl.TEXTURE_2D, lightningTextures[lightningTexNum]);
 
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);

@@ -1,6 +1,7 @@
 onmessage = (event) => {
-  const {data} = event;
-  let imgElement = generateLightningBolt(10000, 5000);
+  const msg = event.data;
+  console.log(msg);
+  let imgElement = generateLightningBolt(msg.width, msg.height);
   postMessage(imgElement);
 };
 
@@ -12,11 +13,9 @@ function generateLightningBolt(width, height)
 
   ctx.clearRect(0, 0, width, height);
 
-  // const color = '#9593FF'; // 9593FF blueish white
-
-  const colR = 149 * 0.3;
-  const colG = 147 * 0.3;
-  const colB = 255 * 0.3;
+  const colR = 100;
+  const colG = 100;
+  const colB = 100;
 
   ctx.beginPath();
 
