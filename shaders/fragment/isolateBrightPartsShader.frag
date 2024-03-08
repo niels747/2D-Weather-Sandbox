@@ -13,7 +13,7 @@ out vec3 fragmentColor;
 
 void main()
 {
-  vec3 outputCol = texture(hdrTex, texCoord).rgb * 1.;
+  vec3 outputCol = texture(hdrTex, texCoord).rgb;
 
   //  outputCol = pow(outputCol, vec3(4.0)); // only keep bright parts
 

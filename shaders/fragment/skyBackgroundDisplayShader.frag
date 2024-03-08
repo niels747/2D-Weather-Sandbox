@@ -17,6 +17,8 @@ uniform sampler2D lightningTex;
 
 uniform float iterNum;
 
+uniform float simHeight;
+
 uniform vec3 planePos;
 
 out vec4 fragmentColor;
@@ -34,7 +36,6 @@ vec3 displayLightning(vec2 pos)
   // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
   lightningTexCoord.y -= pos.y;
 
-  const float simHeight = 12000.0; // TODO: Should be uniform!
   float cellHeight = simHeight / resolution.y;
 
   float scaleMult = 60.0 / cellHeight; // 6000
@@ -42,37 +43,50 @@ vec3 displayLightning(vec2 pos)
   lightningTexCoord.x *= scaleMult * aspectRatios.x;
   lightningTexCoord.y *= -scaleMult;
 
-  lightningTexCoord /= 0.7; // scale
+  lightningTexCoord /= 0.7;                                                                                                 // scale
 
-                            // lightningTexCoord.x /= 3440. / 1283.;                                                                                     // dimentions
-  lightningTexCoord.x /= 10000. / 5000.;                                                                                    // dimentions                                                                               // Aspect ratio
+  lightningTexCoord.x /= 2500. / 5000.;                                                                                     // dimentions                                                                               // Aspect ratio
 
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec3(0);
 
-  vec4 pixVal = texture(lightningTex, lightningTexCoord);
+  float pixVal = texture(lightningTex, lightningTexCoord).r;
 
-  // float lightningIntensity = min(mod(float(iterNum), 300.) / 30.0, 1.0); // normalised 0. to 1
+  float iterNumMod = mod(float(iterNum), 400.); // 300
 
-  float iterNumMod = mod(float(iterNum), 300.);
+  // if (iterNumMod < 60.) {                       // 14
+  //   iterNumMod = mod(iterNumMod, 30.);          // 7
+  // }
 
-  if (iterNumMod < 14.) {
-    iterNumMod = mod(iterNumMod, 7.);
-  } else {
-    iterNumMod -= 7.;
+  float lightningTime = iterNumMod / 30.0; // 0. to 1. leader stage, 1. + Flash stage
+
+  const float branchShowFactor = 1.5;
+  const float leaderBrightness = 200.;
+  const float mainBoltBrightness = 100000.;
+
+  float brightnessThreshold = 1. - lightningTime * branchShowFactor;
+  brightnessThreshold += lightningTexCoord.y * branchShowFactor; // grow from the top to the bottem
+
+  brightnessThreshold = clamp(brightnessThreshold, 0., 1.);
+
+  float lightningIntensity = leaderBrightness;
+
+  if (lightningTime > 1.0) { // main bolt
+    brightnessThreshold = 0.95;
+    lightningIntensity = ((1. / (0.05 + pow((lightningTime - 1.) * 2.0, 3.))) - 0.005) * mainBoltBrightness;
   }
 
-  float lightningIntensity = min(iterNumMod / 10.0, 1.0);   // normalised 0. to 1
+  pixVal -= brightnessThreshold;
 
-  lightningIntensity = 1. - pow(lightningIntensity, 0.005); // 0.005
+  pixVal = max(pixVal, 0.0);
 
-  // pixVal.rgb *= vec3(0.3, 0.4, 1.0);
+  pixVal *= lightningIntensity;                    //
 
-  pixVal.rgb *= lightningIntensity * 30000.0; //
+  const vec3 lightningCol = vec3(0.70, 0.57, 1.0); // 0.584, 0.576, 1.0
 
-  const vec3 lightningCol = vec3(0.584, 0.576, 1.0);
+  vec3 outputColor = max(pixVal * lightningCol, vec3(0));
 
-  return pixVal.rgb * lightningCol;
+  return outputColor;
 }
 
 vec4 displayA380(vec2 pos, float angle)
@@ -134,16 +148,17 @@ void main()
 
   float val = pow(map_range(texCoord.y, 0., 3.2, 1.0, 0.1), 5.0); // pow 3 map 1.0 to 0.3
 
-  val = pow(val, 1. / 2.2);                                       // gamma correction
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
+
 
   vec4 A380Col = displayA380(planePos.xy, planePos.z);
 
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb * A380Col.a;
 
+  mixedCol = pow(mixedCol, vec3(2.0)); // gamma correction
 
-  vec3 finalColor = mixedCol * (light * 1.0 + minShadowLight);
+  vec3 finalColor = mixedCol * (light + minShadowLight);
 
   finalColor += displayLightning(vec2(0.05, 0.5));
 

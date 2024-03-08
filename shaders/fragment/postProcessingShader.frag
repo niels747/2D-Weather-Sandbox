@@ -16,17 +16,39 @@ uniform sampler2D hdrTex;
 uniform sampler2D bloomTex;
 out vec4 fragmentColor;
 
+const float GAMMA = 2.0;
+
+const vec3 ONE_OVER_GAMMA = vec3(1. / GAMMA);
+
 void main()
 {
-  vec3 outputCol = texture(hdrTex, texCoord).rgb * 0.9;
+  vec3 outputCol = texture(hdrTex, texCoord).rgb;
 
   vec3 bloom = texture(bloomTex, texCoord).rgb;
 
-  bloom = pow(bloom, vec3(1. / 2.2)); // bloom gamma correction
-
-  // outputCol *= 1. + bloom * 5.0;      // add bloom as light (experiment)
-
   outputCol += bloom * 0.990; // apply bloom
 
-  fragmentColor = vec4(outputCol * exposure, 1.0);
+  // outputCol = outputCol / (outputCol + vec3(1.0)) * 1.1; // Tone mapping
+
+  outputCol *= exposure;
+
+  outputCol = pow(outputCol, ONE_OVER_GAMMA); // gamma correction
+
+
+  /*
+    { // Gamma correction test: left without, right with gamma correction
+      float modTexCoordx = mod(texCoord.x, 0.5);
+      // outputCol = vec3(pow(texCoord.y, 2.)); // light input
+
+      outputCol = vec3(pow(0.9, (1. - texCoord.y) * 50.)); // simulate light coming down and being absorbed by clouds
+
+      if (texCoord.x > 0.5)
+        outputCol = pow(outputCol, GAMMA);              // gamma correction
+
+      if (abs(outputCol.r - modTexCoordx * 2.) < 0.001) // plot brightness
+        outputCol = vec3(1.0, 0., 0.);
+    }
+  */
+
+  fragmentColor = vec4(outputCol, 1.0);
 }

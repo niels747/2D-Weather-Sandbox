@@ -1,6 +1,6 @@
 onmessage = (event) => {
   const msg = event.data;
-  console.log(msg);
+  // console.log(msg);
   let imgElement = generateLightningBolt(msg.width, msg.height);
   postMessage(imgElement);
 };
@@ -13,9 +13,16 @@ function generateLightningBolt(width, height)
 
   ctx.clearRect(0, 0, width, height);
 
-  const colR = 100;
-  const colG = 100;
-  const colB = 100;
+
+  function genLightningColor(lineWidth)
+  {
+    const colR = 12;
+    const colG = 12;
+    const colB = 12;
+    brightness = Math.pow(lineWidth, 2.0);
+    return `rgb(${colR * brightness}, ${colG * brightness}, ${colB * brightness})`;
+  }
+
 
   ctx.beginPath();
 
@@ -45,7 +52,7 @@ function generateLightningBolt(width, height)
 
 
     if (Math.random() < 0.015 * (1. - nextY / height)) { // branch
-      ctx.strokeStyle = `rgb(${colR * lineWidth}, ${colG * lineWidth}, ${colB * lineWidth})`;
+      ctx.strokeStyle = genLightningColor(lineWidth);
       ctx.stroke();
       drawBranch(nextX, nextY, targetAngle + (Math.random() - 0.5) * 2.5, lineWidth * 0.5 * Math.random());
       ctx.beginPath();
@@ -53,7 +60,7 @@ function generateLightningBolt(width, height)
       ctx.lineWidth = lineWidth;
     }
   }
-  ctx.strokeStyle = `rgb(${colR * lineWidth}, ${colG * lineWidth}, ${colB * lineWidth})`;
+  ctx.strokeStyle = genLightningColor(lineWidth);
   ctx.stroke();
 
 
@@ -84,7 +91,7 @@ function generateLightningBolt(width, height)
 
       if (Math.random() < 0.018) { // reduce width
 
-        ctx.strokeStyle = `rgb(${colR * line_width}, ${colG * line_width}, ${colB * line_width})`;
+        ctx.strokeStyle = genLightningColor(line_width);
         ctx.stroke();
         line_width -= 0.2;
 
@@ -101,7 +108,7 @@ function generateLightningBolt(width, height)
         ctx.lineWidth = line_width;
       }
     }
-    ctx.strokeStyle = `rgb(${colR * line_width}, ${colG * line_width}, ${colB * line_width})`;
+    ctx.strokeStyle = genLightningColor(line_width);
     ctx.stroke();
   }
 }

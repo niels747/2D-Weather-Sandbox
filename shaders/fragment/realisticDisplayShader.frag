@@ -240,7 +240,7 @@ void main()
         if (wallX0Ym[TYPE] == WALLTYPE_LAND || wallX0Ym[TYPE] == WALLTYPE_URBAN) { // land below
           float snow = texture(waterTex, texCoordX0Ym)[SNOW];                      // snow on land below
           if (snow * 0.01 / cellHeight > heightAboveGround)
-            texCol = vec4(1);                                                      // show white snow
+            texCol = vec4(vec3(1.), 1.);                                           // show white snow layer above ground
           else
             texCol = mix(surfaceTexture(FOREST, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(SNOW_FOREST, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
         } else if (wallX0Ym[TYPE] == WALLTYPE_FIRE) {
@@ -298,7 +298,6 @@ void main()
 
   float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
 
-  light = pow(light, 1. / 2.2);                                                                    // gamma correction
   vec3 finalLight = sunColor(scatering) * light;
 
 
