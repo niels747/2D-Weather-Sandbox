@@ -16,8 +16,7 @@ uniform sampler2D waterTex;
 uniform sampler2D vortForceTex;
 uniform isampler2D wallTex;
 uniform sampler2D lightTex;
-uniform sampler2D precipFeedbackTex; // [0] droplet weight force,  [1] heating and cooling of
-                                     // fluid,  [2] evaporation and taking water from cloud
+uniform sampler2D precipFeedbackTex;
 
 uniform float dryLapse;
 uniform float evapHeat;

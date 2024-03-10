@@ -12,8 +12,8 @@ uniform vec2 aspectRatios;
 
 uniform sampler2D lightTex;
 uniform sampler2D planeTex;
-
 uniform sampler2D lightningTex;
+uniform sampler2D precipFeedbackTex;
 
 uniform float iterNum;
 
@@ -161,6 +161,8 @@ void main()
   vec3 finalColor = mixedCol * (light + minShadowLight);
 
   finalColor += displayLightning(vec2(0.05, 0.5));
+
+  // finalColor.r += texture(precipFeedbackTex, texCoord)[3] * 100.0; // check snow deposition feedback
 
   fragmentColor = vec4(finalColor, 1.0);
 }

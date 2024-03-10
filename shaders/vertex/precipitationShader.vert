@@ -23,6 +23,9 @@ out float density_out;
 out vec4 feedback;
 
 vec2 texCoord;
+vec4 water;
+vec4 base;
+float realTemp;
 
 uniform sampler2D baseTex;
 uniform sampler2D waterTex;
@@ -56,6 +59,9 @@ vec2 newPos;
 vec2 newMass;
 float newDensity;
 
+bool isActive = true;
+bool spawned = false; // spawned in this iteration
+
 void disableDroplet()
 {
   gl_PointSize = 1.;
@@ -83,17 +89,17 @@ void main()
 
 
     // sample fluid at generated position
-    vec4 base = texture(baseTex, texCoord);
-    vec4 water = texture(waterTex, texCoord);
+    base = texture(baseTex, texCoord);
+    water = texture(waterTex, texCoord);
 
     // check if position is okay to spawn
-    float realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
+    realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
 
-#define initalMass 0.15                                   // 0.05 initial droplet mass
-    float threshold;                                      // minimal cloudwater before precipitation develops
+#define initalMass 0.15                             // 0.05 initial droplet mass
+    float threshold;                                // minimal cloudwater before precipitation develops
     if (realTemp > CtoK(0.0))
-      threshold = aboveZeroThreshold;                     // in above freezing conditions coalescence only happens in really dense clouds
-    else                                                  // the colder it gets, the faster ice starts to form
+      threshold = aboveZeroThreshold;               // in above freezing conditions coalescence only happens in really dense clouds
+    else                                            // the colder it gets, the faster ice starts to form
       //  treshHold = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), subZeroThreshold, initalMass), initalMass);
       threshold = subZeroThreshold;
 
@@ -126,21 +132,26 @@ void main()
     }
 
     if (feedback[VAPOR] < 0.0) { // is taking water from texture so has spawned
+      spawned = true;
       gl_PointSize = 1.0;
       gl_Position = vec4(newPos, 0.0, 1.0);
-    } else {                                                                    // still inactive
+    } else { // still inactive
+      isActive = false;
       gl_PointSize = 1.0;
       feedback[MASS] = 1.0;                                                     // count 1 inactive droplet
       gl_Position = vec4(vec2(-1. + texelSize.x, -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (0, 0) to count inactive droplets
+                                                                                // return;
     }
+  }
 
-  } else {                                      // active
-    texCoord = vec2(dropPosition.x / 2. + 0.5,
-                    dropPosition.y / 2. + 0.5); // convert position (-1 to 1) to texture coordinate (0 to 1)
-    vec4 water = texture(waterTex, texCoord);
-    vec4 base = texture(baseTex, texCoord);
-
-    float realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
+  if (isActive) {
+    if (!spawned) {                               // these values are already set if the droplet just spawned
+      texCoord = vec2(dropPosition.x / 2. + 0.5,
+                      dropPosition.y / 2. + 0.5); // convert position (-1 to 1) to texture coordinate (0 to 1)
+      water = texture(waterTex, texCoord);
+      base = texture(baseTex, texCoord);
+      realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
+    }
 
     float totalMass = newMass[WATER] + newMass[ICE];
 
@@ -156,11 +167,14 @@ void main()
       if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[TEMPERATURE] > 500.) // if above cell was already wall. because of fast fall speed
         newPos.y += texelSize.y * 1.;                                                       // *2. ? move position up so that the water/snow is correcty added to the ground
 
-      // feedback[2] = newMass[0];                                                             // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
+                                                                                            // feedback[VAPOR] = newMass[WATER];                                                             // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
 
+      // BUG Fixed: Snow feedback detected in the middle of clouds when droplets shouldn't despawn!
+      // Fix: Use correctly updated texcoord to read watertexture when spwaning droplet, so that water[TOTAL] will not be > 1000
       feedback[SNOW] = newMass[ICE]; // snow accumulation
 
       disableDroplet();
+
     } else { // update droplet
 
       // float surfaceArea = sqrt(totalMass); // As if droplet is a circle (2D)
@@ -242,20 +256,17 @@ void main()
 
       feedback[MASS] = totalMass;
 
+    }               // update
 
-    } // update
-
-
-#define pntSize 12.                             // 16
-    const float pntSurface = pntSize * pntSize; // suface area
-
+#define pntSize 12. // 16.
+    const float pntSurface = pntSize * pntSize;
+    // devide by suface area to keep total amount constant
     feedback[MASS] /= pntSurface;
     feedback[HEAT] /= pntSurface;
     feedback[VAPOR] /= pntSurface;
-    feedback[SNOW] /= pntSize; // only width matters
+    feedback[SNOW] /= pntSize; // only width matters because it's only applied at surface layer
 
     gl_PointSize = pntSize;
-
 
     gl_Position = vec4(newPos, 0.0, 1.0);
   } // active
