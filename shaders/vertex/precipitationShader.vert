@@ -29,6 +29,7 @@ float realTemp;
 
 uniform sampler2D baseTex;
 uniform sampler2D waterTex;
+uniform sampler2D lightningLocationTex;
 
 uniform vec2 resolution;
 uniform vec2 texelSize;
@@ -61,6 +62,7 @@ float newDensity;
 
 bool isActive = true;
 bool spawned = false; // spawned in this iteration
+bool lightningSpawned = false;
 
 void disableDroplet()
 {
@@ -115,6 +117,7 @@ void main()
       float nrmRand = fract(pow(water[CLOUD] * 10.0, 2.0));
 
       if (spawnChance > nrmRand) {                                       // spawn
+        spawned = true;
         newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.); // convert texture coordinate (0 to 1) to position (-1 to 1)
 
         if (realTemp < CtoK(0.0)) {                                      // below 0 C
@@ -122,6 +125,17 @@ void main()
           newMass[ICE] = initalMass;                                     // snow
           feedback[HEAT] += newMass[ICE] * meltingHeat;                  // add heat of freezing
           newDensity = snowDensity;
+
+          vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
+
+          if (lightningLocation.z < iterNum - 200. && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) > 0.99) { // Spawn lightning
+            lightningSpawned = true;
+            isActive = false;
+            gl_PointSize = 1.0;
+            feedback.xy = texCoord;
+            feedback.z = iterNum;
+            gl_Position = vec4(vec2(-1. + texelSize.x * 3., -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (1, 0)
+          }
         } else {
           newMass[WATER] = initalMass; // rain
           newMass[ICE] = 0.0;
@@ -131,10 +145,11 @@ void main()
       }
     }
 
-    if (feedback[VAPOR] < 0.0) { // is taking water from texture so has spawned
-      spawned = true;
-      gl_PointSize = 1.0;
-      gl_Position = vec4(newPos, 0.0, 1.0);
+    if (spawned) {
+      if (!lightningSpawned) {
+        gl_PointSize = 1.0;
+        gl_Position = vec4(newPos, 0.0, 1.0);
+      }
     } else { // still inactive
       isActive = false;
       gl_PointSize = 1.0;

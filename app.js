@@ -38,7 +38,7 @@ const guiControls_default = {
   vorticity : 0.007,
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
-  globalEffectsHeight : 5000,
+  globalEffectsHeight : 10000,
   globalDrying : 0.00000, // 0.00001
   globalHeating : 0.0,
   sunIntensity : 1.0,
@@ -2492,6 +2492,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const lightingShader = await loadShader('lightingShader.frag');
 
+  const lightningLocationShader = await loadShader('lightningLocationShader.frag');
+
   const setupShader = await loadShader('setupShader.frag');
 
   const temperatureDisplayShader = await loadShader('temperatureDisplayShader.frag');
@@ -2515,6 +2517,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const boundaryProgram = createProgram(simVertexShader, boundaryShader);
 
   const lightingProgram = createProgram(simVertexShader, lightingShader);
+
+  const lightningLocationProgram = createProgram(simVertexShader, lightningLocationShader);
 
   const setupProgram = createProgram(simVertexShader, setupShader);
 
@@ -3140,6 +3144,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightTexture_0 = gl.createTexture();
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
+  const lightningLocationTexture = gl.createTexture(); // single pixel texture holding location and timing of current lightning strike
 
   // Static texures:
   const noiseTexture = gl.createTexture();
@@ -3159,6 +3164,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightFrameBuff_0 = gl.createFramebuffer();
   const lightFrameBuff_1 = gl.createFramebuffer();
   const precipitationFeedbackFrameBuff = gl.createFramebuffer();
+  const lightningLocationFrameBuff = gl.createFramebuffer();
 
   // Set up Textures
   async function setupTextures()
@@ -3254,10 +3260,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);    // LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
-                   gl.CLAMP_TO_EDGE); // prevent light from shing trough at bottem or top
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // prevent light from shining trough at bottem or top
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_1, 0);
@@ -3271,6 +3276,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
 
+  gl.bindTexture(gl.TEXTURE_2D, lightningLocationTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 1, 1, 0, gl.RGBA, gl.FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, lightningLocationFrameBuff);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightningLocationTexture, 0);
 
   // load images
   imgElement = await loadImage('resources/noise_texture.jpg');
@@ -3471,8 +3483,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'precipFeedbackTex'), 7);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 8);
-  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightningTex'), 9);
-
 
   gl.useProgram(universalDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -3490,12 +3500,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'surfaceTextureMap'), 5);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'curlTex'), 6);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningTex'), 7);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningLocationTex'), 8);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
 
   gl.useProgram(precipitationProgram);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'waterTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'lightningLocationTex'), 2);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
@@ -3514,6 +3527,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(isolateBrightPartsProgram);
   // gl.uniform2f(gl.getUniformLocation(isolateBrightPartsProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
   gl.uniform1i(gl.getUniformLocation(isolateBrightPartsProgram, 'hdrTex'), 0);
+
+  gl.useProgram(lightningLocationProgram);
+  gl.uniform1i(gl.getUniformLocation(lightningLocationProgram, 'precipFeedbackTex'), 0);
+  gl.uniform2f(gl.getUniformLocation(lightningLocationProgram, 'resolution'), sim_res_x, sim_res_y);
+  gl.uniform2f(gl.getUniformLocation(lightningLocationProgram, 'texelSize'), texelSizeX, texelSizeY);
 
 
   // console.time('Set uniforms');
@@ -3806,13 +3824,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum % 777);
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum); // % 777
               gl.enable(gl.BLEND);
-              gl.blendFunc(gl.ONE, gl.ONE); // add everything together
+              gl.blendFunc(gl.ONE, gl.ONE);                                                  // add everything together
               gl.activeTexture(gl.TEXTURE0);
               gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
               gl.activeTexture(gl.TEXTURE1);
               gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+              gl.activeTexture(gl.TEXTURE2);
+              gl.bindTexture(gl.TEXTURE_2D, lightningLocationTexture);
 
               gl.bindVertexArray(srcVAO);
               gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
@@ -3829,13 +3849,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                 // console.timeEnd('cnt')         // 1 - 100 ms huge variation
                 // console.log(sampleValues[0]);  // number of inactive droplets
                 guiControls.inactiveDroplets = sampleValues[0];
-                gl.useProgram(precipitationProgram);
+                // gl.useProgram(precipitationProgram); // already set
                 gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
               }
 
               gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
               gl.disable(gl.BLEND);
               gl.bindVertexArray(fluidVao); // set screenfilling rect again
+
+
+              // Extract lightningLocation from precipitationfeedback
+              gl.useProgram(lightningLocationProgram);
+              gl.activeTexture(gl.TEXTURE0);
+              gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+
+              gl.bindFramebuffer(gl.FRAMEBUFFER, lightningLocationFrameBuff);
+              gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+              gl.readBuffer(gl.COLOR_ATTACHMENT0);
+              var lightningLocationValues = new Float32Array(4);
+              gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningLocationValues);
+              console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2]);
             }
 
             if (IterNum % 100 == 0) {
@@ -3926,12 +3961,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, A380Texture);
 
-      let lightningTexNum = Math.floor(IterNum / 400) % numLightningTextures;
-      // console.log(lightningTexNum)
-
-      gl.activeTexture(gl.TEXTURE9);
-      gl.bindTexture(gl.TEXTURE_2D, lightningTextures[lightningTexNum]);
-
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
@@ -3978,11 +4007,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'), 0.0);
       }
 
-      if (SETUP_MODE)
-        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 10.0);
+      // if (SETUP_MODE) {
+      //   gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 10.0);
+      // }
+
+      let lightningTexNum = Math.floor(IterNum / 400) % numLightningTextures;
+      // console.log(lightningTexNum)
+
+      gl.activeTexture(gl.TEXTURE7);
+      gl.bindTexture(gl.TEXTURE_2D, lightningTextures[lightningTexNum]);
+      gl.activeTexture(gl.TEXTURE8);
+      gl.bindTexture(gl.TEXTURE_2D, lightningLocationTexture);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
-
 
       gl.disable(gl.BLEND);
 
