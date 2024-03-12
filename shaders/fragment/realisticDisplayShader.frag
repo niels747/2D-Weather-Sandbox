@@ -21,7 +21,7 @@ uniform sampler2D curlTex;
 uniform sampler2D lightningTex;
 uniform sampler2D lightningLocationTex;
 
-uniform vec2 aspectRatios;
+uniform vec2 aspectRatios; // [0] Sim       [1] canvas
 
 #define URBAN 0
 #define FIRE_FOREST 1
@@ -91,6 +91,7 @@ vec3 getWallColor(float depth)
 }
 
 const vec2 lightningTexRes = vec2(2500, 5000);
+const float lightningTexAspect = lightningTexRes.x / lightningTexRes.y;
 
 vec3 displayLightning(vec2 pos, float startIterNum)
 {
@@ -102,14 +103,12 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   lightningTexCoord.y -= pos.y;
 
-  float scaleMult = 60.0 / cellHeight; // 6000
+  float scaleMult = 1. / pos.y; // 1.0 means lightning is as tall as the simheight
 
-  lightningTexCoord.x *= scaleMult * aspectRatios.x;
+
+  lightningTexCoord.x *= scaleMult * aspectRatios[0] / lightningTexAspect;
   lightningTexCoord.y *= -scaleMult;
 
-  lightningTexCoord /= 0.7;                                                                                                 // scale
-
-  lightningTexCoord.x /= 2500. / 5000.;                                                                                     // dimentions                                                                               // Aspect ratio
 
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec3(0);
@@ -242,14 +241,12 @@ void main()
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
 
 
-    vec2 lightningPos = vec2(0.0, 1.);
+    vec2 lightningPos = vec2(0.3, 0.3);
     float lightningStartIterNum = 100.;
 
     vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
     lightningPos = lightningLocation.xy;
     lightningStartIterNum = lightningLocation.z;
-
-    //  vec3 lightningCol =
 
     emittedLight += displayLightning(lightningPos, lightningStartIterNum); // needs to be added as light
 

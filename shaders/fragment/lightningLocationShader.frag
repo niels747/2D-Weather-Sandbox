@@ -13,6 +13,7 @@ uniform sampler2D precipFeedbackTex;
 
 uniform vec2 resolution;
 uniform vec2 texelSize;
+uniform float iterNum;
 
 out vec4 lightningLocation;
 
@@ -22,13 +23,13 @@ uniform float dryLapse;
 
 void main()
 {
-  vec4 newLightningLocation = texture(precipFeedbackTex, vec2(0.0 + texelSize.x * 1., 0.0));
+  vec4 newLightningLocation = texture(precipFeedbackTex, vec2(0.0 + texelSize.x * 2., 0.0));
 
-  if (newLightningLocation.z == 0.) {
-    discard; // no new lightning strike, so no update
+  if (newLightningLocation.z < max(iterNum - 1.0, 1.0) || newLightningLocation.z > iterNum) { // No strike, or two strikes tried to generate during the same iteration
+    discard;                                                                                  // no new lightning strike, so no update
   }
 
   lightningLocation = newLightningLocation;
 
-  // lightningLocation = vec4(0.03, 0.1997, 100., 0); // test
+  // lightningLocation = vec4(0.5, 0.5, 100., 0); // test
 }

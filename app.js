@@ -2077,16 +2077,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     var simYpos = Math.min(Math.max(Math.floor(mouseYinSim * sim_res_y), 0), sim_res_y - 1);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-    gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);                                         // basetexture
     var baseTextureValues = new Float32Array(4);
-    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT,
-                  baseTextureValues); // read single cell
+    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues); // read single cell at mouse position
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
     gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
     var waterTextureValues = new Float32Array(4);
-    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT,
-                  waterTextureValues);   // read single cell
+    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
 
     gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
     var wallTextureValues = new Int8Array(4);
@@ -2095,8 +2093,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // lighttexture_1
     var lightTextureValues = new Float32Array(4);
-    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT,
-                  lightTextureValues); // read single cell
+    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT, lightTextureValues);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    var precipitationFeedbackTextureValues = new Float32Array(4);
+    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT, precipitationFeedbackTextureValues);
 
     console.log(' ');
     console.log(' ');
@@ -2106,8 +2108,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[1] Y-vel:', baseTextureValues[1]);
     console.log('[2] Press:', baseTextureValues[2]);
     console.log('[3] Temp :', baseTextureValues[3].toFixed(2) + ' K   ', KtoC(baseTextureValues[3]).toFixed(2) + ' °C   ', KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) + ' °C');
-
-    //		console.log(simYpos);
 
     console.log('WATER-----------------------------------------');
     console.log('[0] water:     ', waterTextureValues[0]);
@@ -2127,6 +2127,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[2] IR down:   ', lightTextureValues[2].toFixed(2), 'W/m²', KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + ' °C');
     console.log('[3] IR up:     ', lightTextureValues[3].toFixed(2), 'W/m²', KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + ' °C');
     console.log('Net IR up:     ', (lightTextureValues[3] - lightTextureValues[2]).toFixed(2), 'W/m²');
+
+    console.log('PRECIPITATION FEEDBACK-------------------------');
+    console.log('[0] Mass:  ', precipitationFeedbackTextureValues[0]);
+    console.log('[1] Heat:', precipitationFeedbackTextureValues[1]); // net effect of ir
+    console.log('[2] Vapor:   ', precipitationFeedbackTextureValues[2]);
+    console.log('[3] Snow deposition:     ', precipitationFeedbackTextureValues[3]);
   }
 
 
@@ -3860,6 +3866,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
               // Extract lightningLocation from precipitationfeedback
               gl.useProgram(lightningLocationProgram);
+              gl.uniform1f(gl.getUniformLocation(lightningLocationProgram, 'iterNum'), IterNum);
+
               gl.activeTexture(gl.TEXTURE0);
               gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
 
@@ -3870,7 +3878,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.readBuffer(gl.COLOR_ATTACHMENT0);
               var lightningLocationValues = new Float32Array(4);
               gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningLocationValues);
-              console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2]);
+              console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2], IterNum);
             }
 
             if (IterNum % 100 == 0) {
@@ -4007,9 +4015,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'displayVectorField'), 0.0);
       }
 
-      // if (SETUP_MODE) {
-      //   gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 10.0);
-      // }
 
       let lightningTexNum = Math.floor(IterNum / 400) % numLightningTextures;
       // console.log(lightningTexNum)
@@ -4096,10 +4101,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, bloomFBOs[0].texture);
 
-
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+      if (SETUP_MODE) {
+        gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), 50.0);
+      }
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
       gl.viewport(0, 0, canvas.width, canvas.height);
