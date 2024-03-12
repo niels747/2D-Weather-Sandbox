@@ -23,7 +23,7 @@ uniform float dryLapse;
 
 void main()
 {
-  vec4 newLightningLocation = texture(precipFeedbackTex, vec2(0.0 + texelSize.x * 2., 0.0));
+  vec4 newLightningLocation = texelFetch(precipFeedbackTex, ivec2(1, 0), 0);                  // read pixel 1, 0 where the lightning location was written to by a precipitation particle
 
   if (newLightningLocation.z < max(iterNum - 1.0, 1.0) || newLightningLocation.z > iterNum) { // No strike, or two strikes tried to generate during the same iteration
     discard;                                                                                  // no new lightning strike, so no update
