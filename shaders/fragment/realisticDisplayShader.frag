@@ -97,8 +97,6 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 {
   vec2 lightningTexCoord = texCoord;
 
-  lightningTexCoord.x += (resolution.x / lightningTexRes.x) * 0.25; // center lightning bolt
-
   lightningTexCoord.x -= mod(pos.x, 1.);
 
   lightningTexCoord.y -= pos.y;
@@ -109,6 +107,7 @@ vec3 displayLightning(vec2 pos, float startIterNum)
   lightningTexCoord.x *= scaleMult * aspectRatios[0] / lightningTexAspect;
   lightningTexCoord.y *= -scaleMult;
 
+  lightningTexCoord.x += 0.5;                                                                                               // center lightning bolt
 
   if (lightningTexCoord.x < 0.01 || lightningTexCoord.x > 1.01 || lightningTexCoord.y < 0.01 || lightningTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec3(0);

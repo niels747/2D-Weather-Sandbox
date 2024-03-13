@@ -2429,6 +2429,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         setupPrecipitationBuffers();
         setupTextures();
         gl.bindVertexArray(fluidVao);
+        IterNum = 0;
+        frameNum = 0;
       }
     } else if (event.code == 'PageUp') {
       adjIterPerFrame(1);
