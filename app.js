@@ -2110,9 +2110,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[3] Temp :', baseTextureValues[3].toFixed(2) + ' K   ', KtoC(baseTextureValues[3]).toFixed(2) + ' °C   ', KtoC(potentialToRealT(baseTextureValues[3], simYpos)).toFixed(2) + ' °C');
 
     console.log('WATER-----------------------------------------');
-    console.log('[0] water:     ', waterTextureValues[0]);
-    console.log('[1] cloudwater:', waterTextureValues[1]);
-    console.log('[2] rain:      ', waterTextureValues[2]);
+    console.log('[0] Water:     ', waterTextureValues[0]);
+    console.log('[1] Cloudwater:', waterTextureValues[1]);
+    console.log('[2] Precipitation:', waterTextureValues[2]);
     console.log('[3] Smoke/snow:', waterTextureValues[3]);
 
     console.log('WALL-----------------------------------------');
@@ -3877,10 +3877,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-              gl.readBuffer(gl.COLOR_ATTACHMENT0);
-              var lightningLocationValues = new Float32Array(4);
-              gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningLocationValues);
-              console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2], IterNum);
+              // only for debugging
+              // gl.readBuffer(gl.COLOR_ATTACHMENT0);
+              // var lightningLocationValues = new Float32Array(4);
+              // gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningLocationValues);
+              // console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2], IterNum);
             }
 
             if (IterNum % 100 == 0) {

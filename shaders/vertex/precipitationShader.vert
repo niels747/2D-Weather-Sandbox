@@ -126,9 +126,19 @@ void main()
           feedback[HEAT] += newMass[ICE] * meltingHeat;                  // add heat of freezing
           newDensity = snowDensity;
 
-          vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
+          vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5)); // data from last lightning bolt
 
-          if (lightningLocation.z < iterNum - 200. && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) > 0.99) { // Spawn lightning
+          float lightningSpawnChance = 0.01;
+
+          const float minCloudDensityForLightning = 1.5;
+
+          float cloudDensity = water[CLOUD] + water[PRECIPITATION];
+
+          lightningSpawnChance = max((cloudDensity - minCloudDensityForLightning) * 0.001, 0.);
+
+          const float minIterationsSinceLastLightningBolt = 50.;
+
+          if (lightningLocation.z < iterNum - minIterationsSinceLastLightningBolt && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
             lightningSpawned = true;
             isActive = false;
             gl_PointSize = 1.0;
