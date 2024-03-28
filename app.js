@@ -1717,6 +1717,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         '6 IR Heating / Cooling' : 'DISP_IRHEATING',
         '7 IR Down -60°C to 26°C' : 'DISP_IRDOWNTEMP',
         '8 IR Up -26°C to 30°C' : 'DISP_IRUPTEMP',
+        '9 Precipitation Mass' : 'DISP_PRECIPFEEDBACK_MASS',
+        'Precipitation Heating/Cooling' : 'DISP_PRECIPFEEDBACK_HEAT',
+        'Precipitation Condensation/Evaporation' : 'DISP_PRECIPFEEDBACK_VAPOR',
+        'Snow deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
       })
       .name('Display Mode')
       .listen();
@@ -2380,6 +2384,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.displayMode = 'DISP_IRDOWNTEMP';
     } else if (event.key == 8) {
       guiControls.displayMode = 'DISP_IRUPTEMP';
+    } else if (event.key == 9) {
+      guiControls.displayMode = 'DISP_PRECIPFEEDBACK_MASS';
+    } else if (event.key == 0) {
+      guiControls.displayMode = 'DISP_PRECIPFEEDBACK_HEAT';
     } else if (event.key == 'ArrowLeft') {
       leftPressed = true;  // <
     } else if (event.key == 'ArrowUp') {
@@ -4179,26 +4187,47 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         switch (guiControls.displayMode) {
         case 'DISP_HORIVEL':
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'),
-                       10.0); // 20.0
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
           break;
         case 'DISP_VERTVEL':
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'),
-                       10.0); // 20.0
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
           break;
         case 'DISP_WATER':
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'),
-                       -0.06); // negative number so positive amount is blue
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), -0.06); // negative number so positive amount is blue
           break;
         case 'DISP_IRHEATING':
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
           gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 50000.0);
+          break;
+        case 'DISP_PRECIPFEEDBACK_MASS':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.3);
+          break;
+        case 'DISP_PRECIPFEEDBACK_HEAT':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
+          break;
+        case 'DISP_PRECIPFEEDBACK_VAPOR':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
+          break;
+        case 'DISP_PRECIPFEEDBACK_SNOW':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 3);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
           break;
         }
       }

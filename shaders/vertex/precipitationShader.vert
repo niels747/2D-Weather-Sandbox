@@ -180,10 +180,10 @@ void main()
 
     float totalMass = newMass[WATER] + newMass[ICE];
 
-    if (totalMass < 0.04) {                  // to small
-
-      feedback[HEAT] = totalMass * evapHeat; // evaporation of residual droplet
-      feedback[VAPOR] = totalMass;           // evaporation of residual droplet
+    if (totalMass < 0.04) { // to small
+                            // evaporation of residual droplet
+      feedback[HEAT] = -(totalMass * evapHeat);
+      feedback[VAPOR] = totalMass;
 
       disableDroplet();
 
