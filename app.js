@@ -450,11 +450,11 @@ function createBloomFBOs()
 
 class Weatherstation
 {
-  #width = 100; // 70 display size
-  #height = 55;
+  #width = 120; // 100 display size
+  #height = 70; // 55
   #canvas;
-  #c; // 2d canvas context
-  #x; // position in simulation
+  #c;           // 2d canvas context
+  #x;           // position in simulation
   #y;
 
   #temperature = 0;  // °C
@@ -513,8 +513,13 @@ class Weatherstation
       this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
     }
 
-    this.#soilMoisture = waterTextureValues[2];
-    this.#snowHeight = waterTextureValues[3];
+    if (waterTextureValues[0] > 1110) { // surface below
+      this.#soilMoisture = waterTextureValues[2];
+      this.#snowHeight = waterTextureValues[3];
+    } else {
+      this.#soilMoisture = 0;
+      this.#snowHeight = 0;
+    }
 
     if (waterTextureValues[4 + 0] > 1110) { // is not air
       this.destroy();                       // remove weather station
@@ -544,20 +549,24 @@ class Weatherstation
     // temperature
     c.font = '15px Arial';
     c.fillStyle = '#FFFFFF';
-    c.fillText(printTemp(this.#temperature), 10, 15);
+    c.fillText(printTemp(this.#temperature), 30, 15);
     // dew point
     c.font = '12px Arial';
     c.fillStyle = '#00FFFF';
-    c.fillText(printTemp(this.#dewpoint), 10, 28);
+    c.fillText(printTemp(this.#dewpoint), 30, 28);
 
     c.fillStyle = '#FFFFFF';
-    c.fillText(printVelocity(this.#velocity), 10, 40);
+    c.fillText(printVelocity(this.#velocity), 20, 40);
 
-    if (this.#soilMoisture > 0.)
-      c.fillText(printSoilMoisture(this.#soilMoisture), 0, 55);
-
-    if (this.#snowHeight > 0.)
-      c.fillText(printSnowHeight(this.#snowHeight), 55, 55);
+    if (this.#soilMoisture > 0.) {
+      c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
+      c.fillText('💧', 20, 65);
+    }
+    if (this.#snowHeight > 0.) {
+      c.fillText(printSnowHeight(this.#snowHeight), 67, 52);
+      c.font = '14px Arial';
+      c.fillText('❄', 85, 65);
+    }
 
 
     // Position pointer
@@ -1916,14 +1925,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           if (wallTextureValues[4 * y + 0] == 1 || wallTextureValues[4 * y + 0] == 4) { // is land or urban
             c.fillStyle = 'white';
             c.lineWidth = 1.0;
-            var snowHeight_cm = waterTextureValues[4 * y + 3];
-            if (snowHeight_cm > 0) {
-              c.fillText('❄' + printSnowHeight(snowHeight_cm), 100, scrYpos + 17); // display snow height
+
+            let soilMoisture_mm = waterTextureValues[4 * y + 2];
+            if (soilMoisture_mm > 0.) {
+              c.fillText('💧' + printSoilMoisture(soilMoisture_mm), 65, scrYpos + 17);
+            }
+
+            let snowHeight_cm = waterTextureValues[4 * y + 3];
+            if (snowHeight_cm > 0.) {
+              c.fillText('❄' + printSnowHeight(snowHeight_cm), 160, scrYpos + 17); // display snow height
             }
           } else if (wallTextureValues[4 * y + 0] == 2) {                          // is water
             c.fillStyle = 'lightblue';
             c.lineWidth = 1.0;
-            var waterTempC = KtoC(potentialTemp);                                                           // water temperature is stored as absolute, not dependant on height
+            let waterTempC = KtoC(potentialTemp);                                                           // water temperature is stored as absolute, not dependant on height
             c.fillText('🌊 🌡' + printTemp(waterTempC), T_to_Xpos(waterTempC, scrYpos) - 33, scrYpos + 17); // display water surface temperature
           }
         }
@@ -2774,7 +2789,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const targetAngle = 0.0;
 
   while (startY > 0.) {
-
     let nextX = startX + Math.sin(angle);
     let nextY = startY - Math.cos(angle);
 
@@ -3423,7 +3437,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
   for (let i = 0; i < numLightningTextures; i++) {
-
     const lightningGeneratorWorker = new Worker("./lightningGenerator.js");
     lightningGeneratorWorker.onmessage = (imgElement) => {
       // downloadImageData(imgElement.data); // for debugging
@@ -3643,7 +3656,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function draw()
   { // Runs for every frame
-
     let camPanSpeed = guiControls.camSpeed;
 
     if (rightCtrlPressed) {
