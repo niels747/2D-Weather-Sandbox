@@ -15,12 +15,9 @@ out vec2 position_out;
 out vec2 mass_out;
 out float density_out;
 
-// to fragmentshader for feedback to fluid
-// feedback[0] droplet mass / number of inactive droplets count
-// feedback[1] heat exchange with fluid
-// feedback[2] water exchange with fluid / rain accumulation on ground
-// feedback[3] snow acumulation on ground
+// via fragmentshader to feedback framebuffers for feedback to fluid
 out vec4 feedback;
+out vec2 deposition; // for rain and snow accumulation on surface
 
 vec2 texCoord;
 vec4 water;
@@ -66,7 +63,6 @@ bool lightningSpawned = false;
 
 void disableDroplet()
 {
-  gl_PointSize = 1.;
   newMass[WATER] = -2. - dropPosition.x; // disable droplet by making it negative and save position as seed for respawning
   newMass[ICE] = dropPosition.y;         // save position as seed for random function when respawning later
 }
@@ -192,11 +188,8 @@ void main()
       if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[TEMPERATURE] > 500.) // if above cell was already wall. because of fast fall speed
         newPos.y += texelSize.y * 1.;                                                       // *2. ? move position up so that the water/snow is correcty added to the ground
 
-                                                                                            // feedback[VAPOR] = newMass[WATER];                                                             // rain accumulation increased soil moisture. Not currently used because it causes bugs in some cases
-
-      // BUG Fixed: Snow feedback detected in the middle of clouds when droplets shouldn't despawn!
-      // Fix: Use correctly updated texcoord to read watertexture when spwaning droplet, so that water[TOTAL] will not be > 1000
-      feedback[SNOW] = newMass[ICE]; // snow accumulation
+      deposition[RAIN_DEPOSITION] = newMass[WATER];                                         // rain accumulation
+      deposition[SNOW_DEPOSITION] = newMass[ICE];                                           // snow accumulation
 
       disableDroplet();
 
@@ -289,7 +282,9 @@ void main()
     feedback[MASS] /= pntSurface;
     feedback[HEAT] /= pntSurface;
     feedback[VAPOR] /= pntSurface;
-    feedback[SNOW] /= pntSize; // only width matters because it's only applied at surface layer
+
+    deposition[RAIN_DEPOSITION] /= pntSize; // only width matters because it's only applied at surface layer
+    deposition[SNOW_DEPOSITION] /= pntSize; // only width matters because it's only applied at surface layer
 
     gl_PointSize = pntSize;
 

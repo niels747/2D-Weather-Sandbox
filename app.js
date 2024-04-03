@@ -269,8 +269,18 @@ function printSnowHeight(snowHeight_cm)
     let snowHeight_inches = snowHeight_cm * 0.393701;
     return snowHeight_inches.toFixed(1) + '"'; // inches
   } else
-    return snowHeight_cm.toFixed(0) + ' cm';
+    return snowHeight_cm.toFixed(1) + ' cm';
 }
+
+function printSoilMoisture(soilMoisture_mm)
+{
+  if (guiControls.imperialUnits) {
+    let soilMoisture_inches = soilMoisture_mm * 0.0393701;
+    return soilMoisture_inches.toFixed(1) + '"'; // inches
+  } else
+    return soilMoisture_mm.toFixed(1) + ' mm';
+}
+
 
 function printDistance(km)
 {
@@ -445,9 +455,11 @@ class Weatherstation
   #x; // position in simulation
   #y;
 
-  #temperature = 0;
-  #dewpoint = 0;
-  #velocity = 0;
+  #temperature = 0;  // °C
+  #dewpoint = 0;     // °C
+  #velocity = 0;     // ms
+  #soilMoisture = 0; // mm
+  #snowHeight = 0;   // cm
 
   constructor(xIn, yIn)
   {
@@ -490,17 +502,20 @@ class Weatherstation
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
-    var waterTextureValues = new Float32Array(4);
-    gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
+    var waterTextureValues = new Float32Array(2 * 4);
+    gl.readPixels(this.#x, this.#y - 1, 1, 2, gl.RGBA, gl.FLOAT, waterTextureValues);
 
-    this.#dewpoint = KtoC(dewpoint(waterTextureValues[0]));
+    this.#dewpoint = KtoC(dewpoint(waterTextureValues[4 + 0]));
 
     if (guiControls.realDewPoint) {
       this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
     }
 
-    if (waterTextureValues[0] > 1110) { // is not air
-      this.destroy();                   // remove weather station
+    this.#soilMoisture = waterTextureValues[2];
+    this.#snowHeight = waterTextureValues[3];
+
+    if (waterTextureValues[4 + 0] > 1110) { // is not air
+      this.destroy();                       // remove weather station
     }
   }
 
@@ -533,6 +548,11 @@ class Weatherstation
 
     c.fillStyle = '#FFFFFF';
     c.fillText(printVelocity(this.#velocity), 10, 40);
+
+    c.fillText(printSoilMoisture(this.#soilMoisture), 0, 55);
+
+    c.fillText(printSnowHeight(this.#snowHeight), 55, 55);
+
 
     // Position pointer
     c.beginPath();
@@ -1720,7 +1740,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         '9 Precipitation Mass' : 'DISP_PRECIPFEEDBACK_MASS',
         'Precipitation Heating/Cooling' : 'DISP_PRECIPFEEDBACK_HEAT',
         'Precipitation Condensation/Evaporation' : 'DISP_PRECIPFEEDBACK_VAPOR',
-        'Snow deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
+        'Rain Deposition' : 'DISP_PRECIPFEEDBACK_RAIN',
+        'Snow Deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
+        'Precipitation/Soil Moisture' : 'DISP_SOIL_MOISTURE',
       })
       .name('Display Mode')
       .listen();
@@ -3160,6 +3182,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightTexture_0 = gl.createTexture();
   const lightTexture_1 = gl.createTexture();
   const precipitationFeedbackTexture = gl.createTexture();
+  const precipitationDepositionTexture = gl.createTexture();
   const lightningLocationTexture = gl.createTexture(); // single pixel texture holding location and timing of current lightning strike
 
   // Static texures:
@@ -3289,8 +3312,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
+  gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, sim_res_x, sim_res_y, 0, gl.RG, gl.FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, precipitationDepositionTexture, 0);
 
   gl.bindTexture(gl.TEXTURE_2D, lightningLocationTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 1, 1, 0, gl.RGBA, gl.FLOAT, null);
@@ -3454,6 +3483,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'wallTex'), 3);
   gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'lightTex'), 4);
   gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'precipFeedbackTex'), 5);
+  gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'precipDepositionTex'), 6);
   gl.uniform2f(gl.getUniformLocation(boundaryProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(boundaryProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'),
@@ -3777,6 +3807,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
             gl.activeTexture(gl.TEXTURE5);
             gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+            gl.activeTexture(gl.TEXTURE6);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+
+
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
             gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -3853,6 +3887,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.bindVertexArray(srcVAO);
               gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
               gl.beginTransformFeedback(gl.POINTS);
+              gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1 ]);
               gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
               gl.endTransformFeedback();
 
@@ -4223,11 +4258,23 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
           gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
           break;
+        case 'DISP_PRECIPFEEDBACK_RAIN':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
+          break;
         case 'DISP_PRECIPFEEDBACK_SNOW':
           gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 3);
+          gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
           gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
+          break;
+        case 'DISP_SOIL_MOISTURE':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.02);
           break;
         }
       }

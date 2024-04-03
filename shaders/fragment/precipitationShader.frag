@@ -2,10 +2,13 @@
 precision highp float;
 
 in vec4 feedback;
+in vec2 deposition;
 
-out vec4 fragmentColor;
+layout(location = 0) out vec4 feedbackOut;
+layout(location = 1) out vec2 depositionOut;
 
-void main()
+void main() // simply pass through
 {
-fragmentColor = feedback; // simply pass through
+  feedbackOut = feedback;
+  depositionOut = deposition;
 }

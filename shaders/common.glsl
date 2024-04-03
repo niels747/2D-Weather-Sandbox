@@ -1,5 +1,5 @@
-precision highp int;        // needed for chrome 97, older versions didn't need this specified
-precision highp isampler2D; // Not sure if the WebGL standard changed
+precision highp int;
+precision highp isampler2D;
 
 #define PI 3.1415926535897932384626433832795
 #define rad2deg 57.2958
@@ -66,7 +66,11 @@ precision highp isampler2D; // Not sure if the WebGL standard changed
 #define MASS 0
 #define HEAT 1
 #define VAPOR 2
-// #define SNOW 3
+// 3 not used
+
+// Precipitation deposition
+#define RAIN_DEPOSITION 0
+#define SNOW_DEPOSITION 1
 
 
 // Universal Functions

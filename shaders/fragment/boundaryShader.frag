@@ -17,6 +17,7 @@ uniform sampler2D vortForceTex;
 uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D precipFeedbackTex;
+uniform sampler2D precipDepositionTex;
 
 uniform float dryLapse;
 uniform float evapHeat;
@@ -62,6 +63,7 @@ void main()
   water = texture(waterTex, texCoord);
 
   vec4 precipFeedback = texture(precipFeedbackTex, texCoord);
+
 
   float realTemp = potentialToRealT(base[3]);
 
@@ -296,35 +298,43 @@ void main()
 
     } else if (wall[VERT_DISTANCE] == 0) { // at/in surface layer
 
+      vec2 precipDeposition = texture(precipDepositionTex, texCoord).xy;
+
       switch (wall[TYPE]) {
       case WALLTYPE_URBAN:
-        wall[VEGETATION] = min(wall[VEGETATION], 75);                                            // limit vegetation in urban areas
+        wall[VEGETATION] = min(wall[VEGETATION], 75);                                                              // limit vegetation in urban areas
       case WALLTYPE_LAND:
-        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipFeedback[VAPOR], 0.0, 100.0);  // rain accumulation
-        water[SNOW] = clamp(water[SNOW] + precipFeedback[SNOW] * snowMassToHeight, 0.0, 4000.0); // snow accumulation in cm
+        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipDeposition[RAIN_DEPOSITION] * 0.1, 0.0, 1000.0); // rain accumulation
+        water[SNOW] = clamp(water[SNOW] + precipDeposition[SNOW_DEPOSITION] * snowMassToHeight, 0.0, 4000.0);      // snow accumulation in cm
 
-        if (int(iterNum) % 700 == 0) {                                                           // fire and snow spread at fixed rate
+        if (int(iterNum) % 100 == 0) {                                                                             // snow and soil moisture smoothing
 
           // average out snow cover
           float numNeighbors = 0.;
           float totalNeighborSnow = 0.0;
+          float totalNeighborSoilMoisture = 0.0;
 
           if (wallXmY0[VERT_DISTANCE] == 0 && (wallXmY0[TYPE] == WALLTYPE_LAND || wallXmY0[TYPE] == WALLTYPE_URBAN)) {
             totalNeighborSnow += texture(waterTex, texCoordXmY0)[SNOW];
+            totalNeighborSoilMoisture += texture(waterTex, texCoordXmY0)[SOIL_MOISTURE];
             numNeighbors += 1.;
           }
           if (wallXpY0[VERT_DISTANCE] == 0 && (wallXpY0[TYPE] == WALLTYPE_LAND || wallXpY0[TYPE] == WALLTYPE_URBAN)) {
             totalNeighborSnow += texture(waterTex, texCoordXpY0)[SNOW];
+            totalNeighborSoilMoisture += texture(waterTex, texCoordXpY0)[SOIL_MOISTURE];
             numNeighbors += 1.;
           }
           if (numNeighbors > 0.) { // prevent devide by 0
             float avgNeighborSnow = totalNeighborSnow / numNeighbors;
             water[SNOW] += (avgNeighborSnow - water[SNOW]) * 0.1;
+
+            float avgNeighborSoilMoisture = totalNeighborSoilMoisture / numNeighbors;
+            water[SOIL_MOISTURE] += (avgNeighborSoilMoisture - water[SOIL_MOISTURE]) * 0.9; // max 0.9
           }
 
 
-          if (wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
-            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
+          if (int(iterNum) % 700 == 0 && wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
+            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                     // spread fire
         }
         break;
       case WALLTYPE_WATER:
