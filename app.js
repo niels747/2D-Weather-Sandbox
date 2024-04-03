@@ -94,6 +94,8 @@ var guiControls;
 
 var displayVectorField = false;
 
+var displayWeatherStations = true;
+
 var sunIsUp = true;
 
 var airplaneMode = false;
@@ -523,6 +525,8 @@ class Weatherstation
 
   getYpos() { return this.#y; }
 
+  setHidden(hidden) { this.#canvas.style.display = hidden ? "none" : "block"; }
+
   updateCanvas()
   {
     let screenX = simToScreenX(this.#x) - this.#width / 2;
@@ -549,9 +553,11 @@ class Weatherstation
     c.fillStyle = '#FFFFFF';
     c.fillText(printVelocity(this.#velocity), 10, 40);
 
-    c.fillText(printSoilMoisture(this.#soilMoisture), 0, 55);
+    if (this.#soilMoisture > 0.)
+      c.fillText(printSoilMoisture(this.#soilMoisture), 0, 55);
 
-    c.fillText(printSnowHeight(this.#snowHeight), 55, 55);
+    if (this.#snowHeight > 0.)
+      c.fillText(printSnowHeight(this.#snowHeight), 55, 55);
 
 
     // Position pointer
@@ -2453,6 +2459,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WIND';
     } else if (event.code == 'KeyM') {
       guiControls.tool = 'TOOL_STATION';
+      displayWeatherStations = true;
+      for (i = 0; i < weatherStations.length; i++) {
+        weatherStations[i].setHidden(false);
+      }
+    } else if (event.code == 'KeyN') {
+      if (displayWeatherStations) {
+        displayWeatherStations = false;
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].setHidden(true);
+        }
+      } else {
+        displayWeatherStations = true;
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].setHidden(false);
+        }
+      }
     } else if (event.code == 'KeyL') {
       // reload simulation
       if (initialRainDrops) { // if loaded from save file
@@ -3927,7 +3949,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               // console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2], IterNum);
             }
 
-            if (IterNum % 100 == 0) {
+            if (displayWeatherStations && IterNum % 100 == 0) {
               for (i = 0; i < weatherStations.length; i++) {
                 weatherStations[i].measure();
               }
@@ -4285,8 +4307,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
     }
 
-    for (i = 0; i < weatherStations.length; i++) {
-      weatherStations[i].updateCanvas(); // update weather stations
+    if (displayWeatherStations) {
+      for (i = 0; i < weatherStations.length; i++) {
+        weatherStations[i].updateCanvas(); // update weather stations
+      }
     }
 
     frameNum++;
