@@ -59,6 +59,8 @@ float opacity = 1.0;
 
 vec3 emittedLight = vec3(0.); // pure light, like lightning
 
+vec3 onLight;                 // extra light, just like sunlight and shadowlight
+
 
 vec4 surfaceTexture(int index, vec2 pos)
 {
@@ -93,6 +95,14 @@ vec3 getWallColor(float depth)
 const vec2 lightningTexRes = vec2(2500, 5000);
 const float lightningTexAspect = lightningTexRes.x / lightningTexRes.y;
 
+float calcLightningTime(float startIterNum)
+{
+  float iterNumMod = iterNum - startIterNum;
+  return iterNumMod / 5.0; // 30.0    0. to 1. leader stage, 1. + Flash stage
+}
+
+float lightningIntensityOverTime(float T) { return max((1. / (0.05 + pow((T - 1.) * 2.0, 3.))) - 0.005, 0.); }
+
 vec3 displayLightning(vec2 pos, float startIterNum)
 {
   vec2 lightningTexCoord = texCoord;
@@ -114,11 +124,7 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   float pixVal = texture(lightningTex, lightningTexCoord).r;
 
-  float iterNumMod = mod(float(iterNum), 400.); // 300
-
-  iterNumMod = iterNum - startIterNum;
-
-  float lightningTime = iterNumMod / 5.0; // 30.0    0. to 1. leader stage, 1. + Flash stage
+  float lightningTime = calcLightningTime(startIterNum);
 
   const float branchShowFactor = 1.5;
   const float leaderBrightness = 200.;
@@ -133,7 +139,7 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   if (lightningTime > 1.0) { // main bolt
     brightnessThreshold = 0.95;
-    lightningIntensity = ((1. / (0.05 + pow((lightningTime - 1.) * 2.0, 3.))) - 0.005) * mainBoltBrightness;
+    lightningIntensity = lightningIntensityOverTime(lightningTime) * mainBoltBrightness;
   }
 
   pixVal -= brightnessThreshold;
@@ -239,18 +245,21 @@ void main()
     opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                // alpha blending
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
 
-
-    vec2 lightningPos = vec2(0.3, 0.3);
-    float lightningStartIterNum = 100.;
-
     vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
-    lightningPos = lightningLocation.xy;
-    lightningStartIterNum = lightningLocation.z;
+    vec2 lightningPos = lightningLocation.xy;
+    float lightningStartIterNum = lightningLocation.z;
 
     emittedLight += displayLightning(lightningPos, lightningStartIterNum); // needs to be added as light
 
     emittedLight /= 1. + cloudDensity * 100.0;
 
+#define lightningOnLightBrightness 0.002
+
+    vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
+    dist.x *= aspectRatios[0];
+    float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
+    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum));
+    onLight += vec3(lightningOnLight);
 
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
       float localX = fract(fragCoord.x);
@@ -384,7 +393,7 @@ void main()
     shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
 
-  finalLight += vec3(shadowLight);
+  finalLight += vec3(shadowLight) + onLight;
 
   opacity += length(emittedLight);
   opacity = clamp(opacity, 0.0, 1.0);

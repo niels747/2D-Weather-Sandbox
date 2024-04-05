@@ -126,7 +126,7 @@ void main()
 
           float lightningSpawnChance = 0.01;
 
-          const float minCloudDensityForLightning = 1.5;
+          const float minCloudDensityForLightning = 2.5; // 1.5
 
           float cloudDensity = water[CLOUD] + water[PRECIPITATION];
 
