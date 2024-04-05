@@ -2556,8 +2556,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
   // load shaders
-  var commonSource = loadSourceFile('shaders/common.glsl');
-  var commonDisplaySource = loadSourceFile('shaders/commonDisplay.glsl');
+  var commonSource = await loadSourceFile('shaders/common.glsl');
+  var commonDisplaySource = await loadSourceFile('shaders/commonDisplay.glsl');
 
   const simVertexShader = await loadShader('simShader.vert');
   const dispVertexShader = await loadShader('dispShader.vert');
@@ -4547,33 +4547,30 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     let filename = 'shaders/' + type + '/' + nameIn;
 
-    var shaderSource = loadSourceFile(filename);
-    if (shaderSource) {
-      if (shaderSource.includes('#include "common.glsl"')) {
-        shaderSource = shaderSource.replace('#include "common.glsl"', commonSource);
-      }
-
-      if (shaderSource.includes('#include "commonDisplay.glsl"')) {
-        shaderSource = shaderSource.replace('#include "commonDisplay.glsl"', commonDisplaySource);
-      }
-
-      // try shader optimization step here
-
-      const shader = gl.createShader(shaderType);
-      gl.shaderSource(shader, shaderSource);
-      // console.time('compileShader');
-      gl.compileShader(shader);
-      // console.timeEnd('compileShader')
-
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        // Compile error
-        throw filename + ' COMPILATION ' + gl.getShaderInfoLog(shader);
-      }
-      return new Promise(async (resolve) => {
-        await loadingBar.add(3, 'Loading shader: ' + nameIn);
-        resolve(shader);
-      });
+    var shaderSource = await loadSourceFile(filename);
+    if (shaderSource.includes('#include "common.glsl"')) {
+      console.log("includes common.glsl");
+      shaderSource = shaderSource.replace('#include "common.glsl"', commonSource);
     }
+
+    if (shaderSource.includes('#include "commonDisplay.glsl"')) {
+      shaderSource = shaderSource.replace('#include "commonDisplay.glsl"', commonDisplaySource);
+    }
+
+    const shader = gl.createShader(shaderType);
+    gl.shaderSource(shader, shaderSource);
+    // console.time('compileShader');
+    gl.compileShader(shader);
+    // console.timeEnd('compileShader')
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      // Compile error
+      throw filename + ' COMPILATION ' + gl.getShaderInfoLog(shader);
+    }
+    return new Promise(async (resolve) => {
+      await loadingBar.add(3, 'Loading shader: ' + nameIn);
+      resolve(shader);
+    });
   }
 
   function adjIterPerFrame(adj) { guiControls.IterPerFrame = Math.round(Math.min(Math.max(guiControls.IterPerFrame + adj, 1), 50)); }
