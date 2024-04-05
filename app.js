@@ -767,6 +767,13 @@ class LoadingBar
     await this.#update();
   }
 
+  async showError(error)
+  {
+    this.bar.style.backgroundColor = 'red';
+    this.description = error;
+    await this.#update();
+  }
+
   #update()
   {
     return new Promise((resolve) => {
@@ -4500,11 +4507,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  function loadSourceFile(fileName)
+  async function loadSourceFile(fileName)
   {
-    var request = new XMLHttpRequest();
-    request.open('GET', fileName, false);
-    request.send(null);
+    try {
+      var request = new XMLHttpRequest();
+      request.open('GET', fileName, false);
+      request.send(null);
+    } catch (error) {
+      await loadingBar.showError('ERROR loading shader files! If you just opened index.html, try again using a local server!');
+      throw error;
+    }
+
     if (request.status === 200)
       return request.responseText;
     else if (request.status === 404)

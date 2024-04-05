@@ -126,9 +126,9 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   float lightningTime = calcLightningTime(startIterNum);
 
-  const float branchShowFactor = 1.5;
-  const float leaderBrightness = 200.;
-  const float mainBoltBrightness = 100000.;
+  const float branchShowFactor = 2.5;       // 1.5
+  const float leaderBrightness = 100000.;   // 200.0
+  const float mainBoltBrightness = 100000.; // 100000.
 
   float brightnessThreshold = 1. - lightningTime * branchShowFactor;
   brightnessThreshold += lightningTexCoord.y * branchShowFactor; // grow from the top to the bottem
@@ -258,7 +258,7 @@ void main()
     vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
     dist.x *= aspectRatios[0];
     float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
-    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum));
+    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum) - 0.1);
     onLight += vec3(lightningOnLight);
 
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
