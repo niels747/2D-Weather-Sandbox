@@ -4549,7 +4549,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var shaderSource = await loadSourceFile(filename);
     if (shaderSource.includes('#include "common.glsl"')) {
-      console.log("includes common.glsl");
       shaderSource = shaderSource.replace('#include "common.glsl"', commonSource);
     }
 

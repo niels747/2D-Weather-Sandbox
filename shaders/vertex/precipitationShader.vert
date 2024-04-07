@@ -126,11 +126,12 @@ void main()
 
           float lightningSpawnChance = 0.01;
 
-          const float minCloudDensityForLightning = 2.5; // 1.5
+          const float lightningCloudDensityThreshold = 3.0; // 2.5
+          const float lightningChanceMultiplier = 0.0011;   // 0.0010
 
           float cloudDensity = water[CLOUD] + water[PRECIPITATION];
 
-          lightningSpawnChance = max((cloudDensity - minCloudDensityForLightning) * 0.001, 0.);
+          lightningSpawnChance = max((cloudDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
 
           const float minIterationsSinceLastLightningBolt = 50.;
 
