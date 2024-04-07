@@ -1765,6 +1765,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Rain Deposition' : 'DISP_PRECIPFEEDBACK_RAIN',
         'Snow Deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
         'Precipitation/Soil Moisture' : 'DISP_SOIL_MOISTURE',
+        'Curl' : 'DISP_CURL',
       })
       .name('Display Mode')
       .listen();
@@ -4041,12 +4042,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
           gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.02);
           break;
+        case 'DISP_CURL':
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, curlTexture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 7.0);
+          break;
         }
       }
 
-
-      //	gl.bindTexture(gl.TEXTURE_2D, curlTexture);
-      //	gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
     }
 
