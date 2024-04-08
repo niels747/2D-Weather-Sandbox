@@ -22,7 +22,6 @@ in vec2 fragCoord;
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
-// layout(location = 2) out vec4 light;
 layout(location = 2) out ivec4 wall;
 
 float rand(float n) { return fract(sin(n) * 43758.5453123); }
@@ -63,31 +62,31 @@ void main()
     height_m = height * simHeight; // sim height
   }
 
-  if (texCoord.y < texelSize.y || texCoord.y < height) {                                             // set to wall
-    wall[1] = 0;                                                                                     // set to wall
+  if (texCoord.y < texelSize.y || texCoord.y < height) {                                                      // set to wall
+    wall[DISTANCE] = 0;                                                                                       // set to wall
     if (height < texelSize.y) {
-      wall[0] = 2;                                                                                   // set walltype to water
-      base[3] = CtoK(25.0);                                                                          // set water temperature to 25 C
+      wall[TYPE] = WALLTYPE_WATER;                                                                            // set walltype to water
+      base[TEMPERATURE] = CtoK(25.0);                                                                         // set water temperature to 25 C
     } else {
-      wall[0] = 1;                                                                                   // set walltype to land
-      water[2] = 100.0;                                                                              // soil moisture
+      wall[TYPE] = WALLTYPE_LAND;                                                                             // set walltype to land
+      water[SOIL_MOISTURE] = 0.0;                                                                             // soil moisture
 
-      wall[3] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
+      wall[VEGETATION] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
 
-      water[3] = max(map_rangeC(height_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                          // set snow
+      water[SNOW] = max(map_rangeC(height_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                                // set snow
     }
-  } else {                                                                                           // air, not wall
-    wall[1] = 255;                                                                                   // reset distance to wall
-    base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                    // set temperature
+  } else {                                                                                                    // air, not wall
+    wall[DISTANCE] = 255;                                                                                     // reset distance to wall
+    base[TEMPERATURE] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                   // set temperature
 
     float realTemp = potentialToRealT(base[3]);
 
     if (texCoord.y < 0.20) // set dew point
-      water[0] = maxWater(realTemp - 2.0);
+      water[TOTAL] = maxWater(realTemp - 2.0);
     else
-      water[0] = maxWater(realTemp - 20.0);
+      water[TOTAL] = maxWater(realTemp - 20.0);
 
-    water[1] = max(water[0] - maxWater(realTemp), 0.0); // calculate cloud water
+    water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate cloud water
   }
-  wall[2] = 100;                                        // preset height above ground to prevent water being deleted in boundaryshader ln 250*`
+  wall[VERT_DISTANCE] = 100;                                    // preset height above ground to prevent water being deleted in boundaryshader ln 250*`
 }
