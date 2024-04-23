@@ -39,7 +39,7 @@ const guiControls_default = {
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
   globalEffectsHeight : 10000,
-  globalDrying : 0.00000, // 0.00001
+  globalDrying : 0.000003, // 0.000010
   globalHeating : 0.0,
   sunIntensity : 1.0,
   waterTemperature : 25, // only in degrees C, sorry Americans
@@ -50,7 +50,7 @@ const guiControls_default = {
   waterWeight : 0.5,        // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
-  subZeroThreshold : 0.00,  // 0.01
+  subZeroThreshold : 0.005, // 0.01
   spawnChance : 0.00002,    // 30. 10 to 50
   snowDensity : 0.2,        // 0.3
   fallSpeed : 0.0003,
@@ -1536,14 +1536,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Wind');
 
-    fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.001, 0.00001)
+    fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.0001, 0.000001)
       .onChange(function() {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
       })
       .name('Global Drying');
 
-    fluidParams_folder.add(guiControls, 'globalHeating', -0.002, 0.002, 0.0001)
+    fluidParams_folder.add(guiControls, 'globalHeating', -0.001, 0.001, 0.00001)
       .onChange(function() {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
@@ -1569,7 +1569,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Urban' : 'TOOL_WALL_URBAN',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
-        'Moisture' : 'TOOL_WALL_MOIST',
+        'Soil Moisture' : 'TOOL_WALL_MOIST',
         'Vegetation' : 'TOOL_VEGETATION',
         'Snow' : 'TOOL_WALL_SNOW',
         'wind' : 'TOOL_WIND',
@@ -1671,14 +1671,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     var precipitation_folder = datGui.addFolder('Precipitation');
 
-    precipitation_folder.add(guiControls, 'aboveZeroThreshold', 0.1, 2.0, 0.1)
+    precipitation_folder.add(guiControls, 'aboveZeroThreshold', 0.1, 2.0, 0.001)
       .onChange(function() {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'), guiControls.aboveZeroThreshold);
       })
       .name('Precipitation Threshold +°C');
 
-    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.0, 2.0, 0.01)
+    precipitation_folder.add(guiControls, 'subZeroThreshold', 0.0, 1.0, 0.001)
       .onChange(function() {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'subZeroThreshold'), guiControls.subZeroThreshold);

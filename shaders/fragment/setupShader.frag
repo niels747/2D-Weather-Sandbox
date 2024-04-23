@@ -69,7 +69,7 @@ void main()
       base[TEMPERATURE] = CtoK(25.0);                                                                         // set water temperature to 25 C
     } else {
       wall[TYPE] = WALLTYPE_LAND;                                                                             // set walltype to land
-      water[SOIL_MOISTURE] = 0.0;                                                                             // soil moisture
+      water[SOIL_MOISTURE] = 25.0;                                                                            // soil moisture in mm
 
       wall[VEGETATION] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
 
@@ -79,7 +79,7 @@ void main()
     wall[DISTANCE] = 255;                                                                                     // reset distance to wall
     base[TEMPERATURE] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                   // set temperature
 
-    float realTemp = potentialToRealT(base[3]);
+    float realTemp = potentialToRealT(base[TEMPERATURE]);
 
     if (texCoord.y < 0.20) // set dew point
       water[TOTAL] = maxWater(realTemp - 2.0);

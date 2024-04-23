@@ -59,7 +59,12 @@ float opacity = 1.0;
 
 vec3 emittedLight = vec3(0.); // pure light, like lightning
 
-vec3 onLight;                 // extra light, just like sunlight and shadowlight
+vec3 onLight;                 // extra light that lights up objects, just like sunlight and shadowlight
+
+
+const vec3 bareEarthCol = pow(vec3(0.5, 0.2, 0.1), vec3(GAMMA));
+const vec3 greenGrassCol = pow(vec3(0.0, 0.7, 0.2), vec3(GAMMA));
+const vec3 dryGrassCol = pow(vec3(0.843, 0.588, 0.294), vec3(GAMMA));
 
 
 vec4 surfaceTexture(int index, vec2 pos)
@@ -75,19 +80,18 @@ vec4 surfaceTexture(int index, vec2 pos)
 
 vec3 getWallColor(float depth)
 {
-  vec3 earthCol = vec3(0.5, 0.2, 0.1);
-  vec3 grassCol = vec3(0.0, 0.7, 0.2);
+  vec3 vegetationCol = mix(greenGrassCol, dryGrassCol, max(1.0 - water[SOIL_MOISTURE] * (1. / fullGreenSoilMoisture), 0.)); // green to brown
 
-  vec3 surfCol = mix(earthCol, grassCol, min(float(wall[VEGETATION]) / 50., 1.));
+  vec3 surfCol = mix(bareEarthCol, vegetationCol, min(float(wall[VEGETATION]) / 50., 1.));
 
   const vec3 groundCol = vec3(0.70);                                 // gray rock
 
   vec3 color = mix(surfCol, groundCol, clamp(depth * 0.35, 0., 1.)); // * 0.15
 
 
-  color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb;                                // add noise texture
+  color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb;                                   // add noise texture
 
-  color = mix(color, vec3(1.0), clamp(min(water[3], fullWhiteSnowHeight) / fullWhiteSnowHeight - max(depth * 0.3, 0.), 0.0, 1.0)); // mix in white for snow cover
+  color = mix(color, vec3(1.0), clamp(min(water[SNOW], fullWhiteSnowHeight) / fullWhiteSnowHeight - max(depth * 0.3, 0.), 0.0, 1.0)); // mix in white for snow cover
 
   return color;
 }
@@ -285,9 +289,9 @@ void main()
         urbanTexCoordY = 1.0 - urbanTexCoordY;
 
         vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
-        if (texCol.a > 0.5) { // if not transparent
+        if (texCol.a > 0.5) {                  // if not transparent
 
-          if (nightTime) {
+          if (nightTime) {                     // TODO: make dependent  on light level
             shadowLight = 1.0;                 // city lights
             texCol.rgb *= vec3(1.0, 0.8, 0.5); // yellowish windows
           } else {                             // day time
@@ -323,11 +327,15 @@ void main()
 
         vec4 texCol;
         if (wallX0Ym[TYPE] == WALLTYPE_LAND || wallX0Ym[TYPE] == WALLTYPE_URBAN) { // land below
-          float snow = texture(waterTex, texCoordX0Ym)[SNOW];                      // snow on land below
+          vec4 surfaceWater = texture(waterTex, texCoordX0Ym);                     // snow on land below
+          float snow = surfaceWater[SNOW];
           if (snow * 0.01 / cellHeight > heightAboveGround)
-            texCol = vec4(vec3(1.), 1.);                                           // show white snow layer above ground
-          else
-            texCol = mix(surfaceTexture(FOREST, vec2(treeTexCoordX, treeTexCoordY)), surfaceTexture(SNOW_FOREST, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
+            texCol = vec4(vec3(1.), 1.);                                                                                                                          // show white snow layer above ground
+          else {                                                                                                                                                  // display vegetation
+            vec4 treeColor = surfaceTexture(FOREST, vec2(treeTexCoordX, treeTexCoordY));
+            vec4 vegetationCol = mix(treeColor, vec4(dryGrassCol, 1.), max(0.5 - surfaceWater[SOIL_MOISTURE] * (0.5 / fullGreenSoilMoisture), 0.) * treeColor.a); // green to brown
+            texCol = mix(vegetationCol, surfaceTexture(SNOW_FOREST, vec2(treeTexCoordX, treeTexCoordY)), min(snow / fullWhiteSnowHeight, 1.0));
+          }
         } else if (wallX0Ym[TYPE] == WALLTYPE_FIRE) {
           texCol = surfaceTexture(FIRE_FOREST, vec2(treeTexCoordX, treeTexCoordY));
         }

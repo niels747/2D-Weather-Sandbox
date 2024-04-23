@@ -42,9 +42,12 @@ layout(location = 2) out ivec4 wall;
 
 #include "common.glsl"
 
-#define minimalFireVegitation 10
+#define minimalFireVegetation 10
 
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
+
+const bool dynamicVegetation = true;
+
 /*
 #define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
 #define exchangeRate 0.001       // Rate of smoothing near surface
@@ -57,6 +60,12 @@ void exchangeWith(vec2 texCoord) // exchange temperature and water
   water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
 }
 */
+
+float calcEvaporation(float T, float W, float V, float M)                                             // temperature, total water, vegetation, soil moisture
+{
+  return max((maxWater(T) - W) * landEvaporation * (V / 127. + 0.1) * min(M + 1.0, 50.0) * 0.05, 0.); // landEvaporation should be adjusted to remove * 0.05 factor
+}
+
 void main()
 {
   base = texture(baseTex, texCoord);
@@ -65,7 +74,7 @@ void main()
   vec4 precipFeedback = texture(precipFeedbackTex, texCoord);
 
 
-  float realTemp = potentialToRealT(base[3]);
+  float realTemp = potentialToRealT(base[TEMPERATURE]);
 
   wall = texture(wallTex, texCoord);
   ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
@@ -248,14 +257,16 @@ void main()
 
         lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
 
-        base[TEMPERATURE] += lightPower / influenceDevider;                                                                                       // sun heating land
+        base[TEMPERATURE] += lightPower / influenceDevider; // sun heating land
 
-        float evaporation = max((maxWater(realTemp) - water[TOTAL]) * landEvaporation * (float(wall[VEGETATION]) / 127.) / influenceDevider, 0.); // water evaporating from land proportional to vegitation
+        vec4 waterInSurface = texture(waterTex, texCoordX0Ym);
+
+        float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
 
         water[TOTAL] += evaporation;
         base[TEMPERATURE] -= evaporation * evapHeat;
 
-        if (wall[VEGETATION] < 10) {                                                      // Dry desert area
+        if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
           water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
         }
         break;
@@ -303,13 +314,27 @@ void main()
       switch (wall[TYPE]) {
       case WALLTYPE_URBAN:
         wall[VEGETATION] = min(wall[VEGETATION], 75);                                                              // limit vegetation in urban areas
-      case WALLTYPE_LAND:
+      case WALLTYPE_LAND:                                                                                          // no break, also urban:
         water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipDeposition[RAIN_DEPOSITION] * 0.1, 0.0, 1000.0); // rain accumulation
         water[SNOW] = clamp(water[SNOW] + precipDeposition[SNOW_DEPOSITION] * snowMassToHeight, 0.0, 4000.0);      // snow accumulation in cm
 
-        if (int(iterNum) % 100 == 0) {                                                                             // snow and soil moisture smoothing
+
+        vec4 baseAboveSurface = texture(baseTex, texCoordX0Yp);
+        vec4 waterAboveSurface = texture(waterTex, texCoordX0Yp);
+
+        float realTempAboveSurface = potentialToRealT(baseAboveSurface[TEMPERATURE], texCoordX0Yp.y);
+
+        float evaporation = calcEvaporation(realTempAboveSurface, waterAboveSurface[TOTAL], float(wall[VEGETATION]), water[SOIL_MOISTURE]) * 0.10;
+
+        water[SOIL_MOISTURE] -= evaporation;
+
+
+        if (int(iterNum) % 100 == 0) { // snow and soil moisture smoothing
 
           // average out snow cover
+          const float snowSmoothingRate = 0.02; // max 0.9
+          const float moistureSmoothingRate = 0.02;
+
           float numNeighbors = 0.;
           float totalNeighborSnow = 0.0;
           float totalNeighborSoilMoisture = 0.0;
@@ -326,15 +351,25 @@ void main()
           }
           if (numNeighbors > 0.) { // prevent devide by 0
             float avgNeighborSnow = totalNeighborSnow / numNeighbors;
-            water[SNOW] += (avgNeighborSnow - water[SNOW]) * 0.1;
+            water[SNOW] += (avgNeighborSnow - water[SNOW]) * snowSmoothingRate;
 
             float avgNeighborSoilMoisture = totalNeighborSoilMoisture / numNeighbors;
-            water[SOIL_MOISTURE] += (avgNeighborSoilMoisture - water[SOIL_MOISTURE]) * 0.9; // max 0.9
+            water[SOIL_MOISTURE] += (avgNeighborSoilMoisture - water[SOIL_MOISTURE]) * moistureSmoothingRate;
           }
 
+          // dynamic vegetation
 
-          if (int(iterNum) % 700 == 0 && wall[VEGETATION] >= minimalFireVegitation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
-            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                     // spread fire
+          if (int(iterNum) % 700 == 0) {
+
+            if (int(iterNum) % 1400 == 0) {
+              int vegetationGrowth = int((water[SOIL_MOISTURE] * 4.0 - float(wall[VEGETATION])) * 0.05); // 10mm = 40 vegetation    30mm = 120 vegetation
+
+              wall[VEGETATION] += clamp(vegetationGrowth, 0, 1);
+            }
+
+            if (wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
+              wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
+          }
         }
         break;
       case WALLTYPE_WATER:
@@ -362,7 +397,7 @@ void main()
       case WALLTYPE_FIRE:
         if (int(iterNum) % 300 == 0) {
           wall[VEGETATION] -= 1;        // reduce vegetation
-          if (wall[VEGETATION] < minimalFireVegitation)
+          if (wall[VEGETATION] < minimalFireVegetation)
             wall[TYPE] = WALLTYPE_LAND; // turn off fire
         }
       }

@@ -1,13 +1,16 @@
 #version 300 es
 precision highp float;
 precision highp sampler2D;
+precision highp isampler2D;
 
-in vec2 texCoord;     // this
-in vec2 texCoordXmY0; // left
-in vec2 texCoordX0Ym; // down
-in vec2 texCoordXpY0; // right
-in vec2 texCoordX0Yp; // up
+vec2 fragCoord;          // (in) not used just defined for commonDisplay.glsl
+in vec2 texCoord;        // this
+in vec2 texCoordXmY0;    // left
+in vec2 texCoordX0Ym;    // down
+in vec2 texCoordXpY0;    // right
+in vec2 texCoordX0Yp;    // up
 
+uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
 
 uniform float exposure;
@@ -16,9 +19,8 @@ uniform sampler2D hdrTex;
 uniform sampler2D bloomTex;
 out vec4 fragmentColor;
 
-const float GAMMA = 2.0;
 
-const vec3 ONE_OVER_GAMMA = vec3(1. / GAMMA);
+#include "commonDisplay.glsl"
 
 void main()
 {

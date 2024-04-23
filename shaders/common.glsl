@@ -11,7 +11,10 @@ precision highp isampler2D;
 
 #define maxWaterTemp 40.0
 
-#define fullWhiteSnowHeight 10.0 // snow height at witch full whiteness is displayed and max albedo is achieved
+
+#define fullGreenSoilMoisture 50.0 // level of soil moisture where vegetation reaches the greenest color
+
+#define fullWhiteSnowHeight 10.0   // snow height at witch full whiteness is displayed and max albedo is achieved
 #define snowMassToHeight 0.05
 
 #define snowMeltRate 0.000015
@@ -127,6 +130,8 @@ float rand2d(vec2 co)
 // Temperature Functions
 
 float potentialToRealT(float potential) { return potential - texCoord.y * dryLapse; }
+
+float potentialToRealT(float potential, float texCoordY) { return potential - texCoordY * dryLapse; }
 
 float realToPotentialT(float real) { return real + texCoord.y * dryLapse; }
 
