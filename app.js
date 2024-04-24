@@ -2174,7 +2174,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[0] walltype :         ', wallTextureValues[0]);
     console.log('[1] distance:          ', wallTextureValues[1]);
     console.log('[2] Vertical distance :', wallTextureValues[2]);
-    console.log('[3] Vegitation:        ', wallTextureValues[3]);
+    console.log('[3] Vegetation:        ', wallTextureValues[3]);
 
     console.log('LIGHT-----------------------------------------');
     console.log('[0] Sunlight:  ', lightTextureValues[0]);

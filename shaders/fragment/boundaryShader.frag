@@ -364,7 +364,11 @@ void main()
             if (int(iterNum) % 1400 == 0) {
               int vegetationGrowth = int((water[SOIL_MOISTURE] * 4.0 - float(wall[VEGETATION])) * 0.05); // 10mm = 40 vegetation    30mm = 120 vegetation
 
-              wall[VEGETATION] += clamp(vegetationGrowth, 0, 1);
+              //   0 C = 25 max veg
+              //  25 C = 127 veg
+
+              if (int(map_range(realTempAboveSurface, CtoK(0.0), CtoK(25.0), 25., 127.)) > wall[VEGETATION])
+                wall[VEGETATION] += clamp(vegetationGrowth, 0, 1);
             }
 
             if (wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
