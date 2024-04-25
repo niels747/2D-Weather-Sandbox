@@ -149,11 +149,12 @@ void main()
 
     ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
+    // prevent negative numbers
+    wall[VEGETATION] = max(wall[VEGETATION], 0);
+    water[SOIL_MOISTURE] = max(water[SOIL_MOISTURE], 0.0);
+
     if (wallX0Yp[DISTANCE] != 0) { // cell above is not wall, surface layer
 
-      // prevent negative numbers
-      wall[VEGETATION] = max(wall[VEGETATION], 0);
-      water[SOIL_MOISTURE] = max(water[SOIL_MOISTURE], 0.0);
 
       vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
       vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
@@ -255,7 +256,7 @@ void main()
 
 
         case 20:
-          if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
+          if (wall[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             water[SOIL_MOISTURE] += userInputValues[INTENSITY] * 10.0;
           }
           break;
@@ -274,11 +275,11 @@ void main()
         if (setWall) {
           wall[DISTANCE] = 0;         // set wall
           base[TEMPERATURE] = 1000.0; // indicate this is wall and no snow cooling
-          water = vec4(0.0);
+                                      // water = vec4(0.0);
 
           if (wall[TYPE] == WALLTYPE_LAND) {
             water[SOIL_MOISTURE] = 25.0;
-            wall[VEGETATION] = 100;
+            // wall[VEGETATION] = 100;
           } else if (wall[TYPE] == WALLTYPE_WATER) { // water surface
             base[TEMPERATURE] = waterTemperature;
           }

@@ -1928,9 +1928,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
-          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);                                  // temperature
-        } else if (wallTextureValues[4 * y + 2] == 0) {                                 // is surface layer
-          if (wallTextureValues[4 * y + 0] == 1 || wallTextureValues[4 * y + 0] == 4) { // is land or urban
+          c.lineTo(T_to_Xpos(temp, scrYpos), scrYpos);  // temperature
+        } else if (wallTextureValues[4 * y + 2] == 0) { // is surface layer
+          if (wallTextureValues[4 * y + 0] != 2) {      // is land, urban or fire
             c.fillStyle = 'white';
             c.lineWidth = 1.0;
 
@@ -2167,7 +2167,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('WATER-----------------------------------------');
     console.log('[0] Water:     ', waterTextureValues[0]);
     console.log('[1] Cloudwater:', waterTextureValues[1]);
-    console.log('[2] Precipitation:', waterTextureValues[2]);
+    console.log('[2] Soil Moisture / Precipitation:', waterTextureValues[2]);
     console.log('[3] Smoke/snow:', waterTextureValues[3]);
 
     console.log('WALL-----------------------------------------');

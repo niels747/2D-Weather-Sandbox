@@ -42,7 +42,9 @@ layout(location = 2) out ivec4 wall;
 
 #include "common.glsl"
 
-#define minimalFireVegetation 10
+#define minimalFireVegetation 20
+
+#define minimalFireIntensity 0.002
 
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 
@@ -65,6 +67,8 @@ float calcEvaporation(float T, float W, float V, float M)                       
 {
   return max((maxWater(T) - W) * landEvaporation * (V / 127. + 0.1) * min(M + 1.0, 50.0) * 0.05, 0.); // landEvaporation should be adjusted to remove * 0.05 factor
 }
+
+float calcFireIntensity(int veg, float moist) { return float(veg) * 0.00025 - moist * 0.00020; }
 
 void main()
 {
@@ -188,22 +192,22 @@ void main()
 
       // find nearest wall
       int nearest = 255;
-      int nearestType = 0;
+      // int nearestType = 0; // not used, type is only extended vertically now
       if (wallX0Ym[DISTANCE] < nearest) {
         nearest = wallX0Ym[DISTANCE];
-        nearestType = wallX0Ym[TYPE];
+        //   nearestType = wallX0Ym[TYPE];
       }
       if (wallX0Yp[DISTANCE] < nearest) {
         nearest = wallX0Yp[DISTANCE];
-        nearestType = wallX0Yp[TYPE];
+        //  nearestType = wallX0Yp[TYPE];
       }
       if (wallXmY0[DISTANCE] < nearest) {
         nearest = wallXmY0[DISTANCE];
-        nearestType = wallXmY0[TYPE];
+        //  nearestType = wallXmY0[TYPE];
       }
       if (wallXpY0[DISTANCE] < nearest) {
         nearest = wallXpY0[DISTANCE];
-        nearestType = wallXpY0[TYPE];
+        //   nearestType = wallXpY0[TYPE];
       }
 
       wall[DISTANCE] = nearest + 1; // add one to dist to wall
@@ -244,11 +248,22 @@ void main()
 
       wall[VEGETATION] = wallX0Ym[VEGETATION];               // vegetation is copied from below
 
-      // base[2] *= 0.995; // 0.999
+      // base[PRESSURE] *= 0.995; // 0.999
 
-      // base[2]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
+      // base[PRESSURE]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
+
+      vec4 waterInSurface = texture(waterTex, texCoordX0Ym);
 
       switch (wall[TYPE]) {
+      case WALLTYPE_FIRE:
+        //  if (wall[VERT_DISTANCE] == 1) { // forest fire & one above surface
+        float fireIntensity = calcFireIntensity(wall[VEGETATION], waterInSurface[SOIL_MOISTURE]);
+
+        fireIntensity = max(fireIntensity, 0.);
+        base[TEMPERATURE] += fireIntensity;   // heat
+        water[SMOKE] += fireIntensity * 2.0;  // smoke
+        water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
+      //  }
       case WALLTYPE_URBAN:
         water[SMOKE] += 0.00001; // City produces smog
       case WALLTYPE_LAND:
@@ -258,8 +273,6 @@ void main()
         lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
 
         base[TEMPERATURE] += lightPower / influenceDevider; // sun heating land
-
-        vec4 waterInSurface = texture(waterTex, texCoordX0Ym);
 
         float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
 
@@ -277,13 +290,6 @@ void main()
         water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
 
         break;
-      case WALLTYPE_FIRE:
-        if (wall[VERT_DISTANCE] == 1) {         // forest fire & one above surface
-          float fireIntensity = float(wall[VEGETATION]) * 0.00015;
-          base[TEMPERATURE] += fireIntensity;   // heat
-          water[SMOKE] += fireIntensity * 2.0;  // smoke
-          water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
-        }
       }
     }
 
@@ -313,8 +319,20 @@ void main()
 
       switch (wall[TYPE]) {
       case WALLTYPE_URBAN:
-        wall[VEGETATION] = min(wall[VEGETATION], 75);                                                              // limit vegetation in urban areas
-      case WALLTYPE_LAND:                                                                                          // no break, also urban:
+        wall[VEGETATION] = min(wall[VEGETATION], 75); // limit vegetation in urban areas
+      case WALLTYPE_FIRE:
+        if (wall[TYPE] == WALLTYPE_FIRE) {            // extra check to make sure it's not urban
+          float fireIntensity = calcFireIntensity(wall[VEGETATION], water[SOIL_MOISTURE]);
+
+          if (fireIntensity < minimalFireIntensity) { // fire goes out
+            wall[TYPE] = WALLTYPE_LAND;
+          } else if (int(iterNum) % (int(10. / fireIntensity) + 1) == 0) {
+            wall[VEGETATION] -= 1;        // reduce vegetation
+            if (wall[VEGETATION] < 10)
+              wall[TYPE] = WALLTYPE_LAND; // turn off fire
+          }
+        }
+      case WALLTYPE_LAND:                                                                                          // no break,can also be fire or urban:
         water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipDeposition[RAIN_DEPOSITION] * 0.1, 0.0, 1000.0); // rain accumulation
         water[SNOW] = clamp(water[SNOW] + precipDeposition[SNOW_DEPOSITION] * snowMassToHeight, 0.0, 4000.0);      // snow accumulation in cm
 
@@ -359,10 +377,12 @@ void main()
 
           // dynamic vegetation
 
-          if (int(iterNum) % 700 == 0) {
+#define vegetationAndFireUpdateInterval 700
+
+          if (int(iterNum) % vegetationAndFireUpdateInterval == 0) {
 
             if (int(iterNum) % 1400 == 0) {
-              int vegetationGrowth = int((water[SOIL_MOISTURE] * 4.0 - float(wall[VEGETATION])) * 0.05); // 10mm = 40 vegetation    30mm = 120 vegetation
+              int vegetationGrowth = int((water[SOIL_MOISTURE] * 4.0 - float(wall[VEGETATION])) * light[SUNLIGHT] * 0.05); // 10mm = 40 vegetation    30mm = 120 vegetation
 
               //   0 C = 25 max veg
               //  25 C = 127 veg
@@ -371,8 +391,11 @@ void main()
                 wall[VEGETATION] += clamp(vegetationGrowth, 0, 1);
             }
 
-            if (wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 3.5)) // if left or right is on fire or fire is blowing over
-              wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                          // spread fire
+            int subInterval = int(iterNum) / vegetationAndFireUpdateInterval;
+
+            if (subInterval % (int(water[SOIL_MOISTURE] * 0.1 + water[SNOW] * 0.5) + 1) == 0 && wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 4.5)) { // if left or right is on fire or fire is blowing over
+              wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                                                                            // spread fire
+            }
           }
         }
         break;
@@ -398,12 +421,6 @@ void main()
         }
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
         break;
-      case WALLTYPE_FIRE:
-        if (int(iterNum) % 300 == 0) {
-          wall[VEGETATION] -= 1;        // reduce vegetation
-          if (wall[VEGETATION] < minimalFireVegetation)
-            wall[TYPE] = WALLTYPE_LAND; // turn off fire
-        }
       }
     }
   }

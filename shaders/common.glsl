@@ -59,7 +59,7 @@ precision highp isampler2D;
 #define VEGETATION 3    // vegetation 0 to 127     grass from 0 to 50, trees from 51 to 127
 
 
-//  lighting texture: RGBA32F
+//  light texture: RGBA32F
 #define SUNLIGHT 0    // sunlight                                             0 to 1.0
 #define NET_HEATING 1 // net heating effect of IR + sun absorbed by smoke
 #define IR_DOWN 2     // IR coming down                                       >= 0

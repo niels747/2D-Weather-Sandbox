@@ -238,10 +238,13 @@ void main()
 
     const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
     const vec3 smokeThickCol = vec3(0., 0., 0.);
-    const vec3 fireCol = vec3(1.0, 0.7, 0.0) * 10.0;
+
 
     float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
     float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
+
+    vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
+
     vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
     shadowLight += fireIntensity * 1.5;
