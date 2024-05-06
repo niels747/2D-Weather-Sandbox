@@ -65,6 +65,10 @@ precision highp isampler2D;
 #define IR_DOWN 2     // IR coming down                                       >= 0
 #define IR_UP 3       // IR going  up                                         >= 0
 
+// Precipitation mass:
+#define WATER 0
+#define ICE 1
+
 // Precipitation feedback
 #define MASS 0
 #define HEAT 1

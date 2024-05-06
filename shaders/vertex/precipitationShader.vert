@@ -1,10 +1,6 @@
 #version 300 es
 precision highp float;
 
-// Two types of mass:
-#define WATER 0
-#define ICE 1
-
 
 in vec2 dropPosition;
 in vec2 mass; //[0] water   [1] ice
