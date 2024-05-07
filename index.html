@@ -9,14 +9,26 @@
 	<script type="text/javascript" src="app.js"></script>
 	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 	<style>
-		#mainCanvas {
-			position: absolute;
-			top: 0;
-			left: 0;
-		}
-
 		input[type="range"] {
 			width: 800px;
+		}
+
+		canvas {
+			user-select: none;
+		}
+
+		#mainCanvas {
+			position: fixed;
+			top: 0;
+			left: 0;
+			z-index: 0;
+			display: none;
+		}
+
+		#graphCanvas {
+			z-index: 1;
+			position: fixed;
+			display: none
 		}
 
 		.icon-bar {
@@ -273,15 +285,8 @@
 			<i>By Niels Daemen</i>
 		</div>
 	</div>
-	<canvas id="graphCanvas" style="z-index: 1; position: absolute; display: none"></canvas>
-	<canvas id="mainCanvas" style="
-				position: fixed;
-				user-select: none;
-				-webkit-user-select: none;
-				-moz-user-select: none;
-				z-index: 0;
-				display: none;
-			">
+	<canvas id="graphCanvas"></canvas>
+	<canvas id="mainCanvas">
 		Your browser does not support HTML5, you must be using a really old
 		browser!
 	</canvas>
