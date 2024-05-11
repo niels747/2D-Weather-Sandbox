@@ -242,30 +242,30 @@ void main()
                                        // wall[VEGETATION] = 0; // No vegetation
           setWall = true;
           break;
-        case 13:
+        case 13:                                                                                                     // set fire
           if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_FIRE;
             setWall = true;
           }
           break;
-        case 14:
+        case 14:                                                                                                     // set urban
           if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_URBAN;
           }
           break;
 
 
-        case 20:
+        case 20:                                                                                                      // add soil moisture
           if (wall[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             water[SOIL_MOISTURE] += userInputValues[INTENSITY] * 10.0;
           }
           break;
-        case 21:
+        case 21:                                                                                                                                       // add snow
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             water[SNOW] += userInputValues[INTENSITY] * 0.5;
           }
           break;
-        case 22:
+        case 22:                                                                                                                                                                      // add vegetation
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_FIRE || wall[TYPE] == WALLTYPE_URBAN) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[VEGETATION] += 1;                                                                                                                                                    // add vegetation
           }

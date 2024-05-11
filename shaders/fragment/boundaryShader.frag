@@ -167,13 +167,13 @@ void main()
         wall[DISTANCE] = 0;
       }
     }
-    if (wallX0Yp[DISTANCE] == 0) {                                                                                                          // above is wall
+    if (wallX0Yp[DISTANCE] == 0) {                                                                                                               // above is wall
       nextToWall = true;
-      wall[DISTANCE] = 1;                                                                                                                   // dist to nearest wall = 1
-                                                                                                                                            // wall[TYPE] = wallX0Yp[TYPE];
+      wall[DISTANCE] = 1;                                                                                                                        // dist to nearest wall = 1
+                                                                                                                                                 // wall[TYPE] = wallX0Yp[TYPE];
 
-      if (texCoord.y < 0.99 && (wallX0Yp[TYPE] == WALLTYPE_LAND || wallX0Yp[TYPE] == WALLTYPE_URBAN || wallX0Yp[TYPE] == WALLTYPE_WATER)) { // Fill in land and sea below
-        wall[DISTANCE] = 0;                                                                                                                 //  set this to wall
+      if (texCoord.y < 0.99 /* && (wallX0Yp[TYPE] == WALLTYPE_LAND || wallX0Yp[TYPE] == WALLTYPE_URBAN || wallX0Yp[TYPE] == WALLTYPE_WATER)*/) { // Fill in land and sea below
+        wall[DISTANCE] = 0;                                                                                                                      //  set this to wall
       }
     }
 
