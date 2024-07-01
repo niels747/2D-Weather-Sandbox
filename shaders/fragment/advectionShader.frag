@@ -121,13 +121,15 @@ void main()
 
     // Radiative cooling and heating effects
 
-    if (texCoord.y > globalEffectsHeight) { //
-      water[TOTAL] -= globalDrying;         // drying 0.00001
+    if (texCoord.y > globalEffectsHeight) {
+      water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
+
       base[TEMPERATURE] += globalHeating;
 
-      // if (texCoord.y > 0.9) {
-      //   base[3] -= (KtoC(realTemp) - -60.0) * 0.001; // tropopause temperature stabilization
-      // }
+      if (texCoord.y > 0.93) {
+        base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
+        water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
+      }
     }
 
     // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
