@@ -43,6 +43,11 @@ layout(location = 2) out ivec4 wall;
 
 #include "common.glsl"
 
+#define VX 0
+#define VY 1
+#define P 2
+#define T 3
+
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 /*
 #define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
@@ -100,24 +105,27 @@ void main()
     // temperature is calculated for Vy location
     vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
 
-#define gravMult 0.004 // 0.0001 0.0005
+#define gravMult 4.0          // 0.004 0.0005
+    const float dT = 0.00050; // 0.00050
 
-// gravity for convection interpolated between this and above cell to fix wierd waves
-// Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
-// float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
-#define R_air 348.37
+                              // gravity for convection interpolated between this and above cell to fix wierd waves
+    // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
+    // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
+    // #define R_air 348.37                                // 348.37
 
-    float density = base[2] / base[3] * R_air; // pressure / temperature * constant
+    //  float density = base[2] / base[3] /* * R_air*/; // pressure / temperature * constant
 
-                                               // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
+    // float gravityForce = ((base[3] + baseX0Yp[3]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
 
-    float gravityForce = density * gravMult;
+    //  float density = calcDensity(base[P], base[T]);
 
-    gravityForce += water[1] * gravMult * waterWeight * 0.01; // cloud water weight added to gravity force
+    // float gravityForce = density * gravMult;
+
+    // gravityForce += water[1] * gravMult * waterWeight * 0.01; // cloud water weight added to gravity force
 
     // gravityForce -= precipFeedback[0] * gravMult * waterWeight; // precipitation weigth added to gravity force
 
-    base.y -= gravityForce; // apply gravity
+    base.y -= gravMult * dT; // apply gravity
 
     // base[3] -= base.y * 0.5; // lapse rate
 

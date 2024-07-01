@@ -23,6 +23,20 @@ layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
 
+#define VX 0
+#define VY 1
+#define P 2
+#define T 3
+
+float calcDensity(float _P, float _T)
+{                           // pressure in hPa, temperature in K, density in kg/m3
+  const float _R = 2.87058; // J/(kg·K)
+                            //  const float _R = 0.01; // J/(kg·K)
+  return _P / (_R * _T);
+}
+
+const float dT = 0.00050; // 0.00050
+
 void main()
 {
   base = texture(baseTex, texCoord);
@@ -42,8 +56,23 @@ void main()
 
     // The velocity through the cell changes proportionally to the pressure
     // gradient across the cell. It's basically just newtons 2nd law.
-    base[0] += base[2] - baseXpY0[2];
-    base[1] += base[2] - baseX0Yp[2];
+
+    //  const float mult = 0.49;
+    // const float mult = 1.00;
+    // base[0] += (base[2] - baseXpY0[2]) * mult;
+    // base[1] += (base[2] - baseX0Yp[2]) * mult;
+
+    float density = calcDensity(base[P], base[T]);
+
+
+    float densVX = (density + calcDensity(baseXpY0[P], baseXpY0[T])) / 2.0; // density at VX location
+    base[VX] += (base[P] - baseXpY0[P]) / densVX * dT;
+
+    //  float densVY = max((cell[P] + cellX0Yp[P]), 0.) / 2.0 + 0.1;                           // density at VX location
+    // float densVY = max((density + calcDensity(cellX0Yp[P], cellX0Yp[T])), 0.) / 2.0 + 0.1; // density at VX location
+    float densVY = (density + calcDensity(baseX0Yp[P], baseX0Yp[T])) / 2.0; // density at VX location
+    base[VY] += (base[P] - baseX0Yp[P]) / densVY * dT;                      // delta V is proportional to pressure gradient
+
 
     // if(texCoord.y > 0.50){
     //   //base[0] *= 0.99995;

@@ -934,7 +934,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         if (y == simYpos) {
           c.fillText('' + printAltitude(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight)), 5, scrYpos + 5);
 
-          c.fillText('' + printPressure(baseTextureValues[4 * y + 2] * 1000.0), 100, scrYpos + 5);
+          c.fillText('' + printPressure(baseTextureValues[4 * y + 2]), 100, scrYpos + 5);
 
           c.fillText('' + printVelocity(velocity), this.graphCanvas.width - 120, scrYpos + 5);
 
@@ -2054,6 +2054,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function CtoK(c) { return c + 273.15; }
 
+
+  function calcDensity(_P, _T)
+  {                     // pressure in hPa, temperature in K, density in kg/m3
+    const _R = 2.87058; // J/(kg·K)
+                        //  const float _R = 0.01; // J/(kg·K)
+    return _P / (_R * _T);
+  }
+
   // generate Initial temperature profile
 
   var initial_T = new Float32Array(604); // sim_res_y + 1
@@ -2063,10 +2071,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
   var initial_P = new Float32Array(604); // sim_res_y + 1
-  initial_P[sim_res_y] = 0.185;          // 0.185 pressure at top of atmosphere
+  initial_P[sim_res_y] = 185.0;          // pressure at top of atmosphere 12000 meters
   for (var y = sim_res_y - 1; y > 0; y--) {
-    var density = initial_P[y + 1] / initial_T[y + 1] * 348.37;
-    var gravMult = 0.004;
+    var density = calcDensity(initial_P[y + 1], initial_T[y + 1]);
+    console.log(density);
+    const gravMult = 4.0;                                 // 2.0
     initial_P[y] = initial_P[y + 1] + density * gravMult; // initial temperature profile
   }
 
