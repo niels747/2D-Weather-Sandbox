@@ -21,7 +21,9 @@ uniform sampler2D curlTex;
 uniform sampler2D lightningTex;
 uniform sampler2D lightningLocationTex;
 
-uniform vec2 aspectRatios; // [0] Sim       [1] canvas
+vec2 lightningPos = vec2(0); // global because it's used as a seed in random lightning parameters
+
+uniform vec2 aspectRatios;   // [0] Sim       [1] canvas
 
 #define URBAN 0
 #define FIRE_FOREST 1
@@ -101,11 +103,22 @@ const float lightningTexAspect = lightningTexRes.x / lightningTexRes.y;
 
 float calcLightningTime(float startIterNum)
 {
-  float iterNumMod = iterNum - startIterNum;
-  return iterNumMod / 5.0; // 30.0    0. to 1. leader stage, 1. + Flash stage
+  float lightningTime = iterNum - startIterNum;
+  return lightningTime / 5.0; // 30.0    0. to 1. leader stage, 1. + Flash stage
 }
 
-float lightningIntensityOverTime(float T) { return max((1. / (0.05 + pow((T - 1.) * 2.0, 3.))) - 0.005, 0.); }
+float lightningIntensityOverTime(float Tin)
+{
+  float T0 = Tin - 1.;
+
+
+  float repeatPeriod = map_range(random2d(lightningPos), 0., 1., 1.8, 4.5); // 2.5
+  float fadeOutMult = map_range(random2d(lightningPos), 0., 1., 0.2, 1.0);  // 0.4
+
+  float T = mod(T0, repeatPeriod) + T0 * fadeOutMult;
+
+  return max((1. / (0.05 + pow((T)*2.0, 3.))) - 0.005, 0.); // fading out curve
+}
 
 vec3 displayLightning(vec2 pos, float startIterNum)
 {
@@ -253,19 +266,19 @@ void main()
     color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
 
     vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
-    vec2 lightningPos = lightningLocation.xy;
+    lightningPos = lightningLocation.xy;
     float lightningStartIterNum = lightningLocation.z;
 
     emittedLight += displayLightning(lightningPos, lightningStartIterNum); // needs to be added as light
 
     emittedLight /= 1. + cloudDensity * 100.0;
 
-#define lightningOnLightBrightness 0.002
+#define lightningOnLightBrightness 0.004 // 0.002
 
     vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
     dist.x *= aspectRatios[0];
     float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
-    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum) - 0.1);
+    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum) - 0.0);
     onLight += vec3(lightningOnLight);
 
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface

@@ -1484,7 +1484,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function setupDatGui(strGuiControls)
   {
     datGui = new dat.GUI();
-    guiControls = JSON.parse(strGuiControls); // load object
+    guiControls = JSON.parse(strGuiControls); // load settings object
+
+    guiControls.tool = "TOOL_NONE";
 
     cam.wrapHorizontally = guiControls.wrapHorizontally;
     cam.smooth = guiControls.SmoothCam;
@@ -2452,9 +2454,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       plusPressed = true; // +
     } else if (event.key == '-') {
       event.preventDefault();
-      minusPressed = true;            // -
-    } else if (event.code == 'Backquote') {
-      event.preventDefault();         // prevent anoying ` apearing when typing after
+      minusPressed = true; // -
+    } else if (event.code == 'Backquote' || event.code == 'Escape') {
+      // event.preventDefault();         // tried to prevent anoying ` apearing when typing after, doesn't work
       guiControls.tool = 'TOOL_NONE';
       guiControls.wholeWidth = false; // flashlight can't be whole width
     } else if (event.code == 'KeyQ') {
@@ -2498,6 +2500,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           weatherStations[i].setHidden(false);
         }
       }
+
+      if (guiControls.tool == 'TOOL_STATION') // prevent placing weather stations when not visible
+        guiControls.tool = 'TOOL_NONE';
     } else if (event.code == 'KeyL') {
       // reload simulation
       if (initialRainDrops) { // if loaded from save file
@@ -2515,6 +2520,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.auto_IterPerFrame = false;
     } else if (event.code == 'End') {
       guiControls.auto_IterPerFrame = true;
+    } else if (event.code == 'Home') {
+      guiControls.auto_IterPerFrame = false;
+      guiControls.IterPerFrame = 1;
     }
   });
 
