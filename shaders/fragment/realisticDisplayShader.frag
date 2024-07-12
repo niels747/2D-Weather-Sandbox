@@ -112,10 +112,12 @@ float lightningIntensityOverTime(float Tin)
   float T0 = Tin - 1.;
 
 
-  float repeatPeriod = map_range(random2d(lightningPos), 0., 1., 1.8, 4.5); // 2.5
-  float fadeOutMult = map_range(random2d(lightningPos), 0., 1., 0.2, 1.0);  // 0.4
+  float repeatPeriod = map_range(random2d(lightningPos), 0., 1., 1.5, 3.0);                 // 2.5
+  float numFlashes = floor(map_range(random2d(lightningPos * 2.737250), 0., 1., 1.0, 5.0)); // 0.4
 
-  float T = mod(T0, repeatPeriod) + T0 * fadeOutMult;
+  float minT = max(T0 - (repeatPeriod * numFlashes), 0.);
+
+  float T = max(mod(T0, repeatPeriod), minT);
 
   return max((1. / (0.05 + pow((T)*2.0, 3.))) - 0.005, 0.); // fading out curve
 }
@@ -278,7 +280,7 @@ void main()
     vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
     dist.x *= aspectRatios[0];
     float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
-    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum) - 0.0);
+    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum));
     onLight += vec3(lightningOnLight);
 
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
