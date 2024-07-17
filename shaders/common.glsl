@@ -9,7 +9,7 @@ precision highp isampler2D;
 #define lightHeatingConst 0.0023 // how much heat a unit of light adds per iteration
 #define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
 
-#define maxWaterTemp 40.0
+#define maxWaterTemp 30.0
 
 
 #define fullGreenSoilMoisture 50.0 // level of soil moisture where vegetation reaches the greenest color
