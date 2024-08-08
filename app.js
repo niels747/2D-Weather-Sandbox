@@ -1301,8 +1301,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // let dewpoint = KtoC(dewpoint(waterTextureValues[0]));
 
       gl.readBuffer(gl.COLOR_ATTACHMENT2);
-      var wallTextureValues = new Int8Array(4 * 4);
-      gl.readPixels(Xpos - 1, Ypos, 2, 2, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+      var wallTextureValues = new Int32Array(4 * 4);
+      gl.readPixels(Xpos - 1, Ypos, 2, 2, gl.RGBA_INTEGER, gl.INT, wallTextureValues);
 
       this.#radarAltitude = (bilerp(wallTextureValues, 2, fractX, fractY) - 1) * cellHeight;
 
@@ -2144,8 +2144,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
 
     gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
-    var wallTextureValues = new Int8Array(4);
-    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+    var wallTextureValues = new Int32Array(4);
+    gl.readPixels(simXpos, simYpos, 1, 1, gl.RGBA_INTEGER, gl.INT, wallTextureValues);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // lighttexture_1
@@ -2279,7 +2279,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
 
         var wallTextureValues = new Int8Array(4 * sim_res_y);
-        gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+        {
+          const alternative = {
+            format: gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT),
+            type: gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE),
+          };
+          if (alternative.format == gl.RGBA_INTEGER &&
+              alternative.type == gl.BYTE) {
+            gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues); // read a vertical culumn of cells
+          } else {
+            const asInt32 = new Int32Array(wallTextureValues.length);
+            gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA_INTEGER, gl.INT, asInt32); // read a vertical culumn of cells
+            wallTextureValues.set(asInt32);
+          }
+        }
 
         if (wallTextureValues[simYpos * 4 + 1] > 0) {                                         // place at mouse position of cell is not wall
           weatherStations.push(new Weatherstation(simXpos, simYpos));
@@ -4194,7 +4207,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues);
         gl.readBuffer(gl.COLOR_ATTACHMENT2);
         let wallTextureValues = new Int8Array(4 * sim_res_x * sim_res_y);
-        gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+        {
+          const alternative = {
+            format: gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT),
+            type: gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE),
+          };
+          if (alternative.format == gl.RGBA_INTEGER &&
+              alternative.type == gl.BYTE) {
+            gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+          } else {
+            const asInt32 = new Int32Array(wallTextureValues.length);
+            gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA_INTEGER, gl.INT, asInt32);
+            wallTextureValues.set(asInt32);
+          }
+        }
 
         let precipBufferValues = new ArrayBuffer(rainDrops.length * Float32Array.BYTES_PER_ELEMENT);
         gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
