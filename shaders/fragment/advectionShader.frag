@@ -84,14 +84,14 @@ void main()
     base[VX] = bilerp(baseTex, fragCoord - velAtVx).x;
     base[VY] = bilerp(baseTex, fragCoord - velAtVy).y;
 
-    base[2] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[2];
-    base[3] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[3];
+    base[PRESSURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
+    base[TEMPERATURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
 
     water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
 
     // water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
     // // precipitation visualization
-    water.z = texture(waterTex, texCoord).z; // precipitation visualization
+    water.z = texture(waterTex, texCoord).z; // precipitation visualization not advected
 
     // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
 
@@ -101,23 +101,39 @@ void main()
 
     realTemp = potentialToRealT(base[TEMPERATURE]);
 
-    float newCloudWater = max(water[TOTAL] - maxWater(realTemp), 0.0);            // calculate cloud water
 
-    float dT = (newCloudWater - water[CLOUD]) * evapHeat;                         // how much that water phase change would change the
-                                                                                  // temperature
+    //  float excessWater = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate the amount of extra water beyond 100% rel hum, including both vapor and cloud water
+    float excessWater = water[TOTAL] - maxWater(realTemp);
 
-    float dWt = max(water[TOTAL] - maxWater(realTemp + dT), 0.0) - newCloudWater; // how much that temperature change would change
-                                                                                  // the amount of liquid water
+    float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
 
-    actualTempChange = dT_saturated(dT, dWt * evapHeat);
+    float condensation = overSaturation * 0.2;         // amount of the oversaturated water vapor that slowly condences
 
-    base[TEMPERATURE] += actualTempChange; // APPLY LATENT HEAT!
+    condensation = max(condensation, -water[CLOUD]);   // can't evaporate more than there is
 
-    realTemp += actualTempChange;
+    float dT = condensation * evapHeat * 1.0;          // how much that water phase change would change the temperature
+    base[TEMPERATURE] += dT;
+    realTemp += dT;
+    water[CLOUD] += condensation;
 
-    float tempC = KtoC(realTemp);
 
-    float relHum = relativeHumd(realTemp, water[TOTAL]);
+    // float newCloudWater = water[CLOUD] + condensation;                             // slowly condence the oversaturated vapor
+
+    // float dWt = max(water[TOTAL] - maxWater(realTemp + dT), 0.0) - overSaturation; // how much that temperature change would change
+    //  the amount of liquid water
+
+    // actualTempChange = dT_saturated(dT, dWt * evapHeat);
+
+    //  base[TEMPERATURE] += actualTempChange; // APPLY LATENT HEAT!
+
+    // realTemp += actualTempChange;
+
+    // float tempC = KtoC(realTemp);
+
+
+    //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
+
+    // float relHum = relativeHumd(realTemp, water[TOTAL]); // not used
 
     // Radiative cooling and heating effects
 
@@ -321,9 +337,9 @@ void main()
     // base[3] += 1000.0; // WHY DOES WALL TEMP HAVE AFFECT ON SIMULATION?
     // special temperature, just to identify that it is a wall cell when drawing
     // the graph
-    water[TOTAL] = 1111.;                                       // indicate this is wall
-  } else {                                                      // no wall
-    water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
+    water[TOTAL] = 1111.; // indicate this is wall
+  } else {                // no wall
+                          //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
   }
   // airplaneValues.xy
   float planeInfluence = max(0.003 - length(texCoord - airplaneValues.xy), 0.) * 10.0;

@@ -101,7 +101,7 @@ void main()
     base[TEMPERATURE] += precipFeedback[HEAT];         // rain cools air and riming heats air
     water[TOTAL] += precipFeedback[VAPOR];             // rain adds water to air
     // recalculate cloud water after changing total water
-    water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0);
+    // water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0);
     // 0.004 for rain visualisation
     water[PRECIPITATION] = max(water[PRECIPITATION] * 0.998 - 0.00005 + precipFeedback[MASS] * 0.008, 0.0);
 
