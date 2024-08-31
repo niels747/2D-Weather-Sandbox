@@ -237,7 +237,7 @@ void main()
   } else {                                                  // air
 
     vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black
-                                                            // vec3 cloudCol = vec3(1.0); // white
+    // vec3 cloudCol = vec3(1.0); // white
 
     // float curl = bilerp(curlTex, fragCoord).x;
     //  float curl = texture(curlTex, texCoord).x;

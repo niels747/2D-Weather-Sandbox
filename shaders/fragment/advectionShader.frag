@@ -89,9 +89,9 @@ void main()
 
     water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
 
-    // water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
+                                                                       //   water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
     // // precipitation visualization
-    water.z = texture(waterTex, texCoord).z; // precipitation visualization not advected
+    water.z = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05)).z; // precipitation visualization advected with flow, and downward
 
     // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
 
@@ -107,7 +107,7 @@ void main()
 
     float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
 
-    float condensation = overSaturation * 0.2;         // amount of the oversaturated water vapor that slowly condences
+    float condensation = overSaturation * 0.004;       // 0.002 amount of the oversaturated water vapor that slowly condences
 
     condensation = max(condensation, -water[CLOUD]);   // can't evaporate more than there is
 
@@ -228,8 +228,22 @@ void main()
       if (wall[TYPE] == 2 && wall[DISTANCE] == 0)                          // water wall
         base[3] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
     } else if (userInputType == 2) {                                       // water
-      water[TOTAL] += userInputValues[INTENSITY];
+
+
+      //     if ()
+
+      float cloudWaterChange = userInputValues[INTENSITY]; // positive intensity
+      // float vaporChange = max(userInputValues[INTENSITY]);
+
+
+      if (water[CLOUD] > 0.0) {                // add as liquid
+        water[CLOUD] += cloudWaterChange;
+        water[CLOUD] = max(water[CLOUD], 0.0); // prevent negative cloudwater
+      }                                        // else {                                 // add as gas
+      water[TOTAL] += cloudWaterChange;
       water[TOTAL] = max(water[TOTAL], 0.0);
+      // }
+
     } else if (userInputType == 3 && wall[DISTANCE] != 0) { // smoke, only apply if not wall
       water[SMOKE] += userInputValues[INTENSITY];
       water[SMOKE] = min(max(water[SMOKE], 0.0), 2.0);

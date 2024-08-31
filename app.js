@@ -35,30 +35,30 @@ const radToDeg = 57.2957795;
 const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
-  vorticity : 0.007,
+  vorticity : 0.005,
   dragMultiplier : 0.01, // 0.1
   wind : -0.0001,
   globalEffectsHeight : 10000,
   globalDrying : 0.000003, // 0.000010
   globalHeating : 0.0,
   sunIntensity : 1.0,
-  waterTemperature : 25, // only in degrees C, sorry Americans
+  waterTemperature : 25.0, // °C
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
-  evapHeat : 1.9,           // 1.9    Real: 2260 J/g
-  meltingHeat : 0.6,        // 0.281  Real:  334 J/g
-  waterWeight : 0.5,        // 0.50
+  evapHeat : 2.0,           //  Real: 2260 J/g
+  meltingHeat : 0.3,        //  Real:  334 J/g
+  waterWeight : 0.50,       // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
   subZeroThreshold : 0.005, // 0.01
-  spawnChance : 0.00002,    // 30. 10 to 50
+  spawnChance : 0.00005,    // 30. 10 to 50
   snowDensity : 0.2,        // 0.3
   fallSpeed : 0.0003,
   growthRate0C : 0.0001,    // 0.0005
   growthRate_30C : 0.001,   // 0.01
-  freezingRate : 0.0025,
-  meltingRate : 0.0025,
-  evapRate : 0.0005,
+  freezingRate : 0.01,
+  meltingRate : 0.01,
+  evapRate : 0.0008, // 0.0005
   displayMode : 'DISP_REAL',
   wrapHorizontally : true,
   SmoothCam : true,
@@ -83,8 +83,8 @@ const guiControls_default = {
   paused : false,
   IterPerFrame : 10,
   auto_IterPerFrame : true,
-  dryLapseRate : 10.0,   // Real: 9.81 degrees / km
-  simHeight : 12000,     // 12000 meters
+  dryLapseRate : 10.0,   // Real: 9.8 degrees / km
+  simHeight : 12000,     // meters
   imperialUnits : false, // only for display.  false = metric
 };
 

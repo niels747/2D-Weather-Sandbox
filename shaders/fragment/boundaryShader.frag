@@ -99,11 +99,21 @@ void main()
     base[TEMPERATURE] += light[NET_HEATING] * IR_rate; // IR heating/cooling effect
 
     base[TEMPERATURE] += precipFeedback[HEAT];         // rain cools air and riming heats air
-    water[TOTAL] += precipFeedback[VAPOR];             // rain adds water to air
-    // recalculate cloud water after changing total water
-    // water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0);
-    // 0.004 for rain visualisation
-    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.998 - 0.00005 + precipFeedback[MASS] * 0.008, 0.0);
+
+
+    float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water turns into rain
+
+    water[CLOUD] -= precipCoalescence;
+    water[TOTAL] -= precipCoalescence;
+
+    float precipEvaporation = max(precipFeedback[VAPOR], 0.);
+
+    water[TOTAL] += precipEvaporation; // evaporating rain adds water vapor to air
+
+
+    //  0.004 for rain visualisation
+    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.995 - 0.00001 + precipFeedback[MASS] * 0.005, 0.0);
+
 
     // rain removes smoke from air
     water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.3, 0.0) + precipFeedback[MASS] * 0.003; // rain formation in clouds removes smoke
@@ -184,8 +194,10 @@ void main()
     vec2 vortForceXmY0 = texture(vortForceTex, texCoordXmY0).xy;
     vec2 vortForceX0Ym = texture(vortForceTex, texCoordX0Ym).xy;
 
+    float velocityFactor = length(base.xy) * 0.1; // 0.2
+
     // apply vorticity force
-    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * vorticity;
+    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * (vorticity + velocityFactor);
     //}
 
     if (!nextToWall) { // not next to wall
