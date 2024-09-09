@@ -206,9 +206,12 @@ function min(num1, num2)
 
 // Temperature Functions
 
-function CtoK(c) { return c + 273.15; }
+function CtoK(C) { return C + 273.15; }
 
-function KtoC(k) { return k - 273.15; }
+function KtoC(K) { return K - 273.15; }
+
+function CtoF(C) { return C * 1.8 + 32.0; }
+
 
 function dT_saturated(dTdry, dTl)
 {
@@ -259,8 +262,7 @@ function relativeHumd(T, W) { return (W / maxWater(T)) * 100.0; }
 function printTemp(tempC)
 {
   if (guiControls.imperialUnits) {
-    let tempF = tempC * 1.8 + 32.0;
-    return tempF.toFixed(1) + '°F';
+    return CtoF(tempC).toFixed(1) + '°F';
   } else
     return tempC.toFixed(1) + '°C';
 }
@@ -452,28 +454,41 @@ class Weatherstation
 {
   #width = 120; // 100 display size
   #height = 70; // 55
+  #mainDiv;
   #canvas;
-  #c;           // 2d canvas context
-  #x;           // position in simulation
+  #c; // 2d canvas context
+  #x; // position in simulation
   #y;
 
+  #time;             // ISO time string of moment of last measurement
   #temperature = 0;  // °C
   #dewpoint = 0;     // °C
   #velocity = 0;     // ms
   #soilMoisture = 0; // mm
   #snowHeight = 0;   // cm
 
+  #chartCanvas;
+  #historyChart;
+
+
   constructor(xIn, yIn)
   {
     this.#x = Math.floor(xIn);
     this.#y = Math.floor(yIn);
+    this.#mainDiv = document.createElement('div');
     this.#canvas = document.createElement('canvas');
-    document.body.appendChild(this.#canvas);
+    this.#mainDiv.appendChild(this.#canvas);
+    document.body.appendChild(this.#mainDiv);
     this.#canvas.height = this.#height;
     this.#canvas.width = this.#width;
+
+    this.#mainDiv.style.position = 'absolute';
+    this.#mainDiv.style.width = '0px';
+    this.#mainDiv.style.height = '0px';
+
     this.#c = this.#canvas.getContext('2d');
 
-    this.#canvas.style.position = "absolute";
+    this.#canvas.style.position = 'absolute';
     this.#canvas.style.zIndex = 1; // z-index
 
     let thisObj = this;
@@ -481,8 +496,162 @@ class Weatherstation
       if (guiControls.tool == 'TOOL_STATION') {
         thisObj.destroy();       // remove weather station
         event.stopPropagation(); // prevent mousedown on body from firing
+      } else {
+        if (guiControls.dayNightCycle == true) {
+          thisObj.#chartCanvas.style.display = (thisObj.#chartCanvas.style.display == 'none') ? 'block' : 'none'; // toggle visibility of chart canvas
+        }
       }
     });
+
+    /*
+        this.#canvas.addEventListener('mouseover', function(event) {
+          // if (thisObj.#historyChart)
+          //   thisObj.#chartCanvas.style.display = true ? "none" : "block";
+
+          // else {
+          //    thisObj.#historyChart.clear();
+          //    console.log("Cleared chart");
+          //  }
+        });
+    */
+
+    this.createChartJSCanvas();
+  }
+
+  createChartJSCanvas()
+  {
+    this.#chartCanvas = document.createElement('canvas');
+
+    this.#mainDiv.appendChild(this.#chartCanvas);
+
+    const ctx = this.#chartCanvas.getContext('2d');
+
+    this.#chartCanvas.height = 400;
+    this.#chartCanvas.width = 500;
+
+    let style = this.#chartCanvas.style;
+
+    style.marginTop = '100px';
+    // this.#chartCanvas.style.marginRight = '1000px';
+
+    style.position = 'relative';
+
+    style.left = '-200px';
+
+    style.display = 'none'; // hide initially
+
+    // this.#chartCanvas.style.position = "absolute";
+
+    // let screenY = simToScreenY(this.#y) - this.#height; // error because main canvas not yet initialized
+
+    // Create a new Line Chart with time-based labels
+
+
+    this.#historyChart = new Chart(ctx, {
+      type : 'line',
+      data : {
+        labels : [], // Time-based labels
+        datasets : [
+          {
+            label : 'Temperature',
+            data : [], // Data points
+            backgroundColor : 'rgba(255, 0, 0, 0.9)',
+            borderColor : 'rgba(255, 0, 0, 1)',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+          },
+          {
+            label : 'Dew Point',
+            data : [], // Data points
+            backgroundColor : '#0055FF',
+            borderColor : '#0055FF',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+          }
+        ]
+      },
+      options : {
+        scales : {
+          x : {
+            type : 'time', // Set the x-axis to use a time scale
+            time : {unit : 'minute', tooltipFormat : 'HH:mm'},
+            title : {
+              display : true,
+              color : 'white' // Make sure title color is white
+            },
+            ticks : {
+              color : 'white' // White color for the x-axis labels
+            },
+            grid : {
+              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            }
+          },
+          y : {
+            beginAtZero : false, // Start the y-axis at 0
+            ticks : {
+              color : 'white'    // White color for the y-axis labels
+            },
+            title : {
+              display : true,
+              color : 'white' // Make sure title color is white
+            },
+            grid : {
+              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            }
+          }
+        },
+        plugins : {
+          legend : {
+            display : true,
+            labels : {
+              color : 'white', // White color for legend text
+              font : {
+                size : 14,
+                family : 'Arial' // Optional: Ensure font family is set
+              }
+            }
+          }
+        },
+        responsive : false, // Auto rescale on canvas resize
+        maintainAspectRatio : false,
+        animation : false,  // Disables all animations
+        normalized : true
+        // parsing : false
+      }
+    });
+  }
+
+  updateChartJS() // add newest measurement to chart
+  {
+    if (this.#historyChart) {
+      this.#historyChart.data.datasets[0].data.push(guiControls.imperialUnits ? CtoF(this.#temperature) : this.#temperature);
+      this.#historyChart.data.datasets[1].data.push(guiControls.imperialUnits ? CtoF(this.#dewpoint) : this.#dewpoint);
+
+      this.#historyChart.data.labels.push(this.#time);
+
+      if (this.#historyChart.data.datasets[0].data.length > 60 * 24) { // max 24 hour history. Remove the oldest data and label
+        this.#historyChart.data.datasets[0].data.shift();
+        this.#historyChart.data.datasets[1].data.shift();
+        this.#historyChart.data.labels.shift();
+      }
+
+      if (guiControls.dayNightCycle == true) {
+        if (this.#chartCanvas.style.display != 'none')
+          this.#historyChart.update();
+      } else {
+        this.#chartCanvas.style.display = 'none';
+      }
+    }
+  }
+
+  clearChart()
+  {
+    this.#historyChart.data.datasets[0].data = [];
+    this.#historyChart.data.datasets[1].data = [];
+    this.#historyChart.data.labels = [];
+    this.#historyChart.update();
   }
 
   destroy()
@@ -524,13 +693,17 @@ class Weatherstation
     if (waterTextureValues[4 + 0] > 1110) { // is not air
       this.destroy();                       // remove weather station
     }
+
+    this.#time = simDateTime.toISOString();
+    // console.log('measurement at: ', this.#time);
+    this.updateChartJS(); // update chart
   }
 
   getXpos() { return this.#x; }
 
   getYpos() { return this.#y; }
 
-  setHidden(hidden) { this.#canvas.style.display = hidden ? "none" : "block"; }
+  setHidden(hidden) { this.#mainDiv.style.display = hidden ? "none" : "block"; }
 
   updateCanvas()
   {
@@ -538,9 +711,10 @@ class Weatherstation
     let screenY = simToScreenY(this.#y) - this.#height;
 
     // if (screenX > 0 && screenX < canvas.width && screenY > 0 && screenY < canvas.height) {
-
-    this.#canvas.style.left = screenX + 'px';
-    this.#canvas.style.top = screenY + 'px';
+    this.#mainDiv.style.left = screenX + 'px';
+    this.#mainDiv.style.top = screenY + 'px';
+    // this.#canvas.style.left = screenX + 'px';
+    // this.#canvas.style.top = screenY + 'px';
     let c = this.#c;
     c.clearRect(0, 0, this.#width, this.#height);
     c.fillStyle = '#00000000';
@@ -1797,7 +1971,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
-    display_folder.add(guiControls, 'imperialUnits').name('Imperial Units');
+    display_folder.add(guiControls, 'imperialUnits').name('Imperial Units').onChange(function() {
+      for (i = 0; i < weatherStations.length; i++) {
+        weatherStations[i].clearChart();
+      }
+    });
 
 
     var advanced_folder = datGui.addFolder('Advanced');
@@ -3720,7 +3898,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               // console.log('lightningLocationValues: ', lightningLocationValues[0], lightningLocationValues[1], lightningLocationValues[2], IterNum);
             }
 
-            if (displayWeatherStations && IterNum % 100 == 0) {
+            if (displayWeatherStations && IterNum % 208 == 0) { // ~every 60 in game seconds:  0.00008 *3600 * 208 = 59.9
               for (i = 0; i < weatherStations.length; i++) {
                 weatherStations[i].measure();
               }
@@ -4126,10 +4304,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function updateSunlight(deltaT_hours)
   {
     if (deltaT_hours != 'MANUAL_ANGLE') {
-      if (deltaT_hours != null) {
+      if (deltaT_hours != null) {                                                   // increment time
         simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
         guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60.0;
         guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.0;
+      } else {
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].clearChart();
+        }
       }
 
       let timeOfDayRad = (guiControls.timeOfDay / 24.0) * 2.0 * Math.PI; // convert to radians

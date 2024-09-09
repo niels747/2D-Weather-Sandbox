@@ -63,21 +63,21 @@
 - [x] Add plane flying mode. Experience the turbulent clouds by flying a realistic plane trough the clouds at realistic scale and speed!
 - [x] Add urban surface type with building textures
 - [x] Improve precipitation spawning system
+- [x] Add lightning effect
+- [x] Make soil and vegetation color change with soil moisture
+- [x] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
+- [x] Make soil and vegetation color change with soil moisture
+- [x] Make weather stations show history in plots
 
 # In Progress
-- [ ] Add lightning effect
+- [ ] Improve realistic hail formation and improve precipitation in general
 
 # Future:
-- [ ] Make soil and vegetation color change with soil moisture
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add realistic albedo's for different surface types
-- [ ] Make soil and vegetation color change with soil moisture
-- [ ] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
-- [ ] Improve realistic hail formation and improve precipitation in general
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Add Option to reset atmosphere while keeping terain
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
-- [ ] Make weather stations show history in plots
 - [ ] Improve terain generation
 - [ ] Allow editing while simulation paused
 - [ ] Make precipitation work on all mobile devices
