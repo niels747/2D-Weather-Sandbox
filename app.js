@@ -317,7 +317,7 @@ function printVelocity(ms)
   return speedStr + '  ' + ms.toFixed() + ' m/s';
 }
 
-function rawVelocityToMs(vel)
+function rawVelocityTo_ms(vel)
 {                          // Raw velocity is in cells/iteration
   vel /= timePerIteration; // convert to cells per hour
   vel *= cellHeight;       // convert to meters per hour
@@ -669,7 +669,7 @@ class Weatherstation
     gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
 
     this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
-    this.#velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
+    this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
@@ -2075,8 +2075,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       var reachedAir = false;
       var surfaceLevel;
 
-      c.fillText('' + printDistance(map_range(simXpos, 0, sim_res_y, 0, guiControls.simHeight / 1000.0)), this.graphCanvas.width - 70, 20);
-
       // Draw temperature line
       c.beginPath();
       for (var y = 0; y < sim_res_y; y++) {
@@ -2135,6 +2133,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       c.strokeStyle = '#FF0000';
       c.stroke();
 
+
+      // Draw wind indicators
+      c.beginPath();
+      for (var y = surfaceLevel; y < sim_res_y; y++) {
+
+        var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
+
+        var velocity = rawVelocityTo_ms(baseTextureValues[4 * y]); // horizontal wind velocity
+
+        let Xpos = this.graphCanvas.width - 70;
+
+        c.moveTo(Xpos, scrYpos);
+        c.lineTo(Xpos + velocity * 2.5, scrYpos); // draw line segment
+      }
+
+      c.lineWidth = 2.0; // 3
+      c.strokeStyle = '#666666';
+      c.stroke();
+
+
       // Draw Dew point line
       c.beginPath();
       for (var y = surfaceLevel; y < sim_res_y; y++) {
@@ -2147,7 +2165,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         var scrYpos = map_range(y, sim_res_y, 0, 0, graphBottem);
 
-        var velocity = rawVelocityToMs(Math.sqrt(Math.pow(baseTextureValues[4 * y], 2) + Math.pow(baseTextureValues[4 * y + 1], 2)));
+        var velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[4 * y], 2) + Math.pow(baseTextureValues[4 * y + 1], 2)));
 
         c.font = '15px Arial';
         c.fillStyle = 'white';
@@ -2240,6 +2258,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         c.strokeStyle = '#008800';
 
       c.stroke();
+
+
+      c.fillText('' + printDistance(map_range(simXpos, 0, sim_res_y, 0, guiControls.simHeight / 1000.0)), this.graphCanvas.width - 70, 20);
+
 
       function T_to_Xpos(T, y)
       {
