@@ -564,11 +564,41 @@ class Weatherstation
           {
             label : 'Dew Point',
             data : [], // Data points
+            backgroundColor : '#00FFFF',
+            borderColor : '#00FFFF',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+          },
+          {
+            label : 'Wind Speed',
+            data : [], // Data points
+            backgroundColor : '#AAAAAA',
+            borderColor : '#AAAAAA',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+            hidden : true
+          },
+          {
+            label : 'Precipitation',
+            data : [], // Data points
             backgroundColor : '#0055FF',
             borderColor : '#0055FF',
             radius : 0,
             borderWidth : 1,
             fill : false,
+            hidden : true
+          },
+          {
+            label : 'Snow Height',
+            data : [], // Data points
+            backgroundColor : '#FFFFFF',
+            borderColor : '#FFFFFF',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+            hidden : true
           }
         ]
       },
@@ -628,13 +658,15 @@ class Weatherstation
     if (this.#historyChart) {
       this.#historyChart.data.datasets[0].data.push(guiControls.imperialUnits ? CtoF(this.#temperature) : this.#temperature);
       this.#historyChart.data.datasets[1].data.push(guiControls.imperialUnits ? CtoF(this.#dewpoint) : this.#dewpoint);
+      this.#historyChart.data.datasets[2].data.push(this.#velocity);
+      this.#historyChart.data.datasets[3].data.push(this.#soilMoisture);
+      this.#historyChart.data.datasets[4].data.push(this.#snowHeight);
 
       this.#historyChart.data.labels.push(this.#time);
 
-      if (this.#historyChart.data.datasets[0].data.length > 60 * 24) { // max 24 hour history. Remove the oldest data and label
-        this.#historyChart.data.datasets[0].data.shift();
-        this.#historyChart.data.datasets[1].data.shift();
+      if (this.#historyChart.data.labels.length > 60 * 24) { // max 24 hour history. Remove the oldest data and label
         this.#historyChart.data.labels.shift();
+        this.#historyChart.data.datasets.forEach(dataSet => { dataSet.data.shift(); });
       }
 
       if (guiControls.dayNightCycle == true) {
@@ -648,8 +680,7 @@ class Weatherstation
 
   clearChart()
   {
-    this.#historyChart.data.datasets[0].data = [];
-    this.#historyChart.data.datasets[1].data = [];
+    this.#historyChart.data.datasets.forEach(dataSet => { dataSet.data = []; });
     this.#historyChart.data.labels = [];
     this.#historyChart.update();
   }
@@ -657,7 +688,6 @@ class Weatherstation
   destroy()
   {
     this.#chartCanvas.remove();
-    this.#historyChart.remove();
     this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
     let index = weatherStations.indexOf(this);
     weatherStations.splice(index, 1);                     // remove object from array
