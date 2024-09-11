@@ -656,6 +656,8 @@ class Weatherstation
 
   destroy()
   {
+    this.#chartCanvas.remove();
+    this.#historyChart.remove();
     this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
     let index = weatherStations.indexOf(this);
     weatherStations.splice(index, 1);                     // remove object from array
