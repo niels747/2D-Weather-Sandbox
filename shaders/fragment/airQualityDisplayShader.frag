@@ -6,6 +6,7 @@ in vec2 texCoord;
 in vec2 fragCoord;
 
 uniform sampler2D baseTex;
+uniform sampler2D waterTex;
 uniform isampler2D wallTex;
 uniform sampler2D colorScalesTex;
 
@@ -27,12 +28,9 @@ out vec4 fragmentColor;
 
 void main()
 {
-  // vec4 base = texture(baseTex, texCoord);
-  //  vec4 base = bilerp(baseTex, fragCoord);
   vec4 base = bilerpWall(baseTex, wallTex, fragCoord);
+  vec4 water = bilerpWall(waterTex, wallTex, fragCoord);
   ivec2 wall = texture(wallTex, texCoord).xy;
-
-  float realTempC = KtoC(potentialToRealT(base[3]));
 
   if (wall[1] == 0) {  // is wall
     switch (wall[0]) { // wall type
@@ -54,20 +52,14 @@ void main()
     }
   } else { // fluid
 
-    // int palletteIndex = int(map_range(realTempC, -26. - 2., 30., 0., 29.));
-    // palletteIndex = clamp(palletteIndex, 0, 29);
-    // fragmentColor = vec4(tempColorPalette[palletteIndex], 1.0);
+    float smokeDensity = water[SMOKE];
 
-
-    int palletteIndex = int(map_range(realTempC, -37.5, 32.5, 0., 70.));
-    palletteIndex = clamp(palletteIndex, 0, 70);
-    fragmentColor = texelFetch(colorScalesTex, ivec2(0, palletteIndex), 0);
+    int palletteIndex = int(map_range(smokeDensity, 0.0, 1.0, 0., 26.));
+    palletteIndex = clamp(palletteIndex, 0, 26);
+    fragmentColor = texelFetch(colorScalesTex, ivec2(1, palletteIndex), 0);
 
     drawVectorField(base.xy, displayVectorField);
   }
 
-
-  // drawDirLines(base.xy);
-  // drawIsoLines(base[2]);
   drawCursor(cursor, view);
 }

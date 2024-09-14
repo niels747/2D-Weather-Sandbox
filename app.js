@@ -460,12 +460,15 @@ class Weatherstation
   #x; // position in simulation
   #y;
 
+  #isOnSurface = true;
+
   #time;             // ISO time string of moment of last measurement
   #temperature = 0;  // °C
   #dewpoint = 0;     // °C
   #velocity = 0;     // ms
   #soilMoisture = 0; // mm
   #snowHeight = 0;   // cm
+  #airQuality = 0;   // AQI
 
   #chartCanvas;
   #historyChart;
@@ -502,18 +505,6 @@ class Weatherstation
         }
       }
     });
-
-    /*
-        this.#canvas.addEventListener('mouseover', function(event) {
-          // if (thisObj.#historyChart)
-          //   thisObj.#chartCanvas.style.display = true ? "none" : "block";
-
-          // else {
-          //    thisObj.#historyChart.clear();
-          //    console.log("Cleared chart");
-          //  }
-        });
-    */
 
     this.createChartJSCanvas();
   }
@@ -575,6 +566,16 @@ class Weatherstation
             data : [], // Data points
             backgroundColor : '#AAAAAA',
             borderColor : '#AAAAAA',
+            radius : 0,
+            borderWidth : 1,
+            fill : false,
+            hidden : true
+          },
+          {
+            label : 'Air Quality',
+            data : [], // Data points
+            backgroundColor : '#803c00',
+            borderColor : '#803c00',
             radius : 0,
             borderWidth : 1,
             fill : false,
@@ -659,8 +660,12 @@ class Weatherstation
       this.#historyChart.data.datasets[0].data.push(guiControls.imperialUnits ? CtoF(this.#temperature) : this.#temperature);
       this.#historyChart.data.datasets[1].data.push(guiControls.imperialUnits ? CtoF(this.#dewpoint) : this.#dewpoint);
       this.#historyChart.data.datasets[2].data.push(this.#velocity);
-      this.#historyChart.data.datasets[3].data.push(this.#soilMoisture);
-      this.#historyChart.data.datasets[4].data.push(this.#snowHeight);
+      this.#historyChart.data.datasets[3].data.push(this.#airQuality);
+
+      if (this.#isOnSurface) {
+        this.#historyChart.data.datasets[4].data.push(this.#soilMoisture);
+        this.#historyChart.data.datasets[5].data.push(this.#snowHeight);
+      }
 
       this.#historyChart.data.labels.push(this.#time);
 
@@ -670,7 +675,7 @@ class Weatherstation
       }
 
       if (guiControls.dayNightCycle == true) {
-        if (this.#chartCanvas.style.display != 'none')
+        if (this.#chartCanvas.style.display != 'none') // only update if visible
           this.#historyChart.update();
       } else {
         this.#chartCanvas.style.display = 'none';
@@ -718,12 +723,21 @@ class Weatherstation
       this.#soilMoisture = waterTextureValues[2];
       this.#snowHeight = waterTextureValues[3];
     } else {
-      this.#soilMoisture = 0;
-      this.#snowHeight = 0;
+      if (this.#isOnSurface) {
+        this.#isOnSurface = false;
+        this.#soilMoisture = 0;
+        this.#snowHeight = 0;
+
+        this.#historyChart.data.datasets.splice(5, 1); // remove unused datasets
+        this.#historyChart.data.datasets.splice(4, 1); // remove back to front to prevent errors
+      }
     }
 
-    if (waterTextureValues[4 + 0] > 1110) { // is not air
-      this.destroy();                       // remove weather station
+
+    this.#airQuality = waterTextureValues[4 + 3] * 300.0; // read smoke
+
+    if (waterTextureValues[4 + 0] > 1110) {               // is not air
+      this.destroy();                                     // remove weather station
     }
 
     this.#time = simDateTime.toISOString();
@@ -735,7 +749,11 @@ class Weatherstation
 
   getYpos() { return this.#y; }
 
-  setHidden(hidden) { this.#mainDiv.style.display = hidden ? "none" : "block"; }
+  setHidden(hidden)
+  {
+    this.#mainDiv.style.display = hidden ? "none" : "block";
+    this.#chartCanvas.style.display = 'none'; // hide charts
+  }
 
   updateCanvas()
   {
@@ -1974,6 +1992,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Snow Deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
         'Precipitation/Soil Moisture' : 'DISP_SOIL_MOISTURE',
         'Curl' : 'DISP_CURL',
+        'Air Quality' : 'DISP_AIRQUALITY'
       })
       .name('Display Mode')
       .listen();
@@ -2673,6 +2692,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.displayMode = 'DISP_PRECIPFEEDBACK_MASS';
     } else if (event.key == 0) {
       guiControls.displayMode = 'DISP_PRECIPFEEDBACK_HEAT';
+    } else if (event.code == 'KeyK') {
+      guiControls.displayMode = 'DISP_AIRQUALITY';
     } else if (event.key == 'ArrowLeft') {
       leftPressed = true;  // <
     } else if (event.key == 'ArrowUp') {
@@ -2736,6 +2757,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (guiControls.tool == 'TOOL_STATION') // prevent placing weather stations when not visible
         guiControls.tool = 'TOOL_NONE';
     } else if (event.code == 'KeyL') {
+
+      if (new Date() - lastSaveTime > 120000) // more than 120 seconds)
+        if (!confirm('Are you sure you want to reload without saving?'))
+          return;                             // abort
+
       // reload simulation
       if (initialRainDrops) { // if loaded from save file
         setupPrecipitationBuffers();
@@ -2820,6 +2846,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const setupShader = await loadShader('setupShader.frag');
 
   const temperatureDisplayShader = await loadShader('temperatureDisplayShader.frag');
+  const airQualityDisplayShader = await loadShader('airQualityDisplayShader.frag');
   const precipDisplayShader = await loadShader('precipDisplayShader.frag');
   const universalDisplayShader = await loadShader('universalDisplayShader.frag');
   const skyBackgroundDisplayShader = await loadShader('skyBackgroundDisplayShader.frag');
@@ -2846,6 +2873,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const setupProgram = createProgram(simVertexShader, setupShader);
 
   const temperatureDisplayProgram = createProgram(dispVertexShader, temperatureDisplayShader);
+  const airQualityDisplayProgram = createProgram(dispVertexShader, airQualityDisplayShader);
   const precipDisplayProgram = createProgram(precipDisplayVertexShader, precipDisplayShader);
   const universalDisplayProgram = createProgram(dispVertexShader, universalDisplayShader);
   const skyBackgroundDisplayProgram = createProgram(realDispVertexShader, skyBackgroundDisplayShader);
@@ -3215,6 +3243,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const noiseTexture = gl.createTexture();
   const A380Texture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
+  const colorScalesTexture = gl.createTexture();
 
   const lightningTextures = [];
   const numLightningTextures = 10;
@@ -3274,6 +3303,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
+    lastSaveTime = new Date();
   }
 
   setupTextures();
@@ -3387,6 +3419,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/surfaceTextureMap.png');
 
   gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  // gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);        // horizontal
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
+
+
+  imgElement = await loadImage('resources/ColorScales.png');
+
+  gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -3538,14 +3581,25 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'baseTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'colorScalesTex'), 9);
   gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'dryLapse'), dryLapse);
+
+  gl.useProgram(airQualityDisplayProgram);
+  gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
+  gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
+  gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'baseTex'), 0);
+  gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'waterTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'colorScalesTex'), 9);
+  gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'dryLapse'), dryLapse);
+
 
   gl.useProgram(precipDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'waterTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'wallTex'), 2);
 
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -3559,14 +3613,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'anyTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'wallTex'), 2);
 
   gl.useProgram(realisticDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'baseTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'wallTex'), 1);
-  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'waterTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'waterTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'noiseTex'), 4);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'surfaceTextureMap'), 5);
@@ -3587,7 +3641,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'lightTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'wallTex'), 1);
+  gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'wallTex'), 2);
 
   gl.useProgram(postProcessingProgram);
   // gl.uniform2f(gl.getUniformLocation(postProcessingProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
@@ -4010,7 +4064,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
-    gl.activeTexture(gl.TEXTURE1);
+    gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
 
     if (guiControls.displayMode == 'DISP_REAL') {
@@ -4022,7 +4076,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.clear(gl.COLOR_BUFFER_BIT);
 
 
-      gl.activeTexture(gl.TEXTURE2);
+      gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
       gl.activeTexture(gl.TEXTURE3);
       gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
@@ -4187,12 +4241,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
     } else {
+      gl.activeTexture(gl.TEXTURE9);
+      gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
+
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
         gl.useProgram(temperatureDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
         gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(temperatureDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'Xmult'), horizontalDisplayMult);
+
 
         // Don't display vectors when zoomed out because you would just see
         // noise
@@ -4201,6 +4259,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         } else {
           gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'displayVectorField'), 0.0);
         }
+
+      } else if (guiControls.displayMode == 'DISP_AIRQUALITY') {
+        gl.useProgram(airQualityDisplayProgram);
+        gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
+        gl.uniform3f(gl.getUniformLocation(airQualityDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform4f(gl.getUniformLocation(airQualityDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
+        gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
       } else if (guiControls.displayMode == 'DISP_IRDOWNTEMP') {
         gl.useProgram(IRtempDisplayProgram);

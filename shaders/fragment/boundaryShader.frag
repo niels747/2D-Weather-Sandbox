@@ -116,7 +116,7 @@ void main()
 
 
     // rain removes smoke from air
-    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.3, 0.0) + precipFeedback[MASS] * 0.003; // rain formation in clouds removes smoke
+    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.1, 0.0) + precipFeedback[MASS] * 0.000; // rain formation in clouds removes smoke
                                                                                                 // quickly , falling rain slower
     water[SMOKE] -= precipFeedback[MASS] * 0.0002;                                              // linearly to remove last little bit
 
