@@ -11,6 +11,8 @@ in vec2 texCoordX0Ym; // down
 in vec2 texCoordXpY0; // right
 in vec2 texCoordX0Yp; // up
 
+in vec2 onScreenUV;
+
 uniform sampler2D baseTex;
 uniform sampler2D waterTex;
 uniform isampler2D wallTex;
@@ -54,7 +56,7 @@ out vec4 fragmentColor;
 
 vec4 base, water;
 ivec4 wall;
-float light;
+float lightIntensity;
 
 vec3 color;
 float opacity = 1.0;
@@ -174,13 +176,39 @@ vec3 displayLightning(vec2 pos, float startIterNum)
   return outputColor;
 }
 
+
+float saturate(float x) { return min(1.0, max(0.0, x)); }
+vec3 saturate(vec3 x) { return min(vec3(1., 1., 1.), max(vec3(0., 0., 0.), x)); }
+
+
+vec3 bump3y(vec3 x, vec3 yoffset)
+{
+  vec3 y = vec3(1., 1., 1.) - x * x;
+  y = saturate(y - yoffset);
+  return y;
+}
+vec3 spectral_zucconi(float w)
+{
+  // w: [400, 700] wavelenght(nm)
+  // x: [0,   1]
+  float x = saturate((w - 400.0) / 300.0);
+  const vec3 cs = vec3(3.54541723, 2.86670055, 2.29421995);
+  const vec3 xs = vec3(0.69548916, 0.49416934, 0.28269708);
+  const vec3 ys = vec3(0.02320775, 0.15936245, 0.53520021);
+  return bump3y(cs * (x - xs), ys);
+}
+
+
 void main()
 {
   vec2 bndFragCoord = vec2(fragCoord.x, clamp(fragCoord.y, 0., resolution.y)); // bound y within range
   base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
   wall = texture(wallTex, bndFragCoord * texelSize);                           // texCoord
   water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
-  light = texture(lightTex, bndFragCoord * texelSize)[0];
+  lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0];
+
+
+  float realTemp = potentialToRealT(base[TEMPERATURE]);
 
   bool nightTime = abs(sunAngle) > PI * 0.5 - 0.05; // false = day time
 
@@ -201,10 +229,10 @@ void main()
 
     color = getWallColor(depth);
 
-    light = texture(lightTex, vec2(texCoord.x, texelSize.y))[0]; // sample lowest part of sim area
-    light *= pow(0.5, -fragCoord.y);                             // 0.5 should be same as in lightingshader deeper is darker
+    lightIntensity = texture(lightTex, vec2(texCoord.x, texelSize.y))[0]; // sample lowest part of sim area
+    lightIntensity *= pow(0.5, -fragCoord.y);                             // 0.5 should be same as in lightingshader deeper is darker
 
-  } else if (texCoord.y > 1.0) {                                 // above simulation area
+  } else if (texCoord.y > 1.0) {                                          // above simulation area
     // color = vec3(0); // no need to set
     opacity = 0.0;                  // completely transparent
   } else if (wall[DISTANCE] == 0) { // is wall
@@ -274,6 +302,24 @@ void main()
     emittedLight += displayLightning(lightningPos, lightningStartIterNum); // needs to be added as light
 
     emittedLight /= 1. + cloudDensity * 100.0;
+
+
+    vec2 rainbowCenter = vec2(0.0, -1.5 + abs(sunAngle) * 0.60);
+
+    float centerDist = length(onScreenUV - rainbowCenter) * 1.3;
+
+    const float cameraHeight = 1.0;
+
+    float angle = atan(centerDist / cameraHeight) * rad2deg;
+
+    float waveLength = map_range(angle, 40.0, 42.0, 400., 700.);
+
+
+    float rainSnowFactor = map_rangeC(KtoC(realTemp), 0.0, 5.0, 0.0, 1.0); // only rain if above freezing
+
+    vec3 rainbowCol = spectral_zucconi(waveLength) * min(pow(lightIntensity, 2.0) * 1.9, 1.0) * min(water[PRECIPITATION] * 3.0, 1.0) * rainSnowFactor * 0.7;
+
+    emittedLight += rainbowCol;
 
 #define lightningOnLightBrightness 0.004 // 0.002
 
@@ -398,10 +444,10 @@ void main()
     // color.rg += vec2(arrow);
     // color.b -= arrow;
     // opacity += arrow;
-    // light += arrow;
+    // lightIntensity += arrow;
   }
   /*
-    light = min(light, 1.);
+    lightIntensity = min(lightIntensity, 1.);
     opacity = min(opacity, 1.);
     color = min(color, vec3(1.));
   */
@@ -409,7 +455,7 @@ void main()
 
   float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
 
-  vec3 finalLight = sunColor(scatering) * light;
+  vec3 finalLight = sunColor(scatering) * lightIntensity;
 
 
   if (fract(cursor.w) > 0.5) {                                               // enable flashlight

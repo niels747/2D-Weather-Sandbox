@@ -17,6 +17,8 @@ out vec2 texCoordXpY0;     // right
 out vec2 texCoordX0Yp;     // up
 out vec2 texCoordX0Ym;     // down
 
+out vec2 onScreenUV;       // Normalized onscreen coordinates where canvas heigth = 1.0 and width is scaled acording to aspect ratio
+
 uniform float Xmult;       // gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
 const float Ymult = 5.;    // 5.0
@@ -54,6 +56,8 @@ void main()
   outpos *= view[2]; // zoom
 
   outpos.y *= aspectRatios[1] / aspectRatios[0];
+
+  onScreenUV = vec2(outpos.x * aspectRatios[1], outpos.y) * 0.5;
 
   gl_Position = vec4(outpos, 0.0, 1.0);
 }
