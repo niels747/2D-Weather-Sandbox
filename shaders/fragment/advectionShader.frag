@@ -48,8 +48,15 @@ uniform vec2 resolution;
 vec2 texelSize;
 
 uniform vec4 initial_Tv[126];
+uniform vec4 realWorldSounding_Tv[126];
+uniform vec4 realWorldSounding_Wv[126];
+uniform vec4 realWorldSounding_Velv[126];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
+
+float getRealWorldSounding_T(int y) { return realWorldSounding_Tv[y / 4][y % 4]; }
+float getRealWorldSounding_W(int y) { return realWorldSounding_Wv[y / 4][y % 4]; }
+float getRealWorldSounding_Vel(int y) { return realWorldSounding_Velv[y / 4][y % 4]; }
 
 #include "common.glsl"
 
@@ -136,20 +143,40 @@ void main()
     // float relHum = relativeHumd(realTemp, water[TOTAL]); // not used
 
     // Radiative cooling and heating effects
+    /*
+        if (texCoord.y > globalEffectsHeight) {
+          water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
 
-    if (texCoord.y > globalEffectsHeight) {
-      water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
+          base[TEMPERATURE] += globalHeating;
 
-      base[TEMPERATURE] += globalHeating;
-
-      if (texCoord.y > 0.93) {
-        base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
-        water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
-      }
-    }
-
+          if (texCoord.y > 0.93) {
+            base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
+            water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
+          }
+        }
+    */
     // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
     // drying !
+
+
+    // apply real sounding
+
+    if (globalEffectsHeight > 0.5) {
+
+      int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
+
+      float Tdiff = base[TEMPERATURE] - getRealWorldSounding_T(soundingArrayindex);
+      base[TEMPERATURE] -= Tdiff * 0.001;
+
+
+      float Wdiff = water[TOTAL] - getRealWorldSounding_W(soundingArrayindex);
+      water[TOTAL] -= Wdiff * 0.001;
+
+
+      float velDiff = base[VX] - getRealWorldSounding_Vel(soundingArrayindex);
+      base[VX] -= velDiff * 0.001;
+    }
+
 
     water[TOTAL] = max(water[TOTAL], 0.0); // prevent water from going negative
 

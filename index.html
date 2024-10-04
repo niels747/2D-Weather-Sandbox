@@ -6,9 +6,7 @@
 	<title>2D Weather Sandbox</title>
 	<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
 	<script type="text/javascript" src="libraries/pako.min.js"></script>
-	<!-- Include the Chart.js library from a CDN -->
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-	<!-- Include the Chart.js date adapter for date-fns -->
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 	<script type="text/javascript" src="app.js"></script>
 	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
@@ -78,6 +76,18 @@
 		<h1>2D Weather Sandbox</h1>
 		<i>By Niels Daemen</i>
 
+		<p></p>
+
+		<label for="datePicker">Date:</label>
+		<input type="date" id="datePicker" value="2024-08-13" min="2010-01-01" max="2024-12-31" />
+
+		<select id="hourSelector">
+			<option value="0">00H</option>
+			<option value="6">06H</option>
+			<option value="12" selected>12H</option>
+			<option value="18">18H</option>
+		</select>
+
 		<form id="startBtn" oninput="updateSetupSliders();">
 			<p>
 				Choose a resolution. The higher the resolution, the slower it will
@@ -89,7 +99,7 @@
 						<b>Horizontal resolution</b>
 					</td>
 					<td>
-						<input type="range" min="100" max="16000" value="2500" step="100" id="simResSelX" />
+						<input type="range" min="100" max="16000" value="3000" step="100" id="simResSelX" />
 						<output id="simResShowX"></output>
 					</td>
 				</tr>
