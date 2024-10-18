@@ -42,7 +42,7 @@ void main()
   wall = texture(wallTex, texCoord);
 
 
-  vec2 polarVortexTexCoord = texCoord + vec2(-wind * 0.00001, 0);
+  vec2 polarVortexTexCoord = texCoord /* + vec2(-wind * 0.00001, 0)*/;
   vec2 polarVortexTexCoordXmY0 = polarVortexTexCoord + vec2(-texelSize.x, 0.);
   vec2 polarVortexTexCoordX0Ym = polarVortexTexCoord + vec2(0., -texelSize.y);
   vec2 polarVortexTexCoordXpY0 = polarVortexTexCoord + vec2(texelSize.x, 0.);
@@ -53,16 +53,21 @@ void main()
   base[VX] += polarVortex * 0.00030; // substract acumulated velocity
 
 
-  // if (abs(wind) < 0.001)
-  polarVortex -= base.x * 0.0020; // acumulate horizontal velocity
-
-                                  // base[VY] += sin(texCoord.x * PI + ) * 0.001;
+  if (abs(wind) < 0.001)
+    polarVortex -= base.x * 0.00020; // acumulate horizontal velocity
 
 
-  if (texCoord.y < 0.99) {
-    float polarVortexAvg = (texture(polarVortexTex, polarVortexTexCoordXmY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Ym)[0] + texture(polarVortexTex, polarVortexTexCoordXpY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Yp)[0]) / 4.;
-    polarVortex -= (polarVortex - polarVortexAvg) * 0.01; // smooth texture
-  }
+  polarVortex *= 1.0 + wind * 0.001;
+
+  polarVortex = max(polarVortex, 0.);
+
+  // base[VY] += sin(texCoord.x * PI + ) * 0.001;
+
+
+  // if (texCoord.y < 0.99) {
+  //   float polarVortexAvg = (texture(polarVortexTex, polarVortexTexCoordXmY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Ym)[0] + texture(polarVortexTex, polarVortexTexCoordXpY0)[0] + texture(polarVortexTex, polarVortexTexCoordX0Yp)[0]) / 4.;
+  //   polarVortex -= (polarVortex - polarVortexAvg) * 0.01; // smooth texture
+  // }
 
 
   // polarVortex *= 0.9999999; // decay
