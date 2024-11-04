@@ -29,9 +29,9 @@ layout(location = 2) out ivec4 wall;
 #define T 3
 
 float calcDensity(float _P, float _T)
-{                           // pressure in hPa, temperature in K, density in kg/m3
-  const float _R = 2.87058; // J/(kg·K)
-                            //  const float _R = 0.01; // J/(kg·K)
+{                                  // pressure in hPa, temperature in K, density in kg/m3
+  const float _R = 2.87058 * 1.03; // J/(kg·K)
+                                   //  const float _R = 0.01; // J/(kg·K)
   return _P / (_R * _T);
 }
 

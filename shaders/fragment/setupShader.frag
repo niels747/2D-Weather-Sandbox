@@ -11,9 +11,11 @@ uniform float heightMult;
 
 uniform vec4 initial_Tv[151];
 uniform vec4 initial_Pv[151];
+uniform vec4 initial_Wv[151];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 float getInitialP(int y) { return initial_Pv[y / 4][y % 4]; }
+float getInitialW(int y) { return initial_Wv[y / 4][y % 4]; }
 
 in vec2 texCoord;
 in vec2 fragCoord;
@@ -82,11 +84,14 @@ void main()
   } else {                                                        // not wall
     wall[1] = 255;                                                // reset distance to wall
     base[3] = getInitialT(int(texCoord.y * (1.0 / texelSize.y))); // set temperature
+    /*
+        if (texCoord.y < 0.20)                                        // set dew point
+          water[0] = maxWater(base[3] - 2.0);
+        else
+          water[0] = maxWater(base[3] - 20.0);
+    */
 
-    if (texCoord.y < 0.20)                                        // set dew point
-      water[0] = maxWater(base[3] - 2.0);
-    else
-      water[0] = maxWater(base[3] - 20.0);
+    water[0] = getInitialW(int(texCoord.y * (1.0 / texelSize.y)));
 
     water[1] = max(water[0] - maxWater(base[3]), 0.0); // calculate cloud water
   }

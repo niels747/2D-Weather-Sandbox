@@ -62,6 +62,17 @@
 		<h1>2D Weather Sandbox</h1>
 		<i>By Niels Daemen</i>
 
+		<p></p>
+		<label for="datePicker">Date:</label>
+		<input type="date" id="datePicker" value="2024-08-13" min="2010-01-01" max="2024-12-31" />
+		<select id="hourSelector">
+			<option value="0">00H</option>
+			<option value="6">06H</option>
+			<option value="12" selected>12H</option>
+			<option value="18">18H</option>
+		</select>
+
+
 		<form id="startBtn"
 			oninput="simResShowX.value=parseInt(simResSelX.value);simResShowY.value=parseInt(simResSelY.value);">
 			<p>

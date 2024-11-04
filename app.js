@@ -9,6 +9,114 @@ details. You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
+const corsUrl = 'https://corsproxy.io/?'; // need proxy to allow for cross origin request
+async function getSoundingGraphImgUrl(url)
+{
+  try {
+    const response = await fetch(corsUrl + url);
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const img = doc.querySelectorAll('img')[0];
+    return 'https://www.meteociel.fr/' + img.getAttribute("src");
+  } catch (error) {
+    console.error('Error fetching the data:', error);
+  }
+}
+// Function to scrape table data from the given URL
+async function scrapeTableData(url)
+{
+  try {
+    const response = await fetch(corsUrl + url);
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    // Select the rows of the main table (starting at line 51)
+    const rows = doc.querySelectorAll('table:nth-of-type(2) tr:not(:first-child)');
+    const tableData = [];
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      const rowData = {
+        alt : parseFloat(cells[0].textContent),
+        p : parseFloat(cells[1].textContent),
+        t : parseFloat(cells[2].textContent),
+        tw : parseFloat(cells[3].textContent),
+        td : parseFloat(cells[4].textContent),
+        rh : parseFloat(cells[5].textContent),
+        vel : parseFloat(cells[6].textContent.split(' / ')[1]),
+        angle : parseFloat(cells[6].textContent.split(' / ')[0]),
+      };
+      tableData.push(rowData);
+    });
+    return tableData;
+  } catch (error) {
+    console.error('Error fetching the data:', error);
+  }
+}
+async function loadSounding(stationID, timeStamp)
+{
+  const imgMapType = 1; // 0 = large classic emagram   1 = small emagram
+  const graphPageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=' + imgMapType + '&date=' + timeStamp;
+  const tablePageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=4&date=' + timeStamp;
+  // console.log(graphPageUrl, tablePageUrl);
+  const SoundingGraphImgUrl = await getSoundingGraphImgUrl(graphPageUrl);
+  const soundingImgEl = document.getElementById('soundingPreview');
+  // soundingImgEl.src = SoundingGraphImgUrl;
+  return scrapeTableData(tablePageUrl);
+}
+function sampleIsInvalid(s) { return isNaN(s.t) || isNaN(s.td) || isNaN(s.vel); }
+function rawSoundingToSimSounding(soundingData, simHeight, simResY)
+{
+  let soundingForSim = [];
+  soundingDataIndex = soundingData.length - 1;
+  for (let y = 0; y < simResY; y++) {
+    const inSimAlt = y * (simHeight / simResY);
+    while (inSimAlt >= soundingData[soundingDataIndex]['alt'] || sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches the in sim altitude
+      soundingDataIndex--;
+    }
+    const s = soundingData[soundingDataIndex];
+    // y = length * sin(angle)
+    let twoDimentionalVel = s.vel * Math.cos(s.angle * degToRad); // km/h
+    // if (isNaN(twoDimentionalVel))
+    //   twoDimentionalVel = 0.0;
+    //  console.log(twoDimentionalVel);
+    const inSimVel = msToRawVelocity(twoDimentionalVel / 3.6);                 // convert to m/s first
+    soundingForSim[y] = {'t' : s.t, 'td' : s.td, 'p' : s.p, 'vel' : inSimVel}; // Put the requered data in an array of objects
+  }
+  return soundingForSim;
+}
+var stationSelector;
+const stationIDs = {
+  'Essen' : 10410,
+  'De Bilt' : 6260,
+  'Nimes' : 7645,
+  'Munich' : 10868,
+  'Rome' : 16245,
+  'Berlin' : 10393,
+  'Idar-Oberstein' : 10618,
+  'Bergen' : 10238,
+  'Lapland' : 2836,
+  'Moscow' : 27730,
+  'Krete' : 16754,
+  'Ajaccio' : 7761,
+  'Milan' : 16064,
+};
+function createSelect(stationIDs)
+{
+  let select = document.createElement('select');
+  document.body.insertBefore(select, document.body.firstChild);
+  for (const [key, value] of Object.entries(stationIDs)) {
+    let option = document.createElement('option');
+    option.value = value;
+    option.innerHTML = key;
+    select.appendChild(option);
+  }
+  return select;
+}
+// Ensure the DOM is fully loaded before running the function
+document.addEventListener('DOMContentLoaded', () => { stationSelector = createSelect(stationIDs); });
+
+
 var canvas;
 var gl;
 
@@ -93,6 +201,7 @@ var lastFrameNum = 0;
 
 var IterNum = 0;
 
+var dryLapse;
 
 const timePerIteration = 0.00008; // (0.00008 = 0.288 sec) in hours
 
@@ -271,6 +380,15 @@ function rawVelocityToMs(vel)
   vel /= 3600.0;           // convert to m/s
   return vel;
 }
+
+function msToRawVelocity(vel)
+{                          // Raw velocity is in cells/iteration
+  vel *= 3600;             // convert to meters per hour
+  vel /= cellHeight;       // convert to cells per hour
+  vel *= timePerIteration; // convert to raw (cells per iteration)
+  return vel;
+}
+
 
 async function loadData()
 {
@@ -463,6 +581,17 @@ function setLoadingBar()
 
 async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops)
 {
+  const dateSel = document.getElementById('datePicker');
+  const date = new Date(dateSel.value);
+  let epochTime = Math.floor(date.getTime() / 1000);
+  const hourSelector = document.getElementById('hourSelector');
+  const hour = hourSelector.options[hourSelector.selectedIndex].value;
+  epochTime += hour * 3600;
+  const soundingData = await loadSounding(stationSelector.options[stationSelector.selectedIndex].value, epochTime);
+  // console.log(soundingData);
+  const soundingForSim = rawSoundingToSimSounding(soundingData, 12000 /*guiControls.simHeight*/, 305);
+  console.log('soundingForSim', soundingForSim);
+
   await setLoadingBar();
 
   document.body.style.overflow = 'hidden'; // prevent scrolling bar from apearing
@@ -2050,31 +2179,57 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
 
-  var dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
+  dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
 
   function CtoK(c) { return c + 273.15; }
 
 
   function calcDensity(_P, _T)
-  {                     // pressure in hPa, temperature in K, density in kg/m3
-    const _R = 2.87058; // J/(kg·K)
-                        //  const float _R = 0.01; // J/(kg·K)
+  {                            // pressure in hPa, temperature in K, density in kg/m3
+    const _R = 2.87058 * 1.03; // J/(kg·K)
+                               //  const float _R = 0.01; // J/(kg·K)
     return _P / (_R * _T);
   }
+
+  function calcDensityWithMixingRatio(P, T, w)
+  {                          // P: pressure in hPa, T: temperature in K, w: mixing ratio in g/kg
+    const R_dry = 2.87058;   // J/(kg·K) for dry air
+    const R_vapor = 4.61495; // J/(kg·K) for water vapor
+    const w_kgkg = w / 1000; // Convert mixing ratio from g/kg to kg/kg
+
+    // Calculate the partial pressure of water vapor
+    const e = (w_kgkg * P) / (0.622 + w_kgkg); // Water vapor pressure in hPa
+    const P_dry = P - e;                       // Partial pressure of dry air in hPa
+
+    return (P_dry / (R_dry * T)) + (e / (R_vapor * T));
+  }
+
 
   // generate Initial temperature profile
 
   var initial_T = new Float32Array(604); // sim_res_y + 1
+  var initial_W = new Float32Array(604); // sim_res_y + 1
+
   for (var y = 0; y <= sim_res_y; y++) {
     var tempC = Math.max(map_range(y, 0, sim_res_y - 1, 15.0, -70.0), -60);
-    initial_T[y] = CtoK(tempC); // initial temperature profile
+    // initial_T[y] = CtoK(tempC); // initial temperature profile
+
+    let soundingSample = soundingForSim[y];
+    initial_T[y] = CtoK(soundingSample.t);            // initial temperature profile
+    initial_W[y] = maxWater(CtoK(soundingSample.td)); // convert dew point to mixing ratio
   }
 
   var initial_P = new Float32Array(604); // sim_res_y + 1
-  initial_P[sim_res_y] = 185.0;          // pressure at top of atmosphere 12000 meters
+  // initial_P[sim_res_y] = 185.0;          // pressure at top of atmosphere 12000 meters
+  initial_P[sim_res_y] = soundingForSim[sim_res_y].p;
+
   for (var y = sim_res_y - 1; y > 0; y--) {
     var density = calcDensity(initial_P[y + 1], initial_T[y + 1]);
-    console.log(density);
+
+    // var density = calcDensityWithMixingRatio(initial_P[y + 1], initial_T[y + 1], initial_W[y + 1]);
+
+
+    // console.log(density);
     const gravMult = 4.0;                                 // 2.0
     initial_P[y] = initial_P[y + 1] + density * gravMult; // initial temperature profile
   }
@@ -2090,6 +2245,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Pv'), initial_P);
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
+  gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Wv'), initial_W);
 
   gl.useProgram(advectionProgram);
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'baseTex'), 0);
