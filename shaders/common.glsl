@@ -6,8 +6,8 @@ precision highp isampler2D;
 #define deg2rad 0.0174533
 
 
-#define lightHeatingConst 0.0023 // how much heat a unit of light adds per iteration
-#define IRHeatingConst 0.000002  // 0.000005 how much a unit of IR (w/m2) adds or subsracts heat
+#define lightHeatingConst 0.0023 // * 1361 = w/m2    how much heat a unit of light adds per iteration
+#define IRHeatingConst 0.000002  // 0.000005 how much heat a unit of IR (w/m2) adds or subsracts per iteration
 
 #define maxWaterTemp 40.0
 

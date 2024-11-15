@@ -8,6 +8,8 @@ in vec2 texCoord;
 
 in vec2 texCoordX0Yp; // up
 in vec2 texCoordX0Ym; // down
+in vec2 texCoordXmY0; // left
+in vec2 texCoordXpY0; // right
 
 uniform sampler2D baseTex;
 uniform sampler2D waterTex;
@@ -18,9 +20,10 @@ uniform vec2 resolution;
 uniform vec2 texelSize;
 
 uniform float sunAngle;
-// uniform float waterTemperature;
 
 uniform float sunIntensity;
+
+uniform float IR_rate;
 
 uniform float greenhouseGases;
 uniform float waterGreenHouseEffect;
@@ -53,14 +56,18 @@ void main()
 
       float net_heating = 0.0;
 
-      if (fragCoord.y < resolution.y - 2.) {                                                                        // prevent shadow bug above simulation area
-        float reflection = min((water[CLOUD] * 0.020 + water[PRECIPITATION] * 0.010) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
-        float absorbtion = min(water[SMOKE] * 0.020 * cellHeightCompensation, 1.);                                  // 0.025 dust/smoke
+      if (fragCoord.y < resolution.y - 2.) {                                                                       // prevent shadow bug above simulation area
+        float reflection = min((water[CLOUD] * 0.20 + water[PRECIPITATION] * 0.010) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
+        float absorbtion = min(water[SMOKE] * 0.020 * cellHeightCompensation, 1.);                                 // 0.025 dust/smoke
 
         float lightReflected = sunlight * reflection;
         float lightAbsorbed = sunlight * absorbtion;
 
         sunlight = max(0., sunlight - lightReflected - lightAbsorbed);
+
+        // float avgSunlight = (texture(lightTex, texCoordX0Ym)[SUNLIGHT] + texture(lightTex, texCoordX0Yp)[SUNLIGHT] + texture(lightTex, texCoordXmY0)[SUNLIGHT] + texture(lightTex, texCoordXpY0)[SUNLIGHT]) / 4.0;
+
+        // sunlight -= (sunlight - avgSunlight) * 0.8; // smooth
 
         net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
       }
@@ -112,6 +119,8 @@ void main()
         IR_up -= absorbedUp;
         IR_up += emitted;
       }
+
+      net_heating *= IR_rate;
 
       light = vec4(sunlight, net_heating, IR_down, IR_up);
       // light = vec4(1, 0, 0, 0);

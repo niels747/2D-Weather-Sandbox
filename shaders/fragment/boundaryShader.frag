@@ -31,7 +31,6 @@ uniform vec4 initial_Tv[126];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
-uniform float IR_rate;
 uniform float sunAngle;
 
 uniform float iterNum; // used as seed for random function
@@ -90,15 +89,15 @@ void main()
 
   bool nextToWall = false;
 
-  wall[VERT_DISTANCE] = wallX0Ym[VERT_DISTANCE] + 1;   // height above ground is counted
+  wall[VERT_DISTANCE] = wallX0Ym[VERT_DISTANCE] + 1; // height above ground is counted
 
-  if (wall[DISTANCE] != 0) {                           // is fluid, not wall
+  if (wall[DISTANCE] != 0) {                         // is fluid, not wall
 
-    wall[TYPE] = wallX0Ym[TYPE];                       // copy wall type from wall below
+    wall[TYPE] = wallX0Ym[TYPE];                     // copy wall type from wall below
 
-    base[TEMPERATURE] += light[NET_HEATING] * IR_rate; // IR heating/cooling effect
+    base[TEMPERATURE] += light[NET_HEATING];         // IR heating/cooling effect
 
-    base[TEMPERATURE] += precipFeedback[HEAT];         // rain cools air and riming heats air
+    base[TEMPERATURE] += precipFeedback[HEAT];       // rain cools air and riming heats air
 
 
     float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water turns into rain
@@ -155,22 +154,22 @@ void main()
       wall[VERT_DISTANCE] = 1;                           // directly above ground
     }
 
-    if (wallXmY0[DISTANCE] == 0) {            // left is wall
+    if (wallXmY0[DISTANCE] == 0) { // left is wall
       nextToWall = true;
-      wall[DISTANCE] = 1;                     // dist to nearest wall = 1
-                                              //  wall[TYPE] = wallXmY0[TYPE];
+      wall[DISTANCE] = 1;          // dist to nearest wall = 1
+      wall[TYPE] = wallXmY0[TYPE];
 
       if (wallXmY0[TYPE] == WALLTYPE_WATER) { // if left is water, build a dyke
         wall[TYPE] = WALLTYPE_LAND;
         wall[DISTANCE] = 0;
       }
 
-      if (wallXpY0[DISTANCE] == 0)            // left and right is wall, make this wall to fill narrow gaps
+      if (wallXpY0[DISTANCE] == 0)        // left and right is wall, make this wall to fill narrow gaps
         wall[DISTANCE] = 0;
-    } else if (wallXpY0[DISTANCE] == 0) {     // right is wall
+    } else if (wallXpY0[DISTANCE] == 0) { // right is wall
       nextToWall = true;
-      wall[DISTANCE] = 1;                     // dist to nearest wall = 1
-                                              //  wall[TYPE] = wallXpY0[TYPE];
+      wall[DISTANCE] = 1;                 // dist to nearest wall = 1
+      wall[TYPE] = wallXpY0[TYPE];
 
       if (wallXpY0[TYPE] == WALLTYPE_WATER) { // if right is water, build a dyke
         wall[TYPE] = WALLTYPE_LAND;
@@ -199,6 +198,28 @@ void main()
     // apply vorticity force
     base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * (vorticity + velocityFactor);
     //}
+
+    if (nextToWall) {
+      if (wall[TYPE] == WALLTYPE_LAND) {
+        float lightPower = 0.0;
+
+        if (wallX0Ym[DISTANCE] == 0)
+          lightPower += max(light[SUNLIGHT] * cos(sunAngle), 0.0); // Light power per horizontal surface area;
+
+        if (wallXmY0[DISTANCE] == 0)
+          lightPower += max(light[SUNLIGHT] * sin(sunAngle), 0.0); // Light power per vertical surface area
+
+        if (wallXpY0[DISTANCE] == 0)
+          lightPower += max(light[SUNLIGHT] * sin(-sunAngle), 0.0); // Light power per vertical surface area
+
+
+        float totalAlbedo = map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
+
+        lightPower *= totalAlbedo;
+        lightPower *= lightHeatingConst;
+        base[TEMPERATURE] += lightPower; // sun heating land
+      }
+    }
 
     if (!nextToWall) { // not next to wall
 
@@ -254,11 +275,11 @@ void main()
           }
         }*/
 
-    if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {      // within vertical range of wall
+    if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {            // within vertical range of wall
 
-      float influenceDevider = float(wallVerticalInfluence); // devide by how many cells it's aplied to
+      const float influenceDevider = float(wallVerticalInfluence); // devide by how many cells it's aplied to
 
-      wall[VEGETATION] = wallX0Ym[VEGETATION];               // vegetation is copied from below
+      wall[VEGETATION] = wallX0Ym[VEGETATION];                     // vegetation is copied from below
 
       // base[PRESSURE] *= 0.995; // 0.999
 
@@ -280,11 +301,11 @@ void main()
         water[SMOKE] += 0.00001; // City produces smog
       case WALLTYPE_LAND:
 
-        float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
+        //   float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
 
-        lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
+        //   lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
 
-        base[TEMPERATURE] += lightPower / influenceDevider; // sun heating land
+        //   base[TEMPERATURE] += lightPower / influenceDevider; // sun heating land
 
         float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
 

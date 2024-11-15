@@ -117,7 +117,9 @@ var lastFrameNum = 0;
 
 var IterNum = 0;
 
+// global framebuffers for measurements
 var frameBuff_0;
+var lightFrameBuff_0;
 
 var dryLapse;
 
@@ -187,22 +189,6 @@ function mod(a, b)
 }
 
 function map_range(value, low1, high1, low2, high2) { return low2 + ((high2 - low2) * (value - low1)) / (high1 - low1); }
-
-function max(num1, num2)
-{
-  if (num1 > num2)
-    return num1;
-  else
-    return num2;
-}
-
-function min(num1, num2)
-{
-  if (num1 < num2)
-    return num1;
-  else
-    return num2;
-}
 
 // Temperature Functions
 
@@ -470,6 +456,9 @@ class Weatherstation
   #snowHeight = 0;   // cm
   #airQuality = 0;   // AQI
 
+  #netIRpow = 0;
+  #solarPower = 0;
+
   #chartCanvas;
   #historyChart;
 
@@ -736,8 +725,20 @@ class Weatherstation
 
     this.#airQuality = waterTextureValues[4 + 3] * 300.0; // read smoke
 
-    if (waterTextureValues[4 + 0] > 1110) {               // is not air
-      this.destroy();                                     // remove weather station
+    gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0); // light texture
+    var lightTextureValues = new Float32Array(4);
+    gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, lightTextureValues);
+
+    // this.#netIRpow = lightTextureValues[2] - lightTextureValues[3]; // IR_DOWN - IR_UP
+
+    this.#netIRpow = lightTextureValues[1] / 0.000002; // NET_HEATING
+
+    this.#solarPower = Math.max(lightTextureValues[0] * Math.sin(guiControls.sunAngle * degToRad) * 1361.0, 0.0);
+
+
+    if (waterTextureValues[4 + 0] > 1110) { // is not air
+      this.destroy();                       // remove weather station
     }
 
     this.#time = simDateTime.toISOString();
@@ -779,13 +780,18 @@ class Weatherstation
     c.fillStyle = '#00FFFF';
     c.fillText(printTemp(this.#dewpoint), 30, 28);
 
-    c.fillStyle = '#FFFFFF';
-    c.fillText(printVelocity(this.#velocity), 20, 40);
+    // c.fillStyle = '#FFFFFF';
+    // c.fillText(printVelocity(this.#velocity), 20, 40);
 
-    if (this.#soilMoisture > 0.) {
-      c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
-      c.fillText('💧', 20, 65);
-    }
+    c.fillStyle = '#FFFFFF';
+    c.fillText(this.#netIRpow.toFixed(1) + "W/m2", 20, 40);
+    c.fillStyle = '#FFFFFF';
+    c.fillText(this.#solarPower.toFixed(1) + "W/m2", 0, 52);
+
+    // if (this.#soilMoisture > 0.) {
+    //   c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
+    //   c.fillText('💧', 20, 65);
+    // }
     if (this.#snowHeight > 0.) {
       c.fillText(printSnowHeight(this.#snowHeight), 67, 52);
       c.font = '14px Arial';
@@ -1488,7 +1494,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
 
       let Xpos = mod(this.phys.pos.x / cellHeight, sim_res_x);
-      let Ypos = min(this.phys.pos.y / cellHeight + 1.0, sim_res_y - 1);
+      let Ypos = Math.min(this.phys.pos.y / cellHeight + 1.0, sim_res_y - 1);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
       gl.readBuffer(gl.COLOR_ATTACHMENT0);                                   // basetexture
@@ -1593,7 +1599,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     {
       this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0;       // pitch input -1.0 to +1.0
 
-      this.elevator /= 1.0 + max(this.#airspeed - 80, 0.) * 0.01;               // limit elevator throw at higher airspeed
+      this.elevator /= 1.0 + Math.max(this.#airspeed - 80, 0.) * 0.01;          // limit elevator throw at higher airspeed
 
       this.elevator += Math.max(-this.phys.angle * radToDeg - 50.0, 0.) * 0.03; // limit elevator to prevent going down steeper than vertical
       this.elevator -= Math.max(this.phys.angle * radToDeg - 50.0, 0.) * 0.03;  // limit elevator to prevent going up steeper than vertical
@@ -1668,7 +1674,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // set all uniforms to new values
     gl.useProgram(boundaryProgram);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'), guiControls.vorticity);
-    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'IR_rate'), guiControls.IR_rate);
     // gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
@@ -1681,6 +1686,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'greenhouseGases'), guiControls.greenhouseGases);
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterGreenHouseEffect'), guiControls.waterGreenHouseEffect);
+    gl.uniform1f(gl.getUniformLocation(lightingProgram, 'IR_rate'), guiControls.IR_rate);
     gl.useProgram(advectionProgram);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'meltingHeat'), guiControls.meltingHeat);
@@ -1843,8 +1849,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     radiation_folder.add(guiControls, 'IR_rate', 0.0, 10.0, 0.1)
       .onChange(function() {
-        gl.useProgram(boundaryProgram);
-        gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'IR_rate'), guiControls.IR_rate);
+        gl.useProgram(lightingProgram);
+        gl.uniform1f(gl.getUniformLocation(lightingProgram, 'IR_rate'), guiControls.IR_rate);
       })
       .name('IR Multiplier');
 
@@ -2073,11 +2079,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     simDateTime = new Date(2000, Math.floor(guiControls.month) - 1, (guiControls.month % 1) * 30.417);
 
-    // initialize date
-    onUpdateTimeOfDaySlider();
-    onUpdateMonthSlider();
-
-    updateSunlight('MANUAL_ANGLE'); // set angle from savefile
+    // initialize time and solar angle
+    if (guiControls.dayNightCycle) {
+      onUpdateTimeOfDaySlider();
+      onUpdateMonthSlider();
+    } else {
+      updateSunlight('MANUAL_ANGLE'); // set angle from savefile
+    }
   }
 
   var soundingGraph = {
@@ -2264,8 +2272,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       for (var y = simYpos + 1; y < sim_res_y; y++) {
         var dT = drylapsePerCell;
 
-        var cloudWater = max(water - maxWater(prevTemp + dT),
-                             0.0); // how much cloud water there would be after that
+        var cloudWater = Math.max(water - maxWater(prevTemp + dT),
+                                  0.0); // how much cloud water there would be after that
         // temperature change
 
         var dWt = (cloudWater - prevCloudWater) * guiControls.evapHeat; // how much that water phase change would
@@ -2280,7 +2288,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         c.lineTo(T_to_Xpos(KtoC(T), scrYpos), scrYpos); // temperature
 
         prevTemp = T;
-        prevCloudWater = max(water - maxWater(prevTemp), 0.0);
+        prevCloudWater = Math.max(water - maxWater(prevTemp), 0.0);
 
         if (!reachedSaturation && prevCloudWater > 0.0) {
           reachedSaturation = true;
@@ -3255,7 +3263,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const curlFrameBuff = gl.createFramebuffer();
   const vortForceFrameBuff = gl.createFramebuffer();
 
-  const lightFrameBuff_0 = gl.createFramebuffer();
+  lightFrameBuff_0 = gl.createFramebuffer();
   const lightFrameBuff_1 = gl.createFramebuffer();
   const precipitationFeedbackFrameBuff = gl.createFramebuffer();
   const lightningLocationFrameBuff = gl.createFramebuffer();
@@ -4422,6 +4430,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function updateSunlight(deltaT_hours)
   {
+    console.log("updateSunlight: ", deltaT_hours);
+
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {                                                   // increment time
         simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
@@ -4448,14 +4458,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.sunAngle = 180.0 - guiControls.sunAngle;
       }
     }
-    let sunAngleForShaders = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
+    let solarZenithAngle = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
     // Calculations visualized: https://www.desmos.com/calculator/kzr76zj5hq
-    if (Math.abs(sunAngleForShaders) < 1.54) {
+    if (Math.abs(solarZenithAngle) < 85.0 * degToRad) {
       sunIsUp = true;
     } else {
       sunIsUp = false;
     }
-    //		console.log(sunAngleForShaders, sunIsUp);
+    //		console.log(solarZenithAngle, sunIsUp);
     //	let sunIntensity = guiControls.sunIntensity *
     // Math.pow(Math.max(Math.sin((90.0 - Math.abs(guiControls.sunAngle)) *
     // degToRad) - 0.1, 0.0) * 1.111, 0.4);
@@ -4463,12 +4473,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // console.log("sunIntensity: ", sunIntensity);
 
     gl.useProgram(boundaryProgram);
-    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'sunAngle'), sunAngleForShaders);
+    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'sunAngle'), solarZenithAngle);
     gl.useProgram(lightingProgram);
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'sunIntensity'), sunIntensity);
-    gl.uniform1f(gl.getUniformLocation(lightingProgram, 'sunAngle'), sunAngleForShaders);
+    gl.uniform1f(gl.getUniformLocation(lightingProgram, 'sunAngle'), solarZenithAngle);
     gl.useProgram(realisticDisplayProgram);
-    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), sunAngleForShaders);
+    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), solarZenithAngle);
 
     if (guiControls.dayNightCycle)
       clockEl.innerHTML = dateTimeStr(); // update clock
