@@ -200,7 +200,7 @@ void main()
     //}
 
     if (nextToWall) {
-      if (wall[TYPE] == WALLTYPE_LAND) {
+      if (wall[TYPE] != WALLTYPE_WATER) { // any land
         float lightPower = 0.0;
 
         if (wallX0Ym[DISTANCE] == 0)

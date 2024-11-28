@@ -14,6 +14,8 @@ uniform sampler2D lightTex;
 uniform sampler2D planeTex;
 // uniform sampler2D precipFeedbackTex;
 
+uniform sampler2D ambientLightTex;
+
 uniform float iterNum;
 
 uniform float simHeight;
@@ -22,9 +24,10 @@ uniform vec3 planePos;
 
 out vec4 fragmentColor;
 
-#include "commonDisplay.glsl"
+const float dryLapse = 0.; // definition needed for common.glsl
+#include "common.glsl"
 
-float map_range(float value, float min1, float max1, float min2, float max2) { return min2 + (value - min1) * (max2 - min2) / (max1 - min1); }
+#include "commonDisplay.glsl"
 
 vec4 displayA380(vec2 pos, float angle)
 {
@@ -96,6 +99,10 @@ void main()
   mixedCol = pow(mixedCol, vec3(2.0)); // gamma correction
 
   vec3 finalColor = mixedCol * (light + minShadowLight);
+
+  float airDensityFactor = clamp(1.0 - texCoord.y, 0., 1.);
+
+  finalColor += texture(ambientLightTex, texCoord).rgb * 0.1 * airDensityFactor;
 
   // finalColor.r += texture(precipFeedbackTex, texCoord)[0] * 100.0; // check precipitation feedback
 

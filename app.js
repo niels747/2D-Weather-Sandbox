@@ -133,6 +133,9 @@ let hdrFBO;
 
 let bloomFBOs = [];
 
+let ambientLightFBOs = [];
+let emittedLightFBO;
+
 
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
@@ -391,7 +394,7 @@ class FBO // wraps texture, frambuffer and info in one
   texture;
   frameBuffer;
 
-  constructor(w, h, internalFormat, format, type, texFilter)
+  constructor(w, h, internalFormat, format, type, texFilter, wrapMode_S)
   {
     this.width = w;
     this.height = h;
@@ -400,7 +403,11 @@ class FBO // wraps texture, frambuffer and info in one
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, texFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, texFilter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+    if (!wrapMode_S)
+      wrapMode_S = gl.CLAMP_TO_EDGE;
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode_S);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
 
@@ -436,6 +443,28 @@ function createBloomFBOs()
   }
 }
 
+
+function createAmbientLightFBOs()
+{
+  emittedLightFBO = new FBO(sim_res_x, sim_res_y, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR);
+
+  let res = new Vec2D(sim_res_x, sim_res_y);
+
+  // console.log('createAmbientLightFBOs');
+
+  ambientLightFBOs.length = 0;   // empty array
+  for (let i = 0; i < 80; i++) { // max iterations
+    let width = res.x >> i;      // right shift to devide by 2 multiple times
+    let height = res.y >> i;
+
+    if (width < 2 || height < 2)
+      break; // stop when texture width or height is <= 2
+
+    let fbo = new FBO(width, height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR, gl.REPEAT);
+    ambientLightFBOs.push(fbo);
+  }
+}
+
 class Weatherstation
 {
   #width = 120; // 100 display size
@@ -462,6 +491,8 @@ class Weatherstation
   #chartCanvas;
   #historyChart;
 
+  #displaySunAndIRPower;
+
 
   constructor(xIn, yIn)
   {
@@ -483,17 +514,26 @@ class Weatherstation
     this.#canvas.style.position = 'absolute';
     this.#canvas.style.zIndex = 1; // z-index
 
+    this.#displaySunAndIRPower = false;
+
     let thisObj = this;
     this.#canvas.addEventListener('mousedown', function(event) {
       if (guiControls.tool == 'TOOL_STATION') {
-        thisObj.destroy();       // remove weather station
-        event.stopPropagation(); // prevent mousedown on body from firing
+        thisObj.destroy();                                                                                          // remove weather station
+        event.stopPropagation();                                                                                    // prevent mousedown on body from firing
       } else {
-        if (guiControls.dayNightCycle == true) {
-          thisObj.#chartCanvas.style.display = (thisObj.#chartCanvas.style.display == 'none') ? 'block' : 'none'; // toggle visibility of chart canvas
+        if (event.button == 0) {                                                                                    // left mouse button
+          if (guiControls.dayNightCycle == true) {
+            thisObj.#chartCanvas.style.display = (thisObj.#chartCanvas.style.display == 'none') ? 'block' : 'none'; // toggle visibility of chart canvas
+          }
+        }
+        if (event.button == 2) {                                          // right mouse button
+          thisObj.#displaySunAndIRPower = !thisObj.#displaySunAndIRPower; // toggle display of radiation flux
         }
       }
     });
+
+    this.#canvas.addEventListener('contextmenu', function(event) { event.preventDefault(); }); // Prevent the browser's context menu from appearing
 
     this.createChartJSCanvas();
   }
@@ -730,9 +770,8 @@ class Weatherstation
     var lightTextureValues = new Float32Array(4);
     gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, lightTextureValues);
 
-    // this.#netIRpow = lightTextureValues[2] - lightTextureValues[3]; // IR_DOWN - IR_UP
-
-    this.#netIRpow = lightTextureValues[1] / 0.000002; // NET_HEATING
+    this.#netIRpow = lightTextureValues[2] - lightTextureValues[3]; // IR_DOWN - IR_UP
+    // this.#netIRpow = lightTextureValues[1] / 0.000002; // or calculate from NET_HEATING
 
     this.#solarPower = Math.max(lightTextureValues[0] * Math.sin(guiControls.sunAngle * degToRad) * 1361.0, 0.0);
 
@@ -780,18 +819,22 @@ class Weatherstation
     c.fillStyle = '#00FFFF';
     c.fillText(printTemp(this.#dewpoint), 30, 28);
 
-    // c.fillStyle = '#FFFFFF';
-    // c.fillText(printVelocity(this.#velocity), 20, 40);
 
-    c.fillStyle = '#FFFFFF';
-    c.fillText(this.#netIRpow.toFixed(1) + "W/m2", 20, 40);
-    c.fillStyle = '#FFFFFF';
-    c.fillText(this.#solarPower.toFixed(1) + "W/m2", 0, 52);
+    if (this.#displaySunAndIRPower) {
+      c.fillStyle = '#FFFFFF';
+      c.fillText("🔅 " + this.#solarPower.toFixed(1) + "W/m2", 10, 40);
+      c.fillStyle = '#FFFFFF';
+      c.fillText("♨️" + this.#netIRpow.toFixed(1) + "W/m2", 10, 55);
+    } else {
+      c.fillStyle = '#FFFFFF';
+      c.fillText(printVelocity(this.#velocity), 20, 40);
 
-    // if (this.#soilMoisture > 0.) {
-    //   c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
-    //   c.fillText('💧', 20, 65);
-    // }
+      if (this.#soilMoisture > 0.) {
+        c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
+        c.fillText('💧', 20, 65);
+      }
+    }
+
     if (this.#snowHeight > 0.) {
       c.fillText(printSnowHeight(this.#snowHeight), 67, 52);
       c.font = '14px Arial';
@@ -2380,9 +2423,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     soundingGraph.graphCanvas.width = window.innerHeight;
 
     // Render output framebuffers need to match canvas resolution
-
     createBloomFBOs(); // recreate bloom framebuffers
-
     createHdrFBO();    // recreate hdr framebuffer
   });
 
@@ -2891,6 +2932,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const postProcessingProgram = createProgram(postProcessingVertexShader, postProcessingShader);
   const isolateBrightPartsProgram = createProgram(postProcessingVertexShader, isolateBrightPartsShader);
   const bloomBlurProgram = createProgram(postProcessingVertexShader, bloomBlurShader);
+  // const lightBlurProgram = createProgram(postProcessingVertexShader, bloomBlurShader);
 
 
   await loadingBar.set(80, 'Setting up textures');
@@ -3318,6 +3360,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   setupTextures();
 
+  createAmbientLightFBOs();
+
   // Set up Framebuffers
 
 
@@ -3361,6 +3405,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_0, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, emittedLightFBO.texture, 0);
 
 
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
@@ -3371,6 +3416,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_1);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_1, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, emittedLightFBO.texture, 0);
 
 
   gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
@@ -3493,6 +3539,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   createBloomFBOs();
 
+  // createAmbientLightFBOs();
+
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
@@ -3602,7 +3650,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'colorScalesTex'), 9);
   gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'dryLapse'), dryLapse);
 
-
   gl.useProgram(precipDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -3614,6 +3661,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'simHeight'), guiControls.simHeight);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
+  gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'ambientLightTex'), 9);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'precipFeedbackTex'), 7);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeTex'), 8);
 
@@ -3635,6 +3683,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'curlTex'), 6);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningTex'), 7);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningLocationTex'), 8);
+  gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'ambientLightTex'), 9);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
 
@@ -3951,7 +4000,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             }
             even = !even;
 
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]); // calc light
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1 ]); // calc light
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 
@@ -4034,7 +4083,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         soundingGraph.draw(Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x))), Math.floor(mouseYinSim * sim_res_y));
       }
 
-    } // END OF NOT SETUP
+    } // END OF NOT SETUP MODE
 
 
     let cursorType = 1.0; // normal circular brush
@@ -4077,6 +4126,69 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     if (guiControls.displayMode == 'DISP_REAL') {
 
+      { //  Abient Light Calculation
+        gl.bindVertexArray(postProcessingVao);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, ambientLightFBOs[0].frameBuffer);
+        gl.viewport(0, 0, ambientLightFBOs[0].width, ambientLightFBOs[0].height);
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        let prevFBO = emittedLightFBO; // the previous FBO
+
+        gl.useProgram(bloomBlurProgram);
+        gl.uniform1i(gl.getUniformLocation(bloomBlurProgram, 'bloomTexture'), 0);
+
+        for (let blurTimes = 0; blurTimes < 2; blurTimes++) { // blur twice for smoother result
+
+          // downsample
+          for (let i = 1; i < ambientLightFBOs.length; i++) {
+            let destFBO = ambientLightFBOs[i];
+            gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), prevFBO.texelSizeX, prevFBO.texelSizeY);
+
+            gl.viewport(0, 0, destFBO.width, destFBO.height);
+
+            // bind texture
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, prevFBO.texture);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+            // gl.drawBuffers([ gl.BACK ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to destFBO
+
+            prevFBO = destFBO;
+          }
+
+          // upsample and add
+          gl.blendFunc(gl.ONE, gl.ONE); // add to the existing texture in the framebuffer
+          gl.enable(gl.BLEND);
+
+          for (let i = ambientLightFBOs.length - 2; i >= 0; i--) {
+            let destFBO = ambientLightFBOs[i];
+
+            gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), prevFBO.texelSizeX, prevFBO.texelSizeY);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, prevFBO.texture);
+
+            gl.viewport(0, 0, destFBO.width, destFBO.height);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
+            // gl.drawBuffers([ gl.BACK ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to destFBO
+
+            prevFBO = destFBO;
+          }
+          gl.disable(gl.BLEND);
+        }
+        gl.bindVertexArray(fluidVao);
+      }
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+
+
       gl.bindFramebuffer(gl.FRAMEBUFFER, hdrFBO.frameBuffer); // render to hdr framebuffer
       // gl.viewport(0, 0, sim_res_x, sim_res_y);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -4101,6 +4213,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // draw background
       gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, A380Texture);
+      gl.activeTexture(gl.TEXTURE9);
+      gl.bindTexture(gl.TEXTURE_2D, ambientLightFBOs[0].texture);
 
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
@@ -4140,6 +4254,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.activeTexture(gl.TEXTURE8);
       gl.bindTexture(gl.TEXTURE_2D, lightningLocationTexture);
 
+      gl.activeTexture(gl.TEXTURE9);
+      gl.bindTexture(gl.TEXTURE_2D, ambientLightFBOs[0].texture);
+
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdr framebuffer
 
       gl.disable(gl.BLEND);
@@ -4164,7 +4282,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // BLOOM
 
-      let lastFBO = bloomFBOs[0];
+      let prevFBO = bloomFBOs[0]; // the previous FBO
 
       gl.useProgram(bloomBlurProgram);
       gl.uniform1i(gl.getUniformLocation(bloomBlurProgram, 'bloomTexture'), 0);
@@ -4173,19 +4291,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // downsample
       for (let i = 1; i < bloomFBOs.length; i++) {
         let destFBO = bloomFBOs[i];
-        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), prevFBO.texelSizeX, prevFBO.texelSizeY);
 
         gl.viewport(0, 0, destFBO.width, destFBO.height);
 
         // bind texture
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+        gl.bindTexture(gl.TEXTURE_2D, prevFBO.texture);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
         // gl.drawBuffers([ gl.BACK ]);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to destFBO
 
-        lastFBO = destFBO;
+        prevFBO = destFBO;
       }
 
       // upsample and add
@@ -4195,17 +4313,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       for (let i = bloomFBOs.length - 2; i >= 0; i--) {
         let destFBO = bloomFBOs[i];
 
-        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), lastFBO.texelSizeX, lastFBO.texelSizeY);
+        gl.uniform2f(gl.getUniformLocation(bloomBlurProgram, 'texelSize'), prevFBO.texelSizeX, prevFBO.texelSizeY);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, lastFBO.texture);
+        gl.bindTexture(gl.TEXTURE_2D, prevFBO.texture);
 
         gl.viewport(0, 0, destFBO.width, destFBO.height);
         gl.bindFramebuffer(gl.FRAMEBUFFER, destFBO.frameBuffer);
         // gl.drawBuffers([ gl.BACK ]);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to destFBO
 
-        lastFBO = destFBO;
+        prevFBO = destFBO;
       }
 
       gl.disable(gl.BLEND);
@@ -4325,15 +4443,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           break;
         case 'DISP_PRECIPFEEDBACK_MASS':
           gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+          gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
           gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.3);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
           break;
         case 'DISP_PRECIPFEEDBACK_HEAT':
           gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
+          gl.bindTexture(gl.TEXTURE_2D, ambientLightFBOs[0].texture);
+          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 5.0);
           break;
         case 'DISP_PRECIPFEEDBACK_VAPOR':
           gl.activeTexture(gl.TEXTURE0);
@@ -4430,8 +4548,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function updateSunlight(deltaT_hours)
   {
-    console.log("updateSunlight: ", deltaT_hours);
-
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {                                                   // increment time
         simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date

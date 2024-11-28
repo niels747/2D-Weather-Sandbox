@@ -346,3 +346,18 @@ float rand2(vec2 s)
   // return hash( x + hashi(y) ); // clean 2D hash
   return hash2(int(s.x * 379071.) + int(s.y * 756398.) << 16); // 2D hash (should be ok too )
 }
+
+// Color Functions
+
+vec3 hsv2rgb(vec3 c)
+{
+  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec3 sunColor(float scattering) // 0.0 = white     0.5 = orange     1.0 = red
+{
+  float val = 1.0 - scattering;
+  return hsv2rgb(vec3(0.015 + val * 0.15, min(2.0 - val * 2.0, 1.), 1.));
+}

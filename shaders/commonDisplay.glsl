@@ -2,7 +2,7 @@
 #define rad2deg 57.2958
 #define deg2rad 0.0174533
 
-#define minShadowLight 0.01 // 0.10
+#define minShadowLight 0.002 // 0.10
 
 const float GAMMA = 2.0;
 const vec3 ONE_OVER_GAMMA = vec3(1. / GAMMA);
@@ -65,7 +65,6 @@ void drawDirLines(vec2 vel)
 
   float sizeMult = 3.952 / velMagSqrt;
 
-
   if (mod(relAngle, 0.50) < 0.01)
     fragmentColor = vec4(vec3(0), 1.);
 }
@@ -76,26 +75,6 @@ void drawIsoBars(float press)
   if (abs(mod(press, 0.001)) < 0.0001)
     fragmentColor = vec4(vec3(0), 1.);
 }
-
-/*
-void drawVectorField(vec2 vel) // looks like bombs...
-{
-  vec2 localcoord = mod(fragCoord, 1.0) - vec2(0.5);
-  float centerDist = length(localcoord); // distance from center of cell
-  float velMag = length(vel);
-
-  float relAngle = acos(dot(vel, localcoord) / (velMag * centerDist)); // angle between velocity and line from center of cell to this pixel
-
-  float velMagSqrt = sqrt(velMag);
-
-  float sizeMult = 3.952 / velMagSqrt;
-
-  if (centerDist < velMagSqrt * 0.3)
-    sizeMult = 0.;
-
-  if (relAngle < (90. * deg2rad) - pow(centerDist * sizeMult, 0.2))
-    fragmentColor = vec4(vec3(0), 1.);
-}*/
 
 float vectorField(vec2 vel, float intensity)
 {
@@ -205,19 +184,4 @@ vec4 bilerpWallVis(sampler2D tex, isampler2D wallTex, vec2 pos)
   }
 
   return mix(mix(a, b, mixAB), mix(c, d, mixCD), mixAB_CD);
-}
-
-// Color Functions
-
-vec3 hsv2rgb(vec3 c)
-{
-  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
-vec3 sunColor(float scattering) // 0.0 = white     0.5 = orange     1.0 = red
-{
-  float val = 1.0 - scattering;
-  return hsv2rgb(vec3(0.015 + val * 0.15, min(2.0 - val * 2.0, 1.), 1.));
 }

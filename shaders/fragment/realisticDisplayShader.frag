@@ -23,6 +23,8 @@ uniform sampler2D curlTex;
 uniform sampler2D lightningTex;
 uniform sampler2D lightningLocationTex;
 
+uniform sampler2D ambientLightTex;
+
 vec2 lightningPos = vec2(0); // global because it's used as a seed in random lightning parameters
 
 uniform vec2 aspectRatios;   // [0] Sim       [1] canvas
@@ -88,9 +90,9 @@ vec3 getWallColor(float depth)
 
   vec3 surfCol = mix(bareEarthCol, vegetationCol, min(float(wall[VEGETATION]) / 50., 1.));
 
-  const vec3 groundCol = vec3(0.70);                                 // gray rock
+  const vec3 rockCol = vec3(0.70);                                 // gray rock
 
-  vec3 color = mix(surfCol, groundCol, clamp(depth * 0.35, 0., 1.)); // * 0.15
+  vec3 color = mix(surfCol, rockCol, clamp(depth * 0.35, 0., 1.)); // * 0.15
 
 
   color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb;                                   // add noise texture
@@ -210,7 +212,7 @@ void main()
 
   float realTemp = potentialToRealT(base[TEMPERATURE]);
 
-  bool nightTime = abs(sunAngle) > PI * 0.5 - 0.05; // false = day time
+  bool nightTime = abs(sunAngle) > 85.0 * deg2rad; // false = day time
 
   float shadowLight = minShadowLight;
 
@@ -218,9 +220,7 @@ void main()
 
   float cloudwater = water[CLOUD];
 
-  if (texCoord.y < 0.) {         // < texelSize.y below simulation area
-
-    vec3 groundCol = vec3(0.75); // gray rock
+  if (texCoord.y < 0.) { // < texelSize.y below simulation area
 
     // ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
     // ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
@@ -288,12 +288,12 @@ void main()
 
     vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
 
-    vec3 smokeCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
+    vec3 smokeOrFireCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
-    shadowLight += fireIntensity * 1.5;
+    shadowLight += fireIntensity * 2.5;                                                                            // 1.5
 
-    opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                // alpha blending
-    color = (smokeCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
+    opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                      // alpha blending
+    color = (smokeOrFireCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
 
     vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
     lightningPos = lightningLocation.xy;
@@ -329,6 +329,7 @@ void main()
     lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum));
     onLight += vec3(lightningOnLight);
 
+
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
       float localX = fract(fragCoord.x);
       float localY = fract(fragCoord.y);
@@ -353,9 +354,9 @@ void main()
         urbanTexCoordY = 1.0 - urbanTexCoordY;
 
         vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
-        if (texCol.a > 0.5) {                  // if not transparent
+        if (texCol.a > 0.5) { // if not transparent
 
-          if (nightTime) {                     // TODO: make dependent  on light level
+          if (nightTime) {
             shadowLight = 1.0;                 // city lights
             texCol.rgb *= vec3(1.0, 0.8, 0.5); // yellowish windows
           } else {                             // day time
@@ -464,6 +465,11 @@ void main()
                                                                              // shadowLight += max(1. / (1.+length(vecFromMouse)*5.0),0.0); // point light
     shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
+
+  vec3 ambientLight = texture(ambientLightTex, texCoord).rgb * 1.0;
+
+  onLight += ambientLight * pow(1. - clamp(-texCoord.y * 15., 0., 1.), 2.5);
+
 
   finalLight += vec3(shadowLight) + onLight;
 

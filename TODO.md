@@ -68,16 +68,19 @@
 - [x] Add dynamic vegetation option. Vegetation will grow when soil is wet, and die if to dry
 - [x] Make soil and vegetation color change with soil moisture
 - [x] Make weather stations show history in plots
+- [x] Improve realistic hail formation and improve precipitation in general
+- [x] Add ambient lighting
+- [x] Make heating of sloped surfaces accurate
+- [x] Display Solar and IR power in weather stations
 
 # In Progress
-- [ ] Improve realistic hail formation and improve precipitation in general
+
 
 # Future:
 - [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Add realistic albedo's for different surface types
 - [ ] Make behaviour of precipitation scale with the vertical resolution to fix unrealistic behavior at resolution lower than 300
 - [ ] Add Option to reset atmosphere while keeping terain
-- [ ] Improve Lake/Sea depth visualization, show the water depth under sim area and add 45 deg slopes underwater
 - [ ] Improve terain generation
 - [ ] Allow editing while simulation paused
 - [ ] Make precipitation work on all mobile devices

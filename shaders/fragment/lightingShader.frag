@@ -28,7 +28,8 @@ uniform float IR_rate;
 uniform float greenhouseGases;
 uniform float waterGreenHouseEffect;
 
-out vec4 light;
+layout(location = 0) out vec4 light;
+layout(location = 1) out vec4 reflectedLight;
 
 uniform float dryLapse;
 
@@ -52,7 +53,10 @@ void main()
     vec4 water = texture(waterTex, texCoord);
     ivec4 wall = texture(wallTex, texCoord);
 
-    if (wall[DISTANCE] != 0) { // is not wall
+
+    reflectedLight.rgb += vec3(sunlight) * 0.1; // ????
+
+    if (wall[DISTANCE] != 0) {                  // is not wall
 
       float net_heating = 0.0;
 
@@ -64,6 +68,13 @@ void main()
         float lightAbsorbed = sunlight * absorbtion;
 
         sunlight = max(0., sunlight - lightReflected - lightAbsorbed);
+
+        float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
+
+                                                                                                         // vec3 finalLight = sunColor(scatering)
+
+        reflectedLight.rgb = sunColor(scatering) * lightReflected; // export reflected sunlight
+
 
         // float avgSunlight = (texture(lightTex, texCoordX0Ym)[SUNLIGHT] + texture(lightTex, texCoordX0Yp)[SUNLIGHT] + texture(lightTex, texCoordXmY0)[SUNLIGHT] + texture(lightTex, texCoordXpY0)[SUNLIGHT]) / 4.0;
 
@@ -80,8 +91,10 @@ void main()
 
         switch (wall[TYPE]) {
         case WALLTYPE_URBAN:
+          if (abs(sunAngle) > 85. * deg2rad)
+            reflectedLight.rgb += vec3(1.00, 0.97, 0.57) * 0.03; // Urban area emits light
         case WALLTYPE_LAND:
-          IR_up = IR_emitted(realTemp); // Ir emmited upwards from surface. emissivity of surface = 1.0 for simplicity
+          IR_up = IR_emitted(realTemp);                          // Ir emmited upwards from surface. emissivity of surface = 1.0 for simplicity
           net_heating += (IR_down - IR_up) * IRHeatingConst;
           break;
         case WALLTYPE_WATER:
@@ -120,6 +133,13 @@ void main()
         IR_up += emitted;
       }
 
+      float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
+      float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
+      vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
+      vec3 FinalFireCol = mix(vec3(0), fireCol, fireIntensity);
+
+      reflectedLight.rgb += FinalFireCol * 0.1;
+
       net_heating *= IR_rate;
 
       light = vec4(sunlight, net_heating, IR_down, IR_up);
@@ -127,8 +147,16 @@ void main()
     } else {                                    // is wall
       if (wall[TYPE] == WALLTYPE_WATER)         // water
         light = vec4(sunlight * 0.90, 0, 0, 0); // light absorbed by water
-      else                                      // land
-        light = vec4(sunlight * 0.5, 0, 0, 0);  // light absorbed by ground
+      else {                                    // land
+
+        const vec3 groundCol = vec3(0.60, 0.5, 0.4);
+
+        vec3 lightReflected = vec3(sunlight) * groundCol;
+        vec3 lightAbsorbed = vec3(sunlight) - lightReflected;
+
+        light = vec4(0.0, 0, 0, 0); // all light absorbed by ground
+        reflectedLight.rgb += lightReflected;
+      }
     }
   }
 }
