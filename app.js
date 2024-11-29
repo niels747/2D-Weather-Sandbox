@@ -1274,7 +1274,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.lineTo(width / 2 + width * 0.15, moveIndY);
       ctx.stroke();
 
-      ctx.drawImage(this.#panelImg, 0, 50, width, mainHeight);
+      if (this.#panelImg)
+        ctx.drawImage(this.#panelImg, 0, 50, width, mainHeight);
 
       // ALTITUDE INDICATOR:
 
@@ -1482,6 +1483,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys.pos.x = -99.0;
       this.phys.pos.y = -99.0;
       this.#OAT = 0.0;
+      this.#airspeed = 0.0;
     }
 
     enableAirplaneMode()
