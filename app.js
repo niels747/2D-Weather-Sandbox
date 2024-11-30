@@ -833,12 +833,12 @@ class Weatherstation
         c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
         c.fillText('💧', 20, 65);
       }
-    }
 
-    if (this.#snowHeight > 0.) {
-      c.fillText(printSnowHeight(this.#snowHeight), 67, 52);
-      c.font = '14px Arial';
-      c.fillText('❄', 85, 65);
+      if (this.#snowHeight > 0.) {
+        c.fillText(printSnowHeight(this.#snowHeight), 67, 52);
+        c.font = '14px Arial';
+        c.fillText('❄', 85, 65);
+      }
     }
 
 
