@@ -480,6 +480,7 @@ class Weatherstation
   #time;             // ISO time string of moment of last measurement
   #temperature = 0;  // °C
   #dewpoint = 0;     // °C
+  #relativeHumd = 0; // %
   #velocity = 0;     // ms
   #soilMoisture = 0; // mm
   #snowHeight = 0;   // cm
@@ -518,18 +519,17 @@ class Weatherstation
 
     let thisObj = this;
     this.#canvas.addEventListener('mousedown', function(event) {
-      if (guiControls.tool == 'TOOL_STATION') {
-        thisObj.destroy();                                                                                          // remove weather station
-        event.stopPropagation();                                                                                    // prevent mousedown on body from firing
-      } else {
-        if (event.button == 0) {                                                                                    // left mouse button
+      if (event.button == 0) {     // left mouse button
+        if (guiControls.tool == 'TOOL_STATION') {
+          thisObj.destroy();       // remove weather station
+          event.stopPropagation(); // prevent mousedown on body from firing
+        } else {
           if (guiControls.dayNightCycle == true) {
             thisObj.#chartCanvas.style.display = (thisObj.#chartCanvas.style.display == 'none') ? 'block' : 'none'; // toggle visibility of chart canvas
           }
         }
-        if (event.button == 2) {                                          // right mouse button
-          thisObj.#displaySunAndIRPower = !thisObj.#displaySunAndIRPower; // toggle display of radiation flux
-        }
+      } else if (event.button == 2) {                                   // right mouse button
+        thisObj.#displaySunAndIRPower = !thisObj.#displaySunAndIRPower; // toggle display of radiation flux
       }
     });
 
@@ -734,7 +734,9 @@ class Weatherstation
     var baseTextureValues = new Float32Array(4);
     gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
 
-    this.#temperature = KtoC(potentialToRealT(baseTextureValues[3], this.#y));
+    let T = potentialToRealT(baseTextureValues[3], this.#y); // temperature in kelvin
+
+    this.#temperature = KtoC(T);
     this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
@@ -747,6 +749,8 @@ class Weatherstation
     if (guiControls.realDewPoint) {
       this.#dewpoint = Math.min(this.#temperature, this.#dewpoint);
     }
+
+    this.#relativeHumd = relativeHumd(T, waterTextureValues[4 + 0]);
 
     if (waterTextureValues[0] > 1110) { // surface below
       this.#soilMoisture = waterTextureValues[2];
@@ -814,18 +818,21 @@ class Weatherstation
     c.font = '15px Arial';
     c.fillStyle = '#FFFFFF';
     c.fillText(printTemp(this.#temperature), 30, 15);
-    // dew point
-    c.font = '12px Arial';
-    c.fillStyle = '#00FFFF';
-    c.fillText(printTemp(this.#dewpoint), 30, 28);
-
 
     if (this.#displaySunAndIRPower) {
+      c.font = '12px Arial';
+      c.fillStyle = '#00FFFF';
+      c.fillText(this.#relativeHumd.toFixed(1) + " %", 30, 28);
+
       c.fillStyle = '#FFFFFF';
       c.fillText("🔅 " + this.#solarPower.toFixed(1) + "W/m2", 10, 40);
       c.fillStyle = '#FFFFFF';
       c.fillText("♨️" + this.#netIRpow.toFixed(1) + "W/m2", 10, 55);
     } else {
+      c.font = '12px Arial';
+      c.fillStyle = '#00FFFF';
+      c.fillText(printTemp(this.#dewpoint), 30, 28);
+
       c.fillStyle = '#FFFFFF';
       c.fillText(printVelocity(this.#velocity), 20, 40);
 
