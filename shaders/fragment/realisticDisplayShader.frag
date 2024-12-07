@@ -43,6 +43,8 @@ uniform float cellHeight; // in meters
 uniform float dryLapse;
 uniform float sunAngle;
 
+uniform float minShadowLight;
+
 uniform vec3 view;   // Xpos  Ypos    Zoom
 uniform vec4 cursor; // Xpos   Ypos  Size   type
 

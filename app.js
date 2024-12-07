@@ -31,6 +31,7 @@ var cam;
 const PI = 3.14159265359;
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
+const msToKnots = 1.94384;
 
 const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
@@ -45,8 +46,8 @@ const guiControls_default = {
   waterTemperature : 25.0, // °C
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
-  evapHeat : 2.0,           //  Real: 2260 J/g
-  meltingHeat : 0.3,        //  Real:  334 J/g
+  evapHeat : 2.90,          //  Real: 2260 J/g
+  meltingHeat : 0.43,       //  Real:  334 J/g
   waterWeight : 0.50,       // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
@@ -99,6 +100,8 @@ var displayWeatherStations = true;
 var sunIsUp = true;
 
 var airplaneMode = false;
+
+var minShadowLight = 0.02;
 
 var saveFileName = '';
 
@@ -192,6 +195,8 @@ function mod(a, b)
 }
 
 function map_range(value, low1, high1, low2, high2) { return low2 + ((high2 - low2) * (value - low1)) / (high1 - low1); }
+
+function map_range_C(value, low1, high1, low2, high2) { return clamp(low2 + ((high2 - low2) * (value - low1)) / (high1 - low1), Math.min(low2, high2), Math.max(low2, high2)); }
 
 // Temperature Functions
 
@@ -751,6 +756,10 @@ class Weatherstation
     }
 
     this.#relativeHumd = relativeHumd(T, waterTextureValues[4 + 0]);
+
+    if (guiControls.realDewPoint) {
+      this.#relativeHumd = Math.min(this.#relativeHumd, 100.0);
+    }
 
     if (waterTextureValues[0] > 1110) { // surface below
       this.#soilMoisture = waterTextureValues[2];
@@ -1344,15 +1353,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.font = "30px serif";
 
       let stallSpeed = 70.0; // m/s
+      let overSpeed = 250.0; // m/s
 
       if (guiControls.imperialUnits) {
-        airspeed *= 1.94384;
-        stallSpeed *= 1.94384;
+        airspeed *= msToKnots;
+        stallSpeed *= msToKnots;
+        overSpeed *= msToKnots;
         unit = ' kt'
       } else {
         unit = ' km/h'
         airspeed *= 3.6; // convert m/s to km/h
         stallSpeed *= 3.6;
+        overSpeed *= 3.6;
       }
 
       const pxPerVel = 10.0;
@@ -1381,6 +1393,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillStyle = '#aa0000aa';
       ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - stallSpeed) * pxPerVel, velIndXpos + 3, 5000);
 
+      // Show over speed
+      ctx.beginPath();
+      ctx.fillStyle = '#aa0000aa';
+      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - overSpeed) * pxPerVel - 5000, velIndXpos + 3, 5000);
+
 
       // OVERHEAD
 
@@ -1399,7 +1416,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillText('AOA: ' + AOA.toFixed(1) + '°', 400, 40);
       if (AOA > 14.0) {
         ctx.fillStyle = '#FF0000';
-        ctx.fillText('STALL!', 650, 40);
+        ctx.fillText('STALL!', 600, 40);
+      }
+
+      if (airspeed > overSpeed) {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillText('Overspeed!', 600, 40);
       }
     }
   }
@@ -3669,6 +3691,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'simHeight'), guiControls.simHeight);
+  gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'minShadowLight'), minShadowLight);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'ambientLightTex'), 9);
   gl.uniform1i(gl.getUniformLocation(skyBackgroundDisplayProgram, 'precipFeedbackTex'), 7);
@@ -3683,6 +3706,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(realisticDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
+  gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'minShadowLight'), minShadowLight);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'wallTex'), 2);
@@ -4583,7 +4607,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.sunAngle = 180.0 - guiControls.sunAngle;
       }
     }
-    let solarZenithAngle = (guiControls.sunAngle - 90) * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
+    let solarZenithAngleDeg = (guiControls.sunAngle - 90);
+    let solarZenithAngle = solarZenithAngleDeg * degToRad; // Solar zenith angle centered around 0. (0 = vertical)
     // Calculations visualized: https://www.desmos.com/calculator/kzr76zj5hq
     if (Math.abs(solarZenithAngle) < 85.0 * degToRad) {
       sunIsUp = true;
@@ -4597,6 +4622,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     let sunIntensity = guiControls.sunIntensity * Math.pow(Math.max(Math.sin((180.0 - guiControls.sunAngle) * degToRad), 0.0), 0.2);
     // console.log("sunIntensity: ", sunIntensity);
 
+    // minShadowLight = clamp(((90 + 10) - Math.abs(solarZenithAngleDeg)) * 0.006, 0.005, 0.040); // decrease until the sun goes 10 deg below the horizon
+
+    minShadowLight = map_range_C(Math.abs(solarZenithAngleDeg), 100.0, 85.0, 0.005, 0.040); // decrease until the sun goes 10 deg below the horizon
+
     gl.useProgram(boundaryProgram);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'sunAngle'), solarZenithAngle);
     gl.useProgram(lightingProgram);
@@ -4604,6 +4633,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(lightingProgram, 'sunAngle'), solarZenithAngle);
     gl.useProgram(realisticDisplayProgram);
     gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'sunAngle'), solarZenithAngle);
+    gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'minShadowLight'), minShadowLight);
+    gl.useProgram(skyBackgroundDisplayProgram);
+    gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'minShadowLight'), minShadowLight);
 
     if (guiControls.dayNightCycle)
       clockEl.innerHTML = dateTimeStr(); // update clock

@@ -53,10 +53,12 @@ void main()
     vec4 water = texture(waterTex, texCoord);
     ivec4 wall = texture(wallTex, texCoord);
 
+    float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
+    vec3 sunlightColor = sunColor(scatering);
 
-    reflectedLight.rgb += vec3(sunlight) * 0.1; // ????
+    if (wall[DISTANCE] != 0) {                                                  // is not wall
 
-    if (wall[DISTANCE] != 0) {                  // is not wall
+      reflectedLight.rgb += sunlightColor * sunlight * (1. - texCoord.y) * 2.0; // scatering in air
 
       float net_heating = 0.0;
 
@@ -69,11 +71,10 @@ void main()
 
         sunlight = max(0., sunlight - lightReflected - lightAbsorbed);
 
-        float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
 
-                                                                                                         // vec3 finalLight = sunColor(scatering)
+        // vec3 finalLight = sunColor(scatering)
 
-        reflectedLight.rgb = sunColor(scatering) * lightReflected; // export reflected sunlight
+        reflectedLight.rgb = sunlightColor * lightReflected; // sunlight reflected by clouds and precipitation
 
 
         // float avgSunlight = (texture(lightTex, texCoordX0Ym)[SUNLIGHT] + texture(lightTex, texCoordX0Yp)[SUNLIGHT] + texture(lightTex, texCoordXmY0)[SUNLIGHT] + texture(lightTex, texCoordXpY0)[SUNLIGHT]) / 4.0;

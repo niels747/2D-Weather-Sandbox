@@ -16,6 +16,8 @@ uniform sampler2D planeTex;
 
 uniform sampler2D ambientLightTex;
 
+uniform float minShadowLight;
+
 uniform float iterNum;
 
 uniform float simHeight;
@@ -36,8 +38,6 @@ vec4 displayA380(vec2 pos, float angle)
   planeTexCoord.x -= mod(pos.x, 1.);
   // planeTexCoord.x = realMod(planeTexCoord.x, 1.0);
   planeTexCoord.y -= pos.y;
-
-  const float simHeight = 12000.0; // TODO: Should be uniform!
   float cellHeight = simHeight / resolution.y;
 
   float scaleMult = 60.0 / cellHeight; // 6000
@@ -83,20 +83,18 @@ void main()
 
 
   float hue = 0.6;
-  float sat = map_range(texCoord.y, 0., 2.5, 0.5, 1.0);
+  float sat = map_rangeC(texCoord.y, 0., 2.5, 0.7, 1.0); // more blue at the top
 
 
-  float val = pow(map_range(texCoord.y, 0., 3.2, 1.0, 0.1), 5.0); // pow 3 map 1.0 to 0.3
+  float val = pow(map_rangeC(texCoord.y, 0., 3.2, 1.0, 0.05), 5.0); // pow 5 map 1.0 to 0.1
 
-  vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));
+  vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));                     // blue air
 
 
   vec4 A380Col = displayA380(planePos.xy, planePos.z);
 
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb * A380Col.a;
-
-  mixedCol = pow(mixedCol, vec3(2.0)); // gamma correction
 
   vec3 finalColor = mixedCol * (light + minShadowLight);
 
