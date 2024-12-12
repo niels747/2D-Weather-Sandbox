@@ -1235,7 +1235,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
 
-    async display(pitchAngle, moveAngle, altitude, radarAltitude, airspeed, OAT_C, throttle)
+    async display(pitchAngle, moveAngle, altitude, radarAltitude, airspeed, groundSpeed, OAT_C, throttle)
     {
       let ctx = this.#instrumentCanvas.getContext("2d");
       let width = this.#instrumentCanvas.width;
@@ -1353,7 +1353,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.font = "30px serif";
 
       let stallSpeed = 70.0; // m/s
-      let overSpeed = 250.0; // m/s
+      let overSpeed = 170.0; // m/s
 
       if (guiControls.imperialUnits) {
         airspeed *= msToKnots;
@@ -1398,7 +1398,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillStyle = '#aa0000aa';
       ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - overSpeed) * pxPerVel - 5000, velIndXpos + 3, 5000);
 
-
       // OVERHEAD
 
       ctx.fillStyle = '#222222';
@@ -1423,6 +1422,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         ctx.fillStyle = '#FF0000';
         ctx.fillText('Overspeed!', 600, 40);
       }
+
+      // BELOW VIRTUAL HORIZON
+
+      ctx.fillStyle = '#AAA';
+      ctx.fillText('GS: ' + printVelocity(groundSpeed), 130, 640);
     }
   }
 
@@ -1492,7 +1496,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #instrumentPanel;
 
     #relVelAngle; // angle of velocity relative to air
-    #airspeed;    // actual airspeed, not IAS
+    #airspeed;    // true airspeed, m/s
+    #groundSpeed;
+    #IAS;         // indicated airspeed, m/s
     #camFollow;
     #OAT;         // outdoor air temperature
 
@@ -1503,7 +1509,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     elevator;
     throttle;
 
-    phys; // physics object, containing all physical properties
+    phys; // physics object, containing all physical properties including position and velocity
 
     constructor()
     {
@@ -1616,22 +1622,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.#framesSinceCrash = 0;
       }
 
-      let relVel = this.phys.vel.copy();
-      relVel.subtract(airVel);
+      this.#groundSpeed = this.phys.vel.mag();
 
-      this.#airspeed = relVel.mag(); // true airspeed in m/s
+      let relVel = this.phys.vel.copy().subtract(airVel);           // velocity relative to air
+      this.#airspeed = relVel.mag();                                // true airspeed in m/s
+      let relAlt = this.phys.pos.y / 12000.0;                       // 12000 m = 1.0
+      let relAirDensity = Math.pow(1. - relAlt * 0.47, 2.0);        // 1.0 is sea level, 0.28 is 12000 meters
+      let relIndVel = relVel.copy().mult(Math.sqrt(relAirDensity)); // convert velocity relative to air to indicated, wich is also what the airplane feels
 
-      // this.phys.angle += this.elevator * 0.001; // simple pitch
+      this.#IAS = relIndVel.mag();
+
+      // this.phys.angle += this.elevator * 0.001; // simple pitch control for testing
 
       // this.#relVelAngle = this.phys.vel.angle(); // ignore air movement for testing
       this.#relVelAngle = relVel.angle();
 
 
       let AOA = this.phys.angle - this.#relVelAngle;
-      // let velSq = this.phys.vel.magSq(); // square of velocity
-      let velSq = relVel.magSq();
-      let liftForce = this.Cl(AOA) * velSq * 800.0;
-      let dragForce = this.Cd(AOA) * velSq * 800.0;
+      let dynamicPressMult = relIndVel.magSq(); // dynamic pressure
+      let liftForce = this.Cl(AOA) * dynamicPressMult * 800.0;
+      let dragForce = this.Cd(AOA) * dynamicPressMult * 800.0;
 
       // console.log(Math.round(liftForce, 1), Math.round(dragForce, 1));
       // console.log((liftForce / dragForce).toFixed(1));
@@ -1650,7 +1660,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let vertStabilPos = new Vec2D(35., 0.); // 35 meters to the right of the center of mass
       vertStabilPos.rotate(this.phys.angle);
       // console.log("vertStabilPos ", vertStabilPos);
-      let vertStabilForce = new Vec2D(this.Cd(vertStabilAOA) * velSq * 40.0, this.Cl(vertStabilAOA) * velSq * 40.0);
+      let vertStabilForce = new Vec2D(this.Cd(vertStabilAOA) * dynamicPressMult * 40.0, this.Cl(vertStabilAOA) * dynamicPressMult * 40.0);
       vertStabilForce.rotate(this.#relVelAngle);
 
       // console.log((vertStabilAOA * radToDeg).toFixed(2), vertStabilForce.copy().div(10000));
@@ -1704,7 +1714,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
       }
 
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#airspeed, this.#OAT, this.throttle * 100.0);
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0);
     }
   }
 
