@@ -1527,12 +1527,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#instrumentPanel = new InstrumentPanel();
       airplaneMode = true;
       this.#camFollow = true;
-      let M = 400 * 1000;                                                                                                           // mass: 400 tons
-      let L = 50.0;                                                                                                                 // effective length in meters
-      let I = 1 / 12 * M * L * L;                                                                                                   // moment of inertial
-      this.phys = new PhysicsObject(M, I, mouseXinSim * sim_res_x * cellHeight, mouseYinSim * sim_res_y * cellHeight, -100.0, 0.0); // 400 tons
+      let M = 400 * 1000;         // mass: 400 tons
+      let L = 50.0;               // effective length in meters
+      let I = 1 / 12 * M * L * L; // moment of inertia
+      this.phys = new PhysicsObject(M, I, mouseXinSim * sim_res_x * cellHeight, Math.min(mouseYinSim * sim_res_y * cellHeight, 15000.0), map_range_C(mouseYinSim, 0.0, 1.0, -100.0, -200), 0.0);
       this.phys.angle = 5.0 * degToRad;
-      this.throttle = 0.4;                                                                                                          // %
+      this.throttle = 0.40; // %
       cam.tarZoom = 100.0;
       document.body.style.cursor = 'crosshair';
     }
