@@ -32,6 +32,8 @@ const PI = 3.14159265359;
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
 const msToKnots = 1.94384;
+const kmToMil = 0.62137;
+const mToFt = 3.28084;
 
 const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
@@ -283,7 +285,7 @@ function printSoilMoisture(soilMoisture_mm)
 function printDistance(km)
 {
   if (guiControls.imperialUnits) {
-    let miles = km * 0.62137;
+    let miles = km * kmToMil;
     return miles.toFixed(1) + ' miles';
   } else
     return km.toFixed(1) + ' km';
@@ -292,7 +294,7 @@ function printDistance(km)
 function printAltitude(meters)
 {
   if (guiControls.imperialUnits) {
-    let feet = meters * 3.281;
+    let feet = meters * mToFt;
     return feet.toFixed() + ' ft';
   } else
     return meters.toFixed() + ' m';
@@ -1213,37 +1215,206 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cam = new Camera();
 
+
+  // AIRPLANE
+
+  class PIDController
+  {
+    #previousError;
+    #integral;
+
+    constructor(kp, ki, kd, iThreshold)
+    {
+      this.kp = kp; // Proportional gain
+      this.ki = ki; // Integral gain
+      this.kd = kd; // Derivative gain
+      this.iThreshold = iThreshold;
+
+      this.resetState();
+    }
+
+    resetState()
+    {
+      this.#previousError = 0;
+      this.#integral = 0;
+    }
+
+    update(setpoint, measuredValue)
+    {
+      const error = setpoint - measuredValue;
+
+      const derivative = error - this.#previousError;
+
+      let inegralActive = this.iThreshold == null || (Math.abs(error) < this.iThreshold && Math.abs(derivative) < this.iThreshold / 100.); // only adjust integral if already close and stable to target
+
+      if (inegralActive)
+        this.#integral += error;
+      else
+        this.#integral = 0;
+
+      // console.log(this.#integral);
+
+      this.#previousError = error;
+
+      let totalOutput = this.kp * error + this.kd * derivative;
+
+      if (inegralActive) {
+        totalOutput += this.ki * this.#integral;
+      }
+
+      return totalOutput;
+    }
+  }
+
+  class Autopilot
+  {
+    targetPitch;
+    targetAltitude;
+    targetIAS;
+
+
+    constructor()
+    {
+      // PID for altitude to pitch
+      this.altitudePID = new PIDController(0.04, 0.00003, 20.0, 100.0);
+      // PID for pitch to elevator
+      this.pitchPID = new PIDController(0.2, 0.001, 5.0, 3.0); // 0.5, 0.001, 100.0
+
+      this.speedPID = new PIDController(0.1, 0.0003, 0.0, 5.0);
+
+      this.targetPitch = 0.0;
+      this.targetAltitude = 5000.0;
+      this.targetIAS = 0.0;
+    }
+
+    resetState()
+    {
+      this.altitudePID.resetState();
+      this.pitchPID.resetState();
+      this.speedPID.resetState();
+    }
+
+    update(pitchAttitude, altitude, verticalSpeed, IAS)
+    {
+      this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
+
+      this.targetPitch *= 1.0 - Math.abs(verticalSpeed) * 0.03;                                           // limit vertical speed
+
+      // console.log(this.targetAltitude, altitude, this.targetPitch);
+
+      const elevator = clamp(this.pitchPID.update(this.targetPitch, pitchAttitude), -1.0, 1.0);
+
+      //  console.log(this.#desiredPitch, pitchAttitude, elevator);
+
+
+      const throttle = clamp(this.speedPID.update(this.targetIAS, IAS) + 0.40, 0.0, 1.0); // add 40% thrust bias
+
+      let outputs = {
+        pitch : elevator,
+        throttle : throttle
+      }
+
+      return outputs;
+    }
+  }
+
+
   class InstrumentPanel
   {
     #instrumentCanvas;
     #panelImg;
+    #targetAltInput;
+    #targetIASInput;
+    #panelDiv;
 
     constructor()
     {
+      this.#panelDiv = document.createElement('div');
       this.#instrumentCanvas = document.createElement('canvas');
       this.#instrumentCanvas.width = 750;
-      this.#instrumentCanvas.height = 660;
-      this.#instrumentCanvas.style.opacity = 0.7;
-      this.#instrumentCanvas.style.position = 'absolute';
-      this.#instrumentCanvas.style.bottom = 0;
-      this.#instrumentCanvas.style.right = 0;
-      body.appendChild(this.#instrumentCanvas);
+      this.#instrumentCanvas.height = 660; // 660
+      this.#panelDiv.style.opacity = 0.7;
+      this.#panelDiv.style.position = 'absolute';
+      this.#panelDiv.style.bottom = 0;
+      this.#panelDiv.style.right = 0;
       this.loadImages();
+      this.genAutopilotBar(this.#panelDiv);
+      this.#panelDiv.appendChild(this.#instrumentCanvas);
+      body.appendChild(this.#panelDiv);
     }
 
-    remove() { this.#instrumentCanvas.remove(); }
+    genAutopilotBar(panelDiv)
+    {
+      const container = document.createElement('div');
+
+      const speedLabel = document.createElement('label');
+      speedLabel.textContent = 'Speed (knots):';
+      speedLabel.setAttribute('for', 'speed');
+      // speedLabel.style.marginRight = '0px';
+      container.appendChild(speedLabel);
+      this.#targetIASInput = document.createElement('input');
+      this.#targetIASInput.type = 'number';
+      this.#targetIASInput.id = 'speed';
+      this.#targetIASInput.name = 'speed';
+      this.#targetIASInput.min = '0';
+      this.#targetIASInput.max = '330';
+      this.#targetIASInput.step = '5';
+      this.#targetIASInput.value = '220';
+      // this.#targetIASInput.style.float = 'left';
+      this.#targetIASInput.style.marginLeft = '0';
+      container.appendChild(this.#targetIASInput);
+
+      container.appendChild(document.createElement('br'));
+
+      // Create the altitude input and its label
+      const altitudeLabel = document.createElement('label');
+      altitudeLabel.textContent = 'Altitude (ft):';
+      altitudeLabel.setAttribute('for', 'altitude');
+      // altitudeLabel.style.float = 'right';
+      altitudeLabel.style.marginLeft = 'auto';
+      altitudeLabel.style.marginRight = '0';
+      container.appendChild(altitudeLabel);
+
+      this.#targetAltInput = document.createElement('input');
+      this.#targetAltInput.type = 'number';
+      this.#targetAltInput.id = 'altitude';
+      this.#targetAltInput.name = 'altitude';
+      this.#targetAltInput.min = '0';
+      this.#targetAltInput.max = '40000';
+      this.#targetAltInput.step = '100';
+      this.#targetAltInput.value = '10000';
+      this.#targetAltInput.style.marginLeft = '0';
+      this.#targetAltInput.style.marginRight = '0px';
+      container.appendChild(this.#targetAltInput);
+
+      container.style = 'display: flex; justify-content: space-between; align-items: center; background-color: #222222; color: white';
+
+      panelDiv.appendChild(container);
+    }
+
+    getTargetAlt() { return this.#targetAltInput.value / mToFt; }
+    getTargetIAS() { return this.#targetIASInput.value / msToKnots; }
+
+    remove()
+    {
+      this.#instrumentCanvas.remove();
+      this.#panelDiv.remove()
+    }
 
     async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
 
-    async display(pitchAngle, moveAngle, altitude, radarAltitude, airspeed, groundSpeed, OAT_C, throttle)
+    async display(pitchAngle, moveAngle, altitude, radarAltitude, IAS, groundSpeed, OAT_C, throttle, elevator, targetPitch, autopilotEn)
     {
       let ctx = this.#instrumentCanvas.getContext("2d");
       let width = this.#instrumentCanvas.width;
       let height = this.#instrumentCanvas.height;
       const topBarHeight = 50;
-      let mainHeight = height - topBarHeight; // height of indicator part
+      let mainHeight = height - topBarHeight; // height of virtual horizon part
 
-      // ATTITUDE INDICATOR:
+      let targetAltitude = this.getTargetAlt();
+      let targetIAS = this.getTargetIAS();
+
+      // ATTITUDE INDICATOR / VIRTUAL HORIZON:
 
       const pixPerDeg = 15.0;
 
@@ -1285,13 +1456,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.strokeStyle = 'yellow';
       ctx.beginPath();
       let moveIndY = mainHeight / 2 + topBarHeight + (pitchAngle - moveAngle) * pixPerDeg;
-      ;
       ctx.moveTo(width / 2 - width * 0.15, moveIndY);
       ctx.lineTo(width / 2 + width * 0.15, moveIndY);
       ctx.stroke();
 
+
+      ctx.strokeStyle = 'green';
+      ctx.beginPath();
+      let targIndY = mainHeight / 2 + topBarHeight + (pitchAngle - targetPitch) * pixPerDeg;
+      ctx.moveTo(width / 2 - width * 0.15, targIndY);
+      ctx.lineTo(width / 2 + width * 0.15, targIndY);
+      ctx.stroke();
+
       if (this.#panelImg)
-        ctx.drawImage(this.#panelImg, 0, 50, width, mainHeight);
+        ctx.drawImage(this.#panelImg, 0, topBarHeight, width, mainHeight);
 
       // ALTITUDE INDICATOR:
 
@@ -1310,8 +1488,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       if (guiControls.imperialUnits)
       {
-        altitude *= 3.28084;
-        radarAltitude *= 3.28084;
+        altitude *= mToFt;
+        radarAltitude *= mToFt;
+        targetAltitude *= mToFt;
         unit = ' ft'
       }
 
@@ -1341,6 +1520,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillStyle = '#aa0000aa';
       ctx.fillRect(altIndXpos - 3, mainHeight / 2 + topBarHeight + radarAltitude * pxPerAlt, 100, 500);
 
+      // Show target altitude
+      ctx.beginPath();
+      let targetAltY = mainHeight / 2 + topBarHeight + (altitude - targetAltitude) * pxPerAlt;
+      ctx.moveTo(altIndXpos, targetAltY);
+      ctx.lineTo(altIndXpos + 100, targetAltY);
+      ctx.strokeStyle = 'green';
+      ctx.stroke();
+
       // VELOCITY INDICATOR:
       const velIndXpos = 110;
       ctx.beginPath();
@@ -1353,16 +1540,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.font = "30px serif";
 
       let stallSpeed = 70.0; // m/s
-      let overSpeed = 170.0; // m/s
+      let overSpeed = 173.0; // m/s
 
       if (guiControls.imperialUnits) {
-        airspeed *= msToKnots;
+        IAS *= msToKnots;
+        targetIAS *= msToKnots;
         stallSpeed *= msToKnots;
         overSpeed *= msToKnots;
         unit = ' kt'
       } else {
         unit = ' km/h'
-        airspeed *= 3.6; // convert m/s to km/h
+        IAS *= 3.6; // convert m/s to km/h
+        targetIAS *= 3.6;
         stallSpeed *= 3.6;
         overSpeed *= 3.6;
       }
@@ -1371,8 +1560,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       const velRange = 35; // + and -
 
       ctx.beginPath();
-      for (let i = Math.max(Math.round((airspeed) / 10) * 10 - velRange, 0); i < airspeed + velRange; i += 5) {
-        let y = mainHeight / 2 + topBarHeight - (i - airspeed) * pxPerVel;
+      for (let i = Math.max(Math.round((IAS) / 10) * 10 - velRange, 0); i < IAS + velRange; i += 5) {
+        let y = mainHeight / 2 + topBarHeight - (i - IAS) * pxPerVel;
         if (i % 10 == 0) {
           ctx.moveTo(velIndXpos - 20, y);
           ctx.lineTo(velIndXpos, y);
@@ -1386,20 +1575,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillStyle = 'black';
       ctx.fillRect(0, mainHeight / 2 + topBarHeight - 25, velIndXpos + 3, 50);
       ctx.fillStyle = 'white';
-      ctx.fillText(airspeed.toFixed(0) + unit, 0, mainHeight / 2 + topBarHeight + 10);
+      ctx.fillText(IAS.toFixed(0) + unit, 0, mainHeight / 2 + topBarHeight + 10);
 
       // Show stall speed
       ctx.beginPath();
       ctx.fillStyle = '#aa0000aa';
-      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - stallSpeed) * pxPerVel, velIndXpos + 3, 5000);
+      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (IAS - stallSpeed) * pxPerVel, velIndXpos + 3, 5000);
 
       // Show over speed
       ctx.beginPath();
       ctx.fillStyle = '#aa0000aa';
-      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (airspeed - overSpeed) * pxPerVel - 5000, velIndXpos + 3, 5000);
+      ctx.fillRect(0, mainHeight / 2 + topBarHeight + (IAS - overSpeed) * pxPerVel - 5000, velIndXpos + 3, 5000);
+
+      // Show target IAS
+      ctx.beginPath();
+      let targetIasY = mainHeight / 2 + topBarHeight + (IAS - targetIAS) * pxPerVel;
+      ctx.moveTo(0, targetIasY);
+      ctx.lineTo(velIndXpos + 3, targetIasY);
+      ctx.strokeStyle = 'green';
+      ctx.stroke();
+
 
       // OVERHEAD
-
       ctx.fillStyle = '#222222';
       ctx.fillRect(0, 0, this.#instrumentCanvas.width, topBarHeight);
 
@@ -1407,18 +1604,23 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillText('OAT: ' + printTemp(OAT_C), 0, 40);
 
       ctx.fillStyle = '#FFFF00';
-      ctx.fillText('Throttle: ' + throttle.toFixed() + ' %', 200, 40);
+      ctx.fillText('Throttle: ' + throttle.toFixed() + ' %', 180, 40);
 
 
       let AOA = pitchAngle - moveAngle;
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('AOA: ' + AOA.toFixed(1) + '°', 400, 40);
+      ctx.fillText('AOA: ' + AOA.toFixed(1) + '°', 380, 40);
       if (AOA > 14.0) {
         ctx.fillStyle = '#FF0000';
         ctx.fillText('STALL!', 600, 40);
       }
 
-      if (airspeed > overSpeed) {
+      if (autopilotEn) {
+        ctx.fillStyle = '#00FF00';
+        ctx.fillText('AP', 540, 40);
+      }
+
+      if (IAS > overSpeed) {
         ctx.fillStyle = '#FF0000';
         ctx.fillText('Overspeed!', 600, 40);
       }
@@ -1427,6 +1629,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       ctx.fillStyle = '#AAA';
       ctx.fillText('GS: ' + printVelocity(groundSpeed), 130, 640);
+
+      ctx.fillText('ELE: ' + elevator.toFixed(2), 500, 640);
     }
   }
 
@@ -1494,20 +1698,23 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   class Airplane
   {
     #instrumentPanel;
+    #autopilot;
 
-    #relVelAngle; // angle of velocity relative to air
-    #airspeed;    // true airspeed, m/s
+    #relVelAngle;   // angle of velocity relative to air
+    #airspeed;      // true airspeed, m/s
     #groundSpeed;
-    #IAS;         // indicated airspeed, m/s
+    #IAS;           // indicated airspeed, m/s
     #camFollow;
-    #OAT;         // outdoor air temperature
+    #OAT;           // outdoor air temperature
 
-    #radarAltitude;
+    #radarAltitude; // meters above ground
     #framesSinceCrash;
 
     // Controls
     elevator;
     throttle;
+
+    #autopilotEnabled;
 
     phys; // physics object, containing all physical properties including position and velocity
 
@@ -1517,13 +1724,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys = new PhysicsObject(1, 1, 0, 0);
       this.phys.pos.x = -99.0;
       this.phys.pos.y = -99.0;
+      this.#IAS = 0.0;
       this.#OAT = 0.0;
       this.#airspeed = 0.0;
+      this.#autopilotEnabled = false;
+
+      this.#autopilot = new Autopilot();
     }
 
-    enableAirplaneMode()
+    enableAirplaneMode(autopilotEn)
     {
-      this.#framesSinceCrash = -1;
+      this.setAutopilot(autopilotEn);
       this.#instrumentPanel = new InstrumentPanel();
       airplaneMode = true;
       this.#camFollow = true;
@@ -1534,7 +1745,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys.angle = 5.0 * degToRad;
       this.throttle = 0.40; // %
       cam.tarZoom = 100.0;
-      document.body.style.cursor = 'crosshair';
     }
     disableAirplaneMode()
     {
@@ -1679,20 +1889,46 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     hasCrashed() { return this.#framesSinceCrash >= 0; }
 
+    setAutopilot(enabledIn)
+    {
+      document.body.style.cursor = enabledIn ? 'default' : 'crosshair';
+      this.#autopilotEnabled = enabledIn;
+
+      if (enabledIn == true) {
+        this.#autopilot.resetState();
+      }
+    }
+
     takeUserInput()
     {
-      this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0;       // pitch input -1.0 to +1.0
+      if (this.#autopilotEnabled) {
+        // let inputs = {pitchAttitude, angleOfAttack, altitude, speed};
 
-      this.elevator /= 1.0 + Math.max(this.#airspeed - 80, 0.) * 0.01;          // limit elevator throw at higher airspeed
+        this.#autopilot.targetAltitude = this.#instrumentPanel.getTargetAlt();
+        this.#autopilot.targetIAS = this.#instrumentPanel.getTargetIAS();
 
+
+        let verticalSpeed = this.phys.vel.y;
+
+        ({pitch : this.elevator, throttle : this.throttle} = this.#autopilot.update(this.phys.angle * radToDeg, this.phys.pos.y, verticalSpeed, this.#IAS));
+
+        //  this.elevator = this.#autopilot.update(this.phys.angle * radToDeg, this.phys.pos.y);
+
+        //   console.log(this.elevator);
+
+      } else {                                                              // manual elevator control
+        this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0; // pitch input -1.0 to +1.0
+      }
+
+      // this.elevator /= 1.0 + Math.max(this.#airspeed - 80, 0.) * 0.01;          // limit elevator throw at higher airspeed
       this.elevator += Math.max(-this.phys.angle * radToDeg - 50.0, 0.) * 0.03; // limit elevator to prevent going down steeper than vertical
       this.elevator -= Math.max(this.phys.angle * radToDeg - 50.0, 0.) * 0.03;  // limit elevator to prevent going up steeper than vertical
 
       // console.log(this.phys.angle * radToDeg, this.elevator);
 
-      if (upPressed) {
+      if (upPressed && !this.#autopilotEnabled) {
         this.throttle = Math.min(this.throttle + .01, 1.0);
-      } else if (downPressed) {
+      } else if (downPressed && !this.#autopilotEnabled) {
         this.throttle = Math.max(this.throttle - .01, 0.0);
       }
     }
@@ -1714,7 +1950,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
       }
 
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0);
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled);
     }
   }
 
@@ -2761,7 +2997,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (airplaneMode)
         airplane.disableAirplaneMode();
       else
-        airplane.enableAirplaneMode();
+        airplane.enableAirplaneMode(event.getModifierState('CapsLock'));
+    } else if (event.code == 'CapsLock') {
+      if (airplaneMode)
+        airplane.setAutopilot(event.getModifierState('CapsLock'));
     } else if (event.key == 1) { // number keys for displaymodes
       guiControls.displayMode = 'DISP_TEMPERATURE';
     } else if (event.key == 2) {
