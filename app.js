@@ -1676,13 +1676,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    applyDrag(mult) // applies drag force at center off mass proportional to square of velocity
-    {
-      let mag = this.vel.mag() * mult;
-      this.applyForce(new Vec2D(-this.vel.x * mag, -this.vel.y * mag));
+    // applyDrag(mult) // applies drag force at center off mass proportional to square of velocity
+    // {
+    //   let mag = this.vel.mag() * mult;
+    //   this.applyForce(new Vec2D(-this.vel.x * mag, -this.vel.y * mag));
 
-      this.aVel *= 1. - 0.02 * dt; // angular velocity drag
-    }
+    //   this.aVel *= 1. - 0.02 * dt; // angular velocity drag
+    // }
 
     move()
     {
@@ -1811,7 +1811,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let Vy = bilerp(baseTextureValues, 1, fractX, fractY);
 
       let airVel = new Vec2D(Vx, Vy);
-      airVel.mult(cellHeight * 3.0); // convert to m/s
+
+      if (this.phys.pos.y > guiControls.simHeight) {
+        airVel.mult(0.0);              // still air above sim area
+      } else {
+        airVel.mult(cellHeight * 3.6); // convert to m/s
+      }
+
 
       this.#OAT = temperature;
 
@@ -1875,14 +1881,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log((vertStabilAOA * radToDeg).toFixed(2), vertStabilForce.copy().div(10000));
 
-      // vertStabilForce.x = 0;
+      let thrustAltMult = 0.5 + relAirDensity * 0.5;
 
-      this.phys.applyForce(vertStabilForce, vertStabilPos);                               // apply vertical stabiliser force
-      this.phys.applyForce(Vec2D.fromAngle(this.phys.angle, this.throttle * 311000 * 4)); // Thrust 4 X 311 kN
-      this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                 // gravity
-      this.phys.applyDrag(17.0 + Math.abs(Math.sin(AOA) * 100.0));                        // parasitic drag
+      this.phys.applyForce(vertStabilForce, vertStabilPos);                                               // apply vertical stabiliser force
+      this.phys.applyForce(Vec2D.fromAngle(this.phys.angle, this.throttle * thrustAltMult * 311000 * 4)); // Thrust 4 X 311 kN
+      this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                                 // gravity
 
-      // console.log(Fx, Fy);
+      let normRelVel = new Vec2D(Math.cos(this.#relVelAngle), Math.sin(this.#relVelAngle));
+      let dragMult = 30.0 + Math.abs(Math.sin(AOA) * 150.0);
+      let dragMag = dynamicPressMult * dragMult;
+
+      this.phys.applyForce(new Vec2D(normRelVel.x * dragMag, -normRelVel.y * dragMag));
+
+      this.phys.aVel *= 1. - 0.05 * dt; // angular velocity drag
 
       this.phys.move();
     }
