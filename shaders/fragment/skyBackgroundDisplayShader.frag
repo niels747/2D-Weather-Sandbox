@@ -12,6 +12,7 @@ uniform vec2 aspectRatios;
 
 uniform sampler2D lightTex;
 uniform sampler2D planeTex;
+uniform sampler2D planeGearTex;
 // uniform sampler2D precipFeedbackTex;
 
 uniform sampler2D ambientLightTex;
@@ -21,6 +22,8 @@ uniform float minShadowLight;
 uniform float iterNum;
 
 uniform float simHeight;
+
+uniform float gearPos;
 
 uniform vec3 planePos;
 
@@ -63,7 +66,16 @@ vec4 displayA380(vec2 pos, float angle)
   if (planeTexCoord.x < 0.01 || planeTexCoord.x > 1.01 || planeTexCoord.y < 0.01 || planeTexCoord.y > 1.01) // prevent edge effect when mipmapping
     return vec4(0);
 
-  return texture(planeTex, planeTexCoord);
+  vec2 gearTexCoord = vec2((planeTexCoord.x - 0.10) * 2.0, (planeTexCoord.y - 0.46 + gearPos * 0.01) * 2.0);
+
+  vec4 outputCol = texture(planeTex, planeTexCoord);
+
+  // outputCol.a = 0.6;
+
+  if (outputCol.a < 0.5)
+    outputCol += texture(planeGearTex, gearTexCoord);
+
+  return outputCol;
 }
 
 
