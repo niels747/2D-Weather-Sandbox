@@ -285,7 +285,11 @@ void main()
             wall[TYPE] = WALLTYPE_URBAN;
           }
           break;
-
+        case 15:                                                                                                     // set runway
+          if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
+            wall[TYPE] = WALLTYPE_RUNWAY;
+          }
+          break;
 
         case 20:                                                                                                      // add soil moisture
           if (wall[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above

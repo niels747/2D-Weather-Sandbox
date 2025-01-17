@@ -91,9 +91,14 @@ void main()
       if (wall[VERT_DISTANCE] == 1) { // 1 above surface
 
         switch (wall[TYPE]) {
+        case WALLTYPE_RUNWAY:
+          // if (abs(sunAngle) > 85. * deg2rad)
+          //   reflectedLight.rgb += vec3(1.00, 0.97, 0.57) * 0.03; // Urban area emits light
+          // NOBREAK
         case WALLTYPE_URBAN:
           if (abs(sunAngle) > 85. * deg2rad)
             reflectedLight.rgb += vec3(1.00, 0.97, 0.57) * 0.03; // Urban area emits light
+                                                                 // NOBREAK
         case WALLTYPE_LAND:
           IR_up = IR_emitted(realTemp);                          // Ir emmited upwards from surface. emissivity of surface = 1.0 for simplicity
           net_heating += (IR_down - IR_up) * IRHeatingConst;

@@ -1745,6 +1745,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#IAS = 0.0;
       this.#OAT = 0.0;
       this.#airspeed = 0.0;
+      this.#groundSpeed = 0.0;
       this.#autopilotEnabled = false;
       this.#gearOnGround = false;
       this.#braking = false;
@@ -1901,6 +1902,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       } else if (wallTextureValues[0] == 2) {                                        // over water
         heightAboveGround += 100.0;
+      } else if (wallTextureValues[0] == 4) {                                        // over urban
+        heightAboveObstacles -= 100.0;
       }
 
       let gearTouchAlt = 8.0 - this.#gearExtPos;
@@ -2235,6 +2238,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Land' : 'TOOL_WALL_LAND',
         'Lake / Sea' : 'TOOL_WALL_SEA',
         'Urban' : 'TOOL_WALL_URBAN',
+        'Runway' : 'TOOL_WALL_RUNWAY',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
         'Soil Moisture' : 'TOOL_WALL_MOIST',
@@ -4269,7 +4273,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 13;
         else if (guiControls.tool == 'TOOL_WALL_URBAN')
           inputType = 14;
-
+        else if (guiControls.tool == 'TOOL_WALL_RUNWAY')
+          inputType = 15;
 
         // Surface environment modifiers
         else if (guiControls.tool == 'TOOL_WALL_MOIST')
@@ -4308,9 +4313,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // guiControls.IterPerFrame = 1.0 / timePerIteration * 3600 / 60.0;
 
 
-      if (!guiControls.paused) {                                         // Simulation part
+      if (!guiControls.paused) { // Simulation part
         if (guiControls.dayNightCycle) {
-          if (airplaneMode) {                                            // Bug in firefox requires  == true
+          if (airplaneMode) {
             updateSunlight(1.0 / 3600.0 / 60);                           // increase solar time at real speed: 1/60 seconds per frame
           } else {
             updateSunlight(timePerIteration * guiControls.IterPerFrame); // increase solar time
@@ -4496,6 +4501,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         }
 
         if (airplaneMode) {
+          IterNum++; // make sure IterNum increases every frame for nice lightning
           airplane.takeUserInput();
           airplane.move();
         }
