@@ -244,9 +244,27 @@ void main()
       //   color = vec3(0, 0, 0);
       //   break;
 
+    case WALLTYPE_RUNWAY:
+
+      if (wall[VERT_DISTANCE] == 0) {
+        vec2 modTexCoord = mod(texCoord * resolution, 1.0);
+
+        color = vec3(0.1);
+        color *= texture(noiseTex, vec2(texCoord.x * resolution.x, texCoord.y * resolution.y) * 0.2).rgb; // add noise texture
+
+        if (length(modTexCoord - vec2(0.7, 0.97)) < 0.03) {                                               // side lights
+          onLight += vec3(1., 0.8, 0.3) * 300.0;
+        }
+
+        if (abs(mod(-iterNum - floor(texCoord.x * resolution.x), 150.0)) < 1.0 && length(modTexCoord - vec2(0.2, 0.98)) < 0.02) {
+          onLight += vec3(0., 1.0, 0.) * 5000.0;
+        }
+
+        break;
+      }
+
     case WALLTYPE_URBAN:
-      // color = vec3(0.5); // grey
-      // break;
+
     case WALLTYPE_FIRE:
     case WALLTYPE_LAND:
 
@@ -263,7 +281,6 @@ void main()
       color = vec3(0, 0.5, 1.0);
       break;
     }
-
   } else {                                                  // air
 
     vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black

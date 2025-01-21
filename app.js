@@ -16,6 +16,8 @@ function updateSetupSliders()
   document.getElementById("simHeightShow").value = parseInt(simHeightSel.value) + ' m';
 }
 
+var FPS = 60.0;
+
 var canvas;
 var gl;
 
@@ -1403,7 +1405,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
 
-    async display(pitchAngle, moveAngle, altitude, radarAltitude, IAS, groundSpeed, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus)
+    async display(pitchAngle, moveAngle, altitude, radarAltitude, IAS, groundSpeed, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
     {
       let ctx = this.#instrumentCanvas.getContext("2d");
       let width = this.#instrumentCanvas.width;
@@ -1460,13 +1462,24 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.lineTo(width / 2 + width * 0.15, moveIndY);
       ctx.stroke();
 
-
       ctx.strokeStyle = 'green';
       ctx.beginPath();
       let targIndY = mainHeight / 2 + topBarHeight + (pitchAngle - targetPitch) * pixPerDeg;
       ctx.moveTo(width / 2 - width * 0.15, targIndY);
       ctx.lineTo(width / 2 + width * 0.15, targIndY);
       ctx.stroke();
+
+      if (distToRunway < 100000) {
+        ctx.strokeStyle = 'blue';
+        ctx.beginPath();
+        let runwayIndY = mainHeight / 2 + topBarHeight + (pitchAngle - runwayPointer) * pixPerDeg;
+        ctx.moveTo(width / 2 - width * 0.15, runwayIndY);
+        ctx.lineTo(width / 2 + width * 0.15, runwayIndY);
+        ctx.stroke();
+        ctx.fillStyle = 'blue';
+        ctx.font = "20px serif";
+        ctx.fillText(printDistance(distToRunway / 1000.0), width / 2 - width * 0.15 - 135, runwayIndY);
+      }
 
       if (this.#panelImg)
         ctx.drawImage(this.#panelImg, 0, topBarHeight, width, mainHeight);
@@ -1649,7 +1662,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  const dt = 1. / 60.;
+  const dt = 1. / FPS;
 
   class PhysicsObject
   {        // 2D PhysicsObject
@@ -1727,6 +1740,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #gearOnGround;  // if the wheels are touching the ground
     #braking;
 
+    #runwayThresholdPos;
+
     // Controls
     elevator;
     throttle;
@@ -1735,6 +1750,34 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #autopilotEnabled;
 
     phys; // physics object, containing all physical properties including position and velocity
+
+    getClosestRunwayPos()
+    {
+      let Xpos = Math.floor(mod(this.phys.pos.x / cellHeight, sim_res_x));
+      // let Ypos = Math.floor(clamp(this.phys.pos.y / cellHeight + 1.0, 100, sim_res_y - 1));
+
+      let Ypos = 90;
+
+      // console.log(Ypos);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+      gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
+      var wallTextureValues = new Int8Array(sim_res_x * 4);
+      gl.readPixels(0, Ypos, sim_res_x, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+
+      let x = Xpos - 1;
+      while (x != Xpos) {
+        if (x < 0)
+          x = sim_res_x - 1;
+
+        if (wallTextureValues[x * 4 + 0] == 5) // found runway
+        {
+          return new Vec2D(x, Ypos - wallTextureValues[x * 4 + 2] + 1).mult(cellHeight);
+        }
+        x--;
+      }
+      return new Vec2D(0, 0);
+    }
 
     constructor()
     {
@@ -1750,6 +1793,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#gearOnGround = false;
       this.#braking = false;
       this.#autopilot = new Autopilot();
+      this.#runwayThresholdPos = new Vec2D(0, 0);
     }
 
     enableAirplaneMode(autopilotEn)
@@ -1782,10 +1826,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       } else {
         this.gearStatus = "UP";
         this.#gearExtPos = 7.0;
+
+        this.#runwayThresholdPos = this.getClosestRunwayPos();
       }
 
       cam.tarZoom = 100.0;
     }
+
     disableAirplaneMode()
     {
       airplaneMode = false;
@@ -2016,6 +2063,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (enabledIn == true) {
         this.#autopilot.resetState();
       }
+
+      this.#runwayThresholdPos = this.getClosestRunwayPos();
     }
 
     takeUserInput()
@@ -2069,12 +2118,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
       }
 
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.gearStatus);
+      let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
+      let distToRunwayX = 0;
+
+      if (this.phys.pos.x > this.#runwayThresholdPos.x) {
+        distToRunwayX = this.phys.pos.x - this.#runwayThresholdPos.x;
+      } else {
+        distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
+      }
+
+      let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
+      //  let vecToRunway = this.phys.pos.copy().subtract(this.#runwayThresholdPos);
+      // console.log(this.phys.pos, vecToRunway, this.#runwayThresholdPos);
+
+      let angleToRunway = vecToRunway.angle() * radToDeg;
+
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.gearStatus, angleToRunway, vecToRunway.x);
     }
   }
 
   var airplane = new Airplane();
-
 
   document.body.style.overflow = 'hidden'; // prevent scrolling bar from apearing
 
@@ -2963,8 +3026,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function findSimYposAboveSurfaceAtMouseX() // find the lowest location that is not underground
   {
-    let simXpos = Math.floor(mouseXinSim * sim_res_x);
-    let simYpos = Math.floor(mouseYinSim * sim_res_y);
+    let simXpos = clamp(Math.floor(mouseXinSim * sim_res_x), 0, sim_res_x - 1);
+    let simYpos = clamp(Math.floor(mouseYinSim * sim_res_y), 0, sim_res_y - 1);
+    // console.log(simYpos)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
     gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
@@ -5178,20 +5242,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     });
   }
 
-  function adjIterPerFrame(adj) { guiControls.IterPerFrame = Math.round(Math.min(Math.max(guiControls.IterPerFrame + adj, 1), 50)); }
+  function adjIterPerFrame(adj) { guiControls.IterPerFrame = Math.round(clamp(guiControls.IterPerFrame + adj, 1, 50)); }
 
   function isPageHidden() { return document.hidden || document.msHidden || document.webkitHidden || document.mozHidden; }
 
   function calcFps()
   {
     if (!isPageHidden()) {
-      var FPS = frameNum - lastFrameNum;
+      FPS = frameNum - lastFrameNum;
       lastFrameNum = frameNum;
 
-      const fpsTarget = 60;
+
+      console.log(FPS + ' FPS   ' + guiControls.IterPerFrame + ' Iterations / frame      ' + FPS * guiControls.IterPerFrame + ' Iterations / second');
 
       if (guiControls.auto_IterPerFrame && !(guiControls.paused || airplaneMode)) {
-        console.log(FPS + ' FPS   ' + guiControls.IterPerFrame + ' Iterations / frame      ' + FPS * guiControls.IterPerFrame + ' Iterations / second');
+        const fpsTarget = 60;
         adjIterPerFrame((FPS / fpsTarget - 1.0) * 5.0); // example: ((30 / 60)-1.0) = -0.5
 
         if (FPS == fpsTarget)
