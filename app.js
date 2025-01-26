@@ -1222,21 +1222,26 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   class PIDController
   {
+    #previousValue;
     #previousError;
     #integral;
+    #useSmoothD;
 
-    constructor(kp, ki, kd, iThreshold)
+    constructor(kp, ki, kd, iThreshold, useSmoothD = false)
     {
       this.kp = kp; // Proportional gain
       this.ki = ki; // Integral gain
       this.kd = kd; // Derivative gain
       this.iThreshold = iThreshold;
 
+      this.#useSmoothD = useSmoothD;
+
       this.resetState();
     }
 
     resetState()
     {
+      this.#previousValue = 0;
       this.#previousError = 0;
       this.#integral = 0;
     }
@@ -1257,6 +1262,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // console.log(this.#integral);
 
       this.#previousError = error;
+      this.#previousValue = measuredValue;
 
       let totalOutput = this.kp * error + this.kd * derivative;
 
@@ -1270,53 +1276,96 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   class Autopilot
   {
+    mode;
     targetPitch;
     targetAltitude;
     targetIAS;
 
+    // dependencies:
+    #instrumentPanel;
 
     constructor()
     {
       // PID for altitude to pitch
       this.altitudePID = new PIDController(0.04, 0.00003, 20.0, 100.0);
       // PID for pitch to elevator
-      this.pitchPID = new PIDController(0.2, 0.001, 5.0, 3.0); // 0.5, 0.001, 100.0
+      this.pitchPID = new PIDController(0.4, 0.001, 20.0, 5.0, true); // 0.5, 0.001, 100.0
 
       this.speedPID = new PIDController(0.1, 0.0003, 0.0, 5.0);
+
+      // PID for glideslope to pitch
+      this.glideslopePID = new PIDController(2.0, 0.0015, 5.0, 3.0);
 
       this.targetPitch = 0.0;
       this.targetAltitude = 5000.0;
       this.targetIAS = 0.0;
+      this.mode = "ALTITUDE";
     }
+
+    bindInstrumentPanel(instrumentPanel) { this.#instrumentPanel = instrumentPanel; }
+
+    setMode(mode) { this.mode = mode; }
 
     resetState()
     {
       this.altitudePID.resetState();
       this.pitchPID.resetState();
       this.speedPID.resetState();
+      this.glideslopePID.resetState();
     }
 
-    update(pitchAttitude, altitude, verticalSpeed, IAS)
+    update(pitchAttitude, altitude, trueVel, IAS, vecToRunway, gearOnGround)
     {
-      this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
+      let targetIAS = this.targetIAS;
 
-      this.targetPitch *= 1.0 - Math.abs(verticalSpeed) * 0.03;                                           // limit vertical speed
+      switch (this.mode) {
+
+      case "ALTITUDE":
+        this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
+
+        this.targetPitch *= 1.0 - Math.abs(trueVel.y) * 0.03;                                               // limit vertical speed
+
+        break;
+      case "AUTOLAND":
+
+        let targetGlideslope = -3.0;
+
+        if (vecToRunway.x <= 100) {
+          targetGlideslope = 0.0; // flare
+          targetIAS = 0.0;
+        } else {
+
+          let slopeToRunway = vecToRunway.angle() * radToDeg;
+
+          targetGlideslope += clamp((slopeToRunway - targetGlideslope) * 3.0, -5.0, 3.0); // move towards ideal glideslope
+
+          targetIAS = map_range_C(vecToRunway.x, 2000, 15000, 90, 128);                   // target speed depend on distance to runway
+        }
+
+        let currentGlideslope = trueVel.angle() * radToDeg;
+
+        this.targetPitch = clamp(this.glideslopePID.update(targetGlideslope, currentGlideslope) + 0.0, -6.0, 10.0);
+
+        break;
+      }
+
+
+      let throttle = clamp(this.speedPID.update(targetIAS, IAS) + 0.40, 0.0, 1.0); // add 40% thrust bias
+
 
       // console.log(this.targetAltitude, altitude, this.targetPitch);
 
-      const elevator = clamp(this.pitchPID.update(this.targetPitch, pitchAttitude), -1.0, 1.0);
+      let elevator = clamp(this.pitchPID.update(this.targetPitch, pitchAttitude), -1.0, 1.0);
+
+
+      if (gearOnGround) {
+        elevator = 0.40;
+        throttle = -1.0;
+      }
 
       //  console.log(this.#desiredPitch, pitchAttitude, elevator);
 
-
-      const throttle = clamp(this.speedPID.update(this.targetIAS, IAS) + 0.40, 0.0, 1.0); // add 40% thrust bias
-
-      let outputs = {
-        pitch : elevator,
-        throttle : throttle
-      }
-
-      return outputs;
+      return [ elevator, throttle ];
     }
   }
 
@@ -1327,10 +1376,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #panelImg;
     #targetAltInput;
     #targetIASInput;
+    #autolandButton;
+    #altHoldButton;
     #panelDiv;
 
-    constructor()
+    // dependencies:
+    #autopilot
+
+    constructor(autopilot)
     {
+      this.#autopilot = autopilot;
       this.#panelDiv = document.createElement('div');
       this.#instrumentCanvas = document.createElement('canvas');
       this.#instrumentCanvas.width = 750;
@@ -1345,6 +1400,24 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       body.appendChild(this.#panelDiv);
     }
 
+    autoland() { console.log('autoland'); }
+
+    setMode_AUTOLAND()
+    {
+      console.log('setMode_AUTOLAND()');
+      this.#autopilot.setMode("AUTOLAND");
+      this.#autolandButton.style.backgroundColor = 'green';
+      this.#altHoldButton.style.backgroundColor = 'grey';
+    }
+
+    setMode_ALTITUDE()
+    {
+      console.log('setMode_ALTITUDE()');
+      this.#autopilot.setMode("ALTITUDE");
+      this.#autolandButton.style.backgroundColor = 'grey';
+      this.#altHoldButton.style.backgroundColor = 'green';
+    }
+
     genAutopilotBar(panelDiv)
     {
       const container = document.createElement('div');
@@ -1352,7 +1425,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       const speedLabel = document.createElement('label');
       speedLabel.textContent = 'Speed (knots):';
       speedLabel.setAttribute('for', 'speed');
-      // speedLabel.style.marginRight = '0px';
       container.appendChild(speedLabel);
       this.#targetIASInput = document.createElement('input');
       this.#targetIASInput.type = 'number';
@@ -1362,17 +1434,31 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#targetIASInput.max = '330';
       this.#targetIASInput.step = '5';
       this.#targetIASInput.value = '220';
-      // this.#targetIASInput.style.float = 'left';
       this.#targetIASInput.style.marginLeft = '0';
       container.appendChild(this.#targetIASInput);
 
       container.appendChild(document.createElement('br'));
 
+      this.#autolandButton = document.createElement('input');
+      this.#autolandButton.type = 'button';
+      this.#autolandButton.value = 'Autoland';
+      this.#autolandButton.addEventListener('click', () => this.setMode_AUTOLAND());
+      this.#autolandButton.style.marginLeft = 'auto';
+      this.#autolandButton.style.marginRight = '0';
+      container.appendChild(this.#autolandButton);
+
+      this.#altHoldButton = document.createElement('input');
+      this.#altHoldButton.type = 'button';
+      this.#altHoldButton.value = 'Hold Altitude';
+      this.#altHoldButton.addEventListener('click', () => this.setMode_ALTITUDE());
+      this.#altHoldButton.style.marginLeft = 'auto';
+      this.#altHoldButton.style.marginRight = '0';
+      container.appendChild(this.#altHoldButton);
+
       // Create the altitude input and its label
       const altitudeLabel = document.createElement('label');
       altitudeLabel.textContent = 'Altitude (ft):';
       altitudeLabel.setAttribute('for', 'altitude');
-      // altitudeLabel.style.float = 'right';
       altitudeLabel.style.marginLeft = 'auto';
       altitudeLabel.style.marginRight = '0';
       container.appendChild(altitudeLabel);
@@ -1392,7 +1478,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       container.style = 'display: flex; justify-content: space-between; align-items: center; background-color: #222222; color: white';
 
       panelDiv.appendChild(container);
+
+      this.setMode_ALTITUDE();
     }
+
 
     getTargetAlt() { return this.#targetAltInput.value / mToFt; }
     getTargetIAS() { return this.#targetIASInput.value / msToKnots; }
@@ -1405,7 +1494,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
 
-    async display(pitchAngle, moveAngle, altitude, radarAltitude, IAS, groundSpeed, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
+    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
     {
       let ctx = this.#instrumentCanvas.getContext("2d");
       let width = this.#instrumentCanvas.width;
@@ -1453,11 +1542,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         }
       }
       ctx.stroke();
-
-
       ctx.strokeStyle = 'yellow';
       ctx.beginPath();
-      let moveIndY = mainHeight / 2 + topBarHeight + (pitchAngle - moveAngle) * pixPerDeg;
+      let moveIndY = mainHeight / 2 + topBarHeight + (pitchAngle - trueVel.angle() * radToDeg) * pixPerDeg; // airAngle
       ctx.moveTo(width / 2 - width * 0.15, moveIndY);
       ctx.lineTo(width / 2 + width * 0.15, moveIndY);
       ctx.stroke();
@@ -1633,7 +1720,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillText(gearStatusIndicator, 290, 40);
 
 
-      let AOA = pitchAngle - moveAngle;
+      let AOA = pitchAngle - airAngle;
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText('∠ ' + AOA.toFixed(1) + '°', 410, 40);
 
@@ -1655,7 +1742,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // BELOW VIRTUAL HORIZON
 
       ctx.fillStyle = '#AAA';
-      ctx.fillText('GS: ' + printVelocity(groundSpeed), 130, 640);
+      ctx.fillText('GS: ' + printVelocity(trueVel.mag()), 130, 640);
 
       ctx.fillText('ELE: ' + elevator.toFixed(2), 500, 640);
     }
@@ -1799,7 +1886,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     enableAirplaneMode(autopilotEn)
     {
       this.setAutopilot(autopilotEn);
-      this.#instrumentPanel = new InstrumentPanel();
+      this.#instrumentPanel = new InstrumentPanel(this.#autopilot);
+      this.#autopilot.bindInstrumentPanel(this.#instrumentPanel);
       airplaneMode = true;
       this.#camFollow = true;
       let M = 400 * 1000;         // mass: 400 tons
@@ -2067,22 +2155,35 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#runwayThresholdPos = this.getClosestRunwayPos();
     }
 
+    calcVecToRunway()
+    {
+      let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
+      let distToRunwayX = 0;
+      if (this.phys.pos.x > this.#runwayThresholdPos.x) {               // to the right of runway
+        distToRunwayX = this.phys.pos.x - this.#runwayThresholdPos.x;
+      } else if (this.phys.pos.x > this.#runwayThresholdPos.x - 3000) { // above runway
+        distToRunwayX = 0;
+      } else {                                                          // to the left of runway, wrap around map
+        distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
+      }
+      let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
+      return vecToRunway;
+    }
+
     takeUserInput()
     {
+      const [autopilotElevator, autopilotThrottle] = this.#autopilot.update(this.phys.angle * radToDeg, this.phys.pos.y, this.phys.vel, this.#IAS, this.calcVecToRunway(), this.#gearOnGround);
+
+      this.#autopilot.targetAltitude = this.#instrumentPanel.getTargetAlt();
+      this.#autopilot.targetIAS = this.#instrumentPanel.getTargetIAS();
+
       if (this.#autopilotEnabled) {
-        // let inputs = {pitchAttitude, angleOfAttack, altitude, speed};
 
-        this.#autopilot.targetAltitude = this.#instrumentPanel.getTargetAlt();
-        this.#autopilot.targetIAS = this.#instrumentPanel.getTargetIAS();
+        this.elevator = autopilotElevator;
+        this.throttle = autopilotThrottle;
 
-
-        let verticalSpeed = this.phys.vel.y;
-
-        ({pitch : this.elevator, throttle : this.throttle} = this.#autopilot.update(this.phys.angle * radToDeg, this.phys.pos.y, verticalSpeed, this.#IAS));
-
-        //  this.elevator = this.#autopilot.update(this.phys.angle * radToDeg, this.phys.pos.y);
-
-        //   console.log(this.elevator);
+        if (this.throttle < 0.0)
+          this.#braking = true;
 
       } else {                                                              // manual elevator control
         this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0; // pitch input -1.0 to +1.0
@@ -2095,10 +2196,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // console.log(this.phys.angle * radToDeg, this.elevator);
 
       if (upPressed && !this.#autopilotEnabled) {
-        this.throttle = Math.min(this.throttle + .01, 1.0);
+        this.throttle += .01;
       } else if (downPressed && !this.#autopilotEnabled) {
-        this.throttle = Math.max(this.throttle - .01, 0.0);
+        this.throttle -= 0.01;
       }
+
+      this.throttle = clamp(this.throttle, 0.0, 1.0);
     }
 
     display()
@@ -2118,22 +2221,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
       }
 
-      let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
-      let distToRunwayX = 0;
 
-      if (this.phys.pos.x > this.#runwayThresholdPos.x) {
-        distToRunwayX = this.phys.pos.x - this.#runwayThresholdPos.x;
-      } else {
-        distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
-      }
+      let vecToRunway = this.calcVecToRunway();
 
-      let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
-      //  let vecToRunway = this.phys.pos.copy().subtract(this.#runwayThresholdPos);
-      // console.log(this.phys.pos, vecToRunway, this.#runwayThresholdPos);
-
-      let angleToRunway = vecToRunway.angle() * radToDeg;
-
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.#groundSpeed, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.gearStatus, angleToRunway, vecToRunway.x);
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
     }
   }
 
