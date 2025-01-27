@@ -1883,6 +1883,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#runwayThresholdPos = new Vec2D(0, 0);
     }
 
+    toggleCamFollow()
+    {
+      if (airplaneMode)
+        this.#camFollow = !this.#camFollow;
+    }
+
     enableAirplaneMode(autopilotEn)
     {
       this.setAutopilot(autopilotEn);
@@ -3259,6 +3265,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.wholeWidth = !guiControls.wholeWidth; // toggle whole width brush
 
       // lastBpressTime = new Date().getTime();
+    } else if (event.code == 'KeyF') {
+      airplane.toggleCamFollow();
     } else if (event.code == 'KeyV') {
       // V: reset view to full simulation area
       cam.center();

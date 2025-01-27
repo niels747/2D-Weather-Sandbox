@@ -157,7 +157,7 @@ void main()
     if (wallXmY0[DISTANCE] == 0) { // left is wall
       nextToWall = true;
       wall[DISTANCE] = 1;          // dist to nearest wall = 1
-      wall[TYPE] = wallXmY0[TYPE];
+      // wall[TYPE] = wallXmY0[TYPE];
 
       if (wallXmY0[TYPE] == WALLTYPE_WATER) { // if left is water, build a dyke
         wall[TYPE] = WALLTYPE_LAND;
@@ -169,7 +169,7 @@ void main()
     } else if (wallXpY0[DISTANCE] == 0) { // right is wall
       nextToWall = true;
       wall[DISTANCE] = 1;                 // dist to nearest wall = 1
-      wall[TYPE] = wallXpY0[TYPE];
+      // wall[TYPE] = wallXpY0[TYPE];
 
       if (wallXpY0[TYPE] == WALLTYPE_WATER) { // if right is water, build a dyke
         wall[TYPE] = WALLTYPE_LAND;

@@ -280,13 +280,13 @@ void main()
             setWall = true;
           }
           break;
-        case 14:                                                                                                     // set urban
-          if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
+        case 14:                                                                                                                                        // set urban
+          if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_RUNWAY) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_URBAN;
           }
           break;
-        case 15:                                                                                                     // set runway
-          if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_LAND && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
+        case 15:                                                                                                                                       // set runway
+          if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) && texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_RUNWAY;
           }
           break;
@@ -321,15 +321,18 @@ void main()
           }
         }
       } else {
-        if (wall[DISTANCE] == 0) {            // remove wall only if it is a wall and not bottem layer
+        if (wall[DISTANCE] == 0) {           // remove wall only if it is a wall and not bottem layer
 
-          if (userInputType == 13) {          // fire
-            if (wall[TYPE] == WALLTYPE_FIRE)  // extinguish fire
+          if (userInputType == 13) {         // fire
+            if (wall[TYPE] == WALLTYPE_FIRE) // extinguish fire
               wall[TYPE] = WALLTYPE_LAND;
-          } else if (userInputType == 14) {   // urban
+          } else if (userInputType == 14) {
             if (wall[TYPE] == WALLTYPE_URBAN) // remove buildings
               wall[TYPE] = WALLTYPE_LAND;
-          } else if (userInputType == 20) {   // remove moisture
+          } else if (userInputType == 15) {
+            if (wall[TYPE] == WALLTYPE_RUNWAY) // remove runway
+              wall[TYPE] = WALLTYPE_LAND;
+          } else if (userInputType == 20) {    // remove moisture
             water[SOIL_MOISTURE] += userInputValues[INTENSITY] * 10.0;
           } else if (userInputType == 21) {
             water[SNOW] += userInputValues[INTENSITY] * 0.5; // remove snow
