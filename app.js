@@ -1283,9 +1283,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     // dependencies:
     #instrumentPanel;
+    #airplane;
 
-    constructor()
+    constructor(airplane)
     {
+      this.#airplane = airplane;
       // PID for altitude to pitch
       this.altitudePID = new PIDController(0.04, 0.00003, 20.0, 100.0);
       // PID for pitch to elevator
@@ -1330,9 +1332,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         let targetGlideslope = -3.0;
 
-        if (vecToRunway.x <= 100) {
-          targetGlideslope = 0.0; // flare
+        if (vecToRunway.x <= 4000) {
+          this.#airplane.setGear(true);
+        }
+
+        let currentGlideslope = trueVel.angle() * radToDeg;
+
+        if (vecToRunway.x <= 300) {
+          targetGlideslope = Math.max((vecToRunway.y - 10) * -0.08, -2.0); // flare
+          // targetGlideslope = Math.max(targetGlideslope, currentGlideslope); // prevent acelerating down when entering at shallow angle
           targetIAS = 0.0;
+
         } else {
 
           let slopeToRunway = vecToRunway.angle() * radToDeg;
@@ -1342,7 +1352,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           targetIAS = map_range_C(vecToRunway.x, 2000, 15000, 90, 128);                   // target speed depend on distance to runway
         }
 
-        let currentGlideslope = trueVel.angle() * radToDeg;
 
         this.targetPitch = clamp(this.glideslopePID.update(targetGlideslope, currentGlideslope) + 0.0, -6.0, 10.0);
 
@@ -1355,7 +1364,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log(this.targetAltitude, altitude, this.targetPitch);
 
-      let elevator = clamp(this.pitchPID.update(this.targetPitch, pitchAttitude), -1.0, 1.0);
+      let elevator = clamp(this.pitchPID.update(this.targetPitch, pitchAttitude) + 0.2, -1.0, 1.0);
 
 
       if (gearOnGround) {
@@ -1400,11 +1409,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       body.appendChild(this.#panelDiv);
     }
 
-    autoland() { console.log('autoland'); }
-
     setMode_AUTOLAND()
     {
-      console.log('setMode_AUTOLAND()');
       this.#autopilot.setMode("AUTOLAND");
       this.#autolandButton.style.backgroundColor = 'green';
       this.#altHoldButton.style.backgroundColor = 'grey';
@@ -1412,7 +1418,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     setMode_ALTITUDE()
     {
-      console.log('setMode_ALTITUDE()');
       this.#autopilot.setMode("ALTITUDE");
       this.#autolandButton.style.backgroundColor = 'grey';
       this.#altHoldButton.style.backgroundColor = 'green';
@@ -1833,7 +1838,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     elevator;
     throttle;
 
-    gearStatus; // UP EXTENDING DOWN RETRACTING
+    #gearStatus; // UP EXTENDING DOWN RETRACTING
     #autopilotEnabled;
 
     phys; // physics object, containing all physical properties including position and velocity
@@ -1859,7 +1864,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         if (wallTextureValues[x * 4 + 0] == 5) // found runway
         {
-          return new Vec2D(x, Ypos - wallTextureValues[x * 4 + 2] + 1).mult(cellHeight);
+          return new Vec2D(x * cellHeight, (Ypos - wallTextureValues[x * 4 + 2]) * cellHeight + 15);
         }
         x--;
       }
@@ -1879,7 +1884,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#autopilotEnabled = false;
       this.#gearOnGround = false;
       this.#braking = false;
-      this.#autopilot = new Autopilot();
+      this.#autopilot = new Autopilot(this);
       this.#runwayThresholdPos = new Vec2D(0, 0);
     }
 
@@ -1915,10 +1920,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.throttle = startsOnSurface ? 0.00 : 0.40; // %
 
       if (startsOnSurface) {
-        this.gearStatus = "DOWN";
+        this.#gearStatus = "DOWN";
         this.#gearExtPos = 0.0;
       } else {
-        this.gearStatus = "UP";
+        this.#gearStatus = "UP";
         this.#gearExtPos = 7.0;
 
         this.#runwayThresholdPos = this.getClosestRunwayPos();
@@ -1941,12 +1946,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     setBrakes(enabled) { this.#braking = enabled; }
 
-    toggleGear()
+
+    toggleGear() { this.setGear(this.#gearStatus == "UP"); }
+
+    setGear(boolDown)
     {
-      if (this.gearStatus == "UP")
-        this.gearStatus = "EXTENDING";
-      else if (this.gearStatus == "DOWN")
-        this.gearStatus = "RETRACTING";
+      if (boolDown) {
+        if (this.#gearStatus == "UP")
+          this.#gearStatus = "EXTENDING";
+
+      } else {
+        if (this.#gearStatus == "DOWN")
+          this.#gearStatus = "RETRACTING";
+      }
     }
 
     // https://aviation.stackexchange.com/questions/64490/is-there-a-simple-relationship-between-angle-of-attack-and-lift-coefficient/97747#97747?newreg=547ea95b1d784abf993b7d1850dcc938
@@ -2023,14 +2035,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readPixels(Xpos - 1, Ypos, 2, 2, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
       this.#radarAltitude = (bilerp(wallTextureValues, 2, fractX, fractY) - 1) * cellHeight;
 
-      if (this.gearStatus == "EXTENDING") {
+      if (this.#gearStatus == "EXTENDING") {
         this.#gearExtPos = Math.max(this.#gearExtPos - 0.01, 0.0);
         if (this.#gearExtPos == 0.0)
-          this.gearStatus = "DOWN";
-      } else if (this.gearStatus == "RETRACTING") {
+          this.#gearStatus = "DOWN";
+      } else if (this.#gearStatus == "RETRACTING") {
         this.#gearExtPos = Math.min(this.#gearExtPos + 0.01, 7.0);
         if (this.#gearExtPos == 7.0)
-          this.gearStatus = "UP";
+          this.#gearStatus = "UP";
       }
 
       let heightAboveGround = this.#radarAltitude;
@@ -2133,16 +2145,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                                 // gravity
 
       let normRelVel = new Vec2D(Math.cos(this.#relVelAngle), Math.sin(this.#relVelAngle));
-      let dragMult = (this.gearStatus != "UP" ? 35.0 : 25.0) + Math.abs(Math.sin(AOA) * 150.0);
+      let dragMult = (this.#gearStatus == "UP" ? 25.0 : 35.0) + Math.abs(Math.sin(AOA) * 150.0);
       let dragMag = dynamicPressMult * dragMult;
-
-      if (this.#gearOnGround && this.phys.vel.x < 0.0) {   // (velocity is always negative)
-        dragMag += (this.#braking ? 1000000.0 : 100000.0); // braking is 10 x as strong as the wheel friction
-      }
 
       this.phys.applyForce(new Vec2D(normRelVel.x * dragMag, -normRelVel.y * dragMag));
 
-      this.phys.aVel *= 1. - 0.05 * dt; // angular velocity drag
+      if (this.#gearOnGround) {
+        let gearDragForce = (this.#braking ? 1100000.0 : 110000.0); // braking is 10 x as strong as the wheel friction
+
+        this.phys.applyForce(new Vec2D(this.phys.vel.x > 0.0 ? -gearDragForce : gearDragForce, 0.));
+      }
+
+      this.phys.aVel *= 1. - 0.07 * dt; // angular velocity drag
 
       this.phys.move();
     }
@@ -2230,7 +2244,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let vecToRunway = this.calcVecToRunway();
 
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
     }
   }
 

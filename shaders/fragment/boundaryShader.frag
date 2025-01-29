@@ -47,8 +47,6 @@ layout(location = 2) out ivec4 wall;
 
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 
-const bool dynamicVegetation = true;
-
 /*
 #define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
 #define exchangeRate 0.001       // Rate of smoothing near surface
@@ -145,13 +143,17 @@ void main()
     // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
 
     float snowCover = 0.;
+    float soilMoisture = 0.;
 
-    if (wallX0Ym[DISTANCE] == 0) {                       // below is wall
+    if (wallX0Ym[DISTANCE] == 0) { // below is wall
       nextToWall = true;
-      wall[DISTANCE] = 1;                                // dist to nearest wall = 1
-                                                         // wall[TYPE] = wallX0Ym[TYPE];                       // copy wall type from wall below
-      snowCover = texture(waterTex, texCoordX0Ym)[SNOW]; // get snow amount
-      wall[VERT_DISTANCE] = 1;                           // directly above ground
+      wall[DISTANCE] = 1;          // dist to nearest wall = 1
+      // wall[TYPE] = wallX0Ym[TYPE];                       // copy wall type from wall below
+
+      vec4 waterX0Ym = texture(waterTex, texCoordX0Ym);
+      snowCover = waterX0Ym[SNOW];
+      soilMoisture = waterX0Ym[SOIL_MOISTURE];
+      wall[VERT_DISTANCE] = 1; // directly above ground
     }
 
     if (wallXmY0[DISTANCE] == 0) { // left is wall
@@ -207,15 +209,25 @@ void main()
           lightPower += max(light[SUNLIGHT] * cos(sunAngle), 0.0); // Light power per horizontal surface area;
 
         if (wallXmY0[DISTANCE] == 0)
-          lightPower += max(light[SUNLIGHT] * sin(sunAngle), 0.0); // Light power per vertical surface area
+          lightPower += max(light[SUNLIGHT] * sin(sunAngle), 0.0); // Light power on right phasing vertical wall
 
         if (wallXpY0[DISTANCE] == 0)
-          lightPower += max(light[SUNLIGHT] * sin(-sunAngle), 0.0); // Light power per vertical surface area
+          lightPower += max(light[SUNLIGHT] * sin(-sunAngle), 0.0); // Light power on left phasing vertical wall
 
+        float albedoTotal = 1.0;
 
-        float totalAlbedo = map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
+        if (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_FIRE) {
+          float albedoSoil = map_rangeC(soilMoisture, 0., 20., ALBEDO_DRYSOIL, ALBEDO_WETSOIL);
+          albedoSoil = map_rangeC(snowCover, 0.0, fullWhiteSnowHeight, albedoSoil, ALBEDO_SNOW);                         // add snow albedo
+          float fullVegetationAlbedo = map_range(snowCover, 0., fullWhiteSnowHeight, ALBEDO_FOREST, ALBEDO_SNOW_FOREST); // the albedo of full tree height with snow taken into account
+          albedoTotal = map_range(float(wallX0Ym[VEGETATION]), 0., 127., albedoSoil, fullVegetationAlbedo);
+        } else if (wall[TYPE] == WALLTYPE_URBAN) {
+          albedoTotal = ALBEDO_URBAN;
+        } else if (wall[TYPE] == WALLTYPE_RUNWAY) {
+          albedoTotal = ALBEDO_RUNWAY;
+        }
 
-        lightPower *= totalAlbedo;
+        lightPower *= (1. - albedoTotal);
         lightPower *= lightHeatingConst;
         base[TEMPERATURE] += lightPower; // sun heating land
       }
