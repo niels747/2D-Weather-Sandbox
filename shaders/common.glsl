@@ -76,6 +76,12 @@ precision highp isampler2D;
 #define VAPOR 2
 // 3 not used
 
+// Lightning Location
+// #define POSX 0
+// #define POSY 1
+#define START_ITERNUM 2
+#define INTENSITY 3
+
 // Precipitation deposition
 #define RAIN_DEPOSITION 0
 #define SNOW_DEPOSITION 1

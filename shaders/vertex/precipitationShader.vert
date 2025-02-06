@@ -22,7 +22,7 @@ float realTemp;
 
 uniform sampler2D baseTex;
 uniform sampler2D waterTex;
-uniform sampler2D lightningLocationTex;
+uniform sampler2D lightningDataTex;
 
 uniform vec2 resolution;
 uniform vec2 texelSize;
@@ -108,7 +108,7 @@ void main()
 
       float nrmRand = fract(pow(water[CLOUD] * 10.0, 2.0));
 
-      if (spawnChance > nrmRand) {                                       // spawn
+      if (spawnChance > nrmRand) {                                       // spawn precipitation particle
         spawned = true;
         newPos = vec2((texCoord.x - 0.5) * 2., (texCoord.y - 0.5) * 2.); // convert texture coordinate (0 to 1) to position (-1 to 1)
 
@@ -118,25 +118,24 @@ void main()
           feedback[HEAT] += newMass[ICE] * meltingHeat;                  // add heat of freezing
           newDensity = snowDensity;
 
-          vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5)); // data from last lightning bolt
+          vec4 lightningData = texture(lightningDataTex, vec2(0.5)); // data from last lightning bolt
 
-          float lightningSpawnChance = 0.01;
+          const float lightningCloudDensityThreshold = 2.5;          // 3.0
+          const float lightningChanceMultiplier = 0.0033;            // 0.0011
 
-          const float lightningCloudDensityThreshold = 3.0; // 2.5
-          const float lightningChanceMultiplier = 0.0011;   // 0.0010
+          float cloudPlusPrecipDensity = water[CLOUD] + water[PRECIPITATION];
 
-          float cloudDensity = water[CLOUD] + water[PRECIPITATION];
+          float lightningSpawnChance = max((cloudPlusPrecipDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
 
-          lightningSpawnChance = max((cloudDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
+          const float minIterationsSinceLastLightningBolt = 30.;                                                                                                                       // 50.
 
-          const float minIterationsSinceLastLightningBolt = 50.;
-
-          if (lightningLocation.z < iterNum - minIterationsSinceLastLightningBolt && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
+          if (lightningData[START_ITERNUM] < iterNum - minIterationsSinceLastLightningBolt && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
             lightningSpawned = true;
             isActive = false;
             gl_PointSize = 1.0;
             feedback.xy = texCoord;
-            feedback.z = iterNum;
+            feedback[START_ITERNUM] = iterNum;
+            feedback[INTENSITY] = clamp(cloudPlusPrecipDensity / 10.0 + (random2d(texCoord) - 0.5), 0.01, 4.0);
             gl_Position = vec4(vec2(-1. + texelSize.x * 3., -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (1, 0)
           }
         } else {

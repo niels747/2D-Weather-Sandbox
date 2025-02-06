@@ -21,13 +21,11 @@ uniform sampler2D noiseTex;
 uniform sampler2D surfaceTextureMap;
 uniform sampler2D curlTex;
 uniform sampler2D lightningTex;
-uniform sampler2D lightningLocationTex;
+uniform sampler2D lightningDataTex;
 
 uniform sampler2D ambientLightTex;
 
-vec2 lightningPos = vec2(0); // global because it's used as a seed in random lightning parameters
-
-uniform vec2 aspectRatios;   // [0] Sim       [1] canvas
+uniform vec2 aspectRatios; // [0] Sim       [1] canvas
 
 #define URBAN 0
 #define FIRE_FOREST 1
@@ -113,22 +111,21 @@ float calcLightningTime(float startIterNum)
   return lightningTime / 5.0; // 30.0    0. to 1. leader stage, 1. + Flash stage
 }
 
-float lightningIntensityOverTime(float Tin)
+float lightningIntensityOverTime(float Tin, vec2 lightningPos, float intensity)
 {
   float T0 = Tin - 1.;
 
-
-  float repeatPeriod = map_range(random2d(lightningPos), 0., 1., 1.5, 3.0);                 // 2.5
-  float numFlashes = floor(map_range(random2d(lightningPos * 2.737250), 0., 1., 1.0, 5.0)); // 0.4
+  float repeatPeriod = map_range(random2d(lightningPos), 0., 1., 1.5, 3.0);                                            // 2.5
+  float numFlashes = floor(map_range(random2d(lightningPos * 2.737250), 0., 1., 1.0, max(intensity - 0.5, 0.) * 2.0)); // 0.4
 
   float minT = max(T0 - (repeatPeriod * numFlashes), 0.);
 
   float T = max(mod(T0, repeatPeriod), minT);
 
-  return max((1. / (0.05 + pow((T)*2.0, 3.))) - 0.005, 0.); // fading out curve
+  return max((1. / (0.05 + pow(T * 2.0, 3.))) - 0.005, 0.) * pow(intensity, 2.0); // fading out curve
 }
 
-vec3 displayLightning(vec2 pos, float startIterNum)
+vec3 displayLightning(vec2 pos, float lightningTime, float currentLightningIntensity)
 {
   vec2 lightningTexCoord = texCoord;
 
@@ -137,7 +134,6 @@ vec3 displayLightning(vec2 pos, float startIterNum)
   lightningTexCoord.y -= pos.y;
 
   float scaleMult = 1. / pos.y; // 1.0 means lightning is as tall as the simheight
-
 
   lightningTexCoord.x *= scaleMult * aspectRatios[0] / lightningTexAspect;
   lightningTexCoord.y *= -scaleMult;
@@ -149,10 +145,8 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   float pixVal = texture(lightningTex, lightningTexCoord).r;
 
-  float lightningTime = calcLightningTime(startIterNum);
-
   const float branchShowFactor = 2.5;       // 1.5
-  const float leaderBrightness = 100000.;   // 200.0
+  const float leaderBrightness = 50000.;    // 200.0
   const float mainBoltBrightness = 100000.; // 100000.
 
   float brightnessThreshold = 1. - lightningTime * branchShowFactor;
@@ -160,18 +154,18 @@ vec3 displayLightning(vec2 pos, float startIterNum)
 
   brightnessThreshold = clamp(brightnessThreshold, 0., 1.);
 
-  float lightningIntensity = leaderBrightness;
-
   if (lightningTime > 1.0) { // main bolt
     brightnessThreshold = 0.95;
-    lightningIntensity = lightningIntensityOverTime(lightningTime) * mainBoltBrightness;
+    currentLightningIntensity *= mainBoltBrightness;
+  } else {
+    currentLightningIntensity = leaderBrightness;
   }
 
   pixVal -= brightnessThreshold;
 
   pixVal = max(pixVal, 0.0);
 
-  pixVal *= lightningIntensity;
+  pixVal *= currentLightningIntensity;
 
   const vec3 lightningCol = vec3(0.70, 0.57, 1.0); // 0.584, 0.576, 1.0
 
@@ -314,13 +308,26 @@ void main()
     opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                      // alpha blending
     color = (smokeOrFireCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
 
-    vec4 lightningLocation = texture(lightningLocationTex, vec2(0.5));
-    lightningPos = lightningLocation.xy;
-    float lightningStartIterNum = lightningLocation.z;
+    vec4 lightningData = texture(lightningDataTex, vec2(0.5));
+    vec2 lightningPos = lightningData.xy;
+    float lightningStartIterNum = lightningData[START_ITERNUM];
 
-    emittedLight += displayLightning(lightningPos, lightningStartIterNum); // needs to be added as light
+    float lightningTime = calcLightningTime(lightningStartIterNum);
+    float currentLightningIntensity = lightningIntensityOverTime(lightningTime, lightningPos, lightningData[INTENSITY]);
 
-    emittedLight /= 1. + cloudDensity * 100.0;
+
+    if (lightningData[INTENSITY] > 1.0) { // CG
+      emittedLight += displayLightning(lightningPos, lightningTime, currentLightningIntensity);
+      emittedLight /= 1. + cloudDensity * 100.0;
+    }
+
+#define lightningOnLightBrightness 0.004 // 0.002
+
+    vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
+    dist.x *= aspectRatios[0];
+    float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
+    lightningOnLight *= currentLightningIntensity;
+    onLight += vec3(lightningOnLight);
 
 
     vec2 rainbowCenter = vec2(0.0, -1.5 + abs(sunAngle) * 0.60);
@@ -333,20 +340,11 @@ void main()
 
     float waveLength = map_range(angle, 40.0, 42.0, 400., 700.);
 
-
     float rainSnowFactor = map_rangeC(KtoC(realTemp), 0.0, 5.0, 0.0, 1.0); // only rain if above freezing
 
     vec3 rainbowCol = spectral_zucconi(waveLength) * min(pow(lightIntensity, 2.0) * 1.9, 1.0) * min(water[PRECIPITATION] * 3.0, 1.0) * rainSnowFactor * 0.7;
 
     emittedLight += rainbowCol;
-
-#define lightningOnLightBrightness 0.004 // 0.002
-
-    vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
-    dist.x *= aspectRatios[0];
-    float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
-    lightningOnLight *= lightningIntensityOverTime(calcLightningTime(lightningStartIterNum));
-    onLight += vec3(lightningOnLight);
 
 
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface

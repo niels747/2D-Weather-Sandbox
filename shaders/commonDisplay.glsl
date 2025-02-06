@@ -2,8 +2,6 @@
 #define rad2deg 57.2958
 #define deg2rad 0.0174533
 
-// #define minShadowLight 0.002 // 0.10
-
 const float GAMMA = 2.0;
 const vec3 ONE_OVER_GAMMA = vec3(1. / GAMMA);
 

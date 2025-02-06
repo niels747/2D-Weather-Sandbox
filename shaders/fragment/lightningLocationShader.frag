@@ -30,7 +30,7 @@ void main()
 
 
   // No strike, or two strikes tried to generate during the same iteration, making the number twice as high
-  if (newLightningLocation.z < max(iterNum - 1.0, 1.0) || newLightningLocation.z > iterNum) {
+  if (newLightningLocation[START_ITERNUM] < max(iterNum - 1.0, 1.0) || newLightningLocation[START_ITERNUM] > iterNum) {
     discard; // no new lightning strike, so no update
   }
 
