@@ -322,7 +322,7 @@ void main()
         float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
 
         water[TOTAL] += evaporation;
-        base[TEMPERATURE] -= evaporation * evapHeat;
+        // base[TEMPERATURE] -= evaporation * evapHeat;
 
         if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
           water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind

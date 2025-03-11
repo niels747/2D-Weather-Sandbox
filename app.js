@@ -105,6 +105,8 @@ var sunIsUp = true;
 
 var airplaneMode = false;
 
+var dropletFollowID = -1;
+
 var minShadowLight = 0.02;
 
 var saveFileName = '';
@@ -1144,12 +1146,24 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.tarXpos = this.curXpos = this.curXposLin = 0.0;
       this.tarYpos = this.curYpos = -0.5 + sim_res_y / sim_res_x;
       this.tarZoom = this.curZoom = 1.0001;
+      this.#Xvel = 0;
+      this.#Yvel = 0;
+      this.#Zvel = 0;
     }
 
     changeCurXpos(change)
     {
       this.curXposLin = this.curXposLin + change;
       this.curXpos = mod(this.curXposLin + 1.0, 2.0) - 1.0;
+    }
+
+    setPosition(x, y, zoom)
+    {
+      this.curXpos = this.tarXpos = x;
+      this.curYpos = this.tarYpos = y;
+
+      if (zoom)
+        this.curZoom = this.tarZoom = zoom;
     }
 
     move()
@@ -3297,7 +3311,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       logSample();
     } else if (event.code == 'KeyX') {
       // Sample droplets around mouse location
-      logDropletsSample();
+      logDropletsAndToggleFollow();
     } else if (event.code == 'KeyA') {
       if (airplaneMode)
         airplane.disableAirplaneMode();
@@ -3770,11 +3784,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  function logDropletsSample()
-  { // log data of all the droplets within the brush
-    const valsPerDroplet = 5;
-    tempDroplets = new Float32Array(valsPerDroplet * NUM_DROPLETS);
-    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, precipVertexBuffer_0); // x, y, water, ice, density
+  const valsPerDroplet = 5;
+
+  function logDropletsAndToggleFollow()
+  {
+    if (dropletFollowID >= 0) { // disable follow droplet
+      dropletFollowID = -1;
+      let dropletInfoCanvas = document.getElementById('dropletInfoCanvas');
+      dropletInfoCanvas.style.display = 'none';
+      return;
+    }
+
+    // log data of all the droplets within the brush
+    let tempDroplets = new Float32Array(valsPerDroplet * NUM_DROPLETS);
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, even ? precipVertexBuffer_0 : precipVertexBuffer_1); // x, y, water, ice, density
     gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, tempDroplets);
 
     console.log(' ');
@@ -3800,6 +3823,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < guiControls.brushSize / 2.0 / sim_res_y) {
+        console.log("n:", n);
         console.log("x:", x);
         console.log("y:", y);
         console.log("water:", water);
@@ -3807,20 +3831,60 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         console.log("Density:", density);
         console.log(" ");
         numInBrush++;
-      }
 
-      // check for duplicates
-      if (n < NUM_DROPLETS - 1) {
-        for (let d = n + 1; d < NUM_DROPLETS; d++) {
-          let j = d * valsPerDroplet;
-          if (X == tempDroplets[j + 0] && Y == tempDroplets[j + 1]) {
-            duplicates++;
-            break;
-          }
+
+        if (numInBrush == 1) { // first droplet found
+          dropletFollowID = n;
+          dropletInfoCanvas.style.display = 'block';
         }
       }
+      /*
+        // check for duplicates. Very slow!
+        if (n < NUM_DROPLETS - 1) {
+          for (let d = n + 1; d < NUM_DROPLETS; d++) {
+            let j = d * valsPerDroplet;
+            if (X == tempDroplets[j + 0] && Y == tempDroplets[j + 1]) {
+              duplicates++;
+              break;
+            }
+          }
+        }
+      */
     }
     console.log(NUM_DROPLETS, "total droplets. ", numInBrush, "droplets logged. ", duplicates, " duplicates found");
+
+
+    // dropletFollowMode = true;
+  }
+
+
+  function readDropletData(n)
+  {
+    let i = n * valsPerDroplet;
+    let byteOffset = i * 4; // Convert to byte offset
+
+    let dropletData = new Float32Array(valsPerDroplet);
+    gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, even ? precipVertexBuffer_0 : precipVertexBuffer_1);
+    gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, byteOffset, dropletData, 0, valsPerDroplet);
+
+    dropletData[0] = (dropletData[0] + 1.0) / 2.0;
+    dropletData[1] = (dropletData[1] + 1.0) / 2.0;
+
+    // let x = dropletData[0];
+    // let y = dropletData[1];
+    // let water = dropletData[2];
+    // let ice = dropletData[3];
+    // let density = dropletData[4];
+
+    // console.log("Droplet ", n);
+    // console.log("x:", x);
+    // console.log("y:", y);
+    // console.log("water:", water);
+    // console.log("Ice:", ice);
+    // console.log("Density:", density);
+    // console.log(" ");
+
+    return dropletData;
   }
 
 
@@ -4714,6 +4778,34 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       cursorType += 0.55;
     }
 
+    // Follow droplet
+    if (dropletFollowID >= 0) {
+      let dropletInfo = readDropletData(dropletFollowID);
+      cam.setPosition(-dropletInfo[0] * 2.0 + 1.0, -dropletInfo[1] * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x));
+
+      let dropletInfoCanvas = document.getElementById('dropletInfoCanvas');
+      let ctx = dropletInfoCanvas.getContext('2d');
+
+      ctx.clearRect(0, 0, dropletInfoCanvas.width, dropletInfoCanvas.height);
+      ctx.fillStyle = '#00000055';
+      ctx.fillRect(0, 0, dropletInfoCanvas.width, dropletInfoCanvas.height);
+
+      ctx.fillStyle = '#FF0000';
+      ctx.fillRect(0, 0, 2, 2);
+
+      ctx.font = '15px Arial';
+      ctx.fillStyle = '#00AAFF';
+      ctx.fillText('Water: ' + dropletInfo[2].toFixed(2), 0, 15);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('Ice     : ' + dropletInfo[3].toFixed(2), 0, 30);
+      ctx.fillStyle = '#00FF00';
+      ctx.fillText('Dens : ' + dropletInfo[4].toFixed(2), 0, 45);
+    }
+
+    if (airplaneMode) {
+      airplane.display();
+    }
+
     // render to canvas
     gl.useProgram(realisticDisplayProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); // null is canvas
@@ -4721,9 +4813,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    if (airplaneMode) {
-      airplane.display();
-    }
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
@@ -5375,6 +5464,34 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         if (FPS == fpsTarget)
           adjIterPerFrame(1);
       }
+
+      // calculate total amounts of water and smoke for verification of fluid simulation
+      /*
+            gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+            gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
+            var waterTextureValues = new Float32Array(sim_res_x * sim_res_y * 4);
+            gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA, gl.FLOAT, waterTextureValues);
+
+            let totalWaterVapor = 0.0;
+            let totalCloudWater = 0.0;
+            let totalSmoke = 0.0;
+
+            for (let x = 0; x < sim_res_x; x++) {
+              for (let y = 0; y < sim_res_y; y++) {
+                let cellInd = (x + y * sim_res_x) * 4;
+                let vapor = waterTextureValues[cellInd + 0];
+                if (vapor < 1000.0) { // ignore wall
+                  totalCloudWater += waterTextureValues[cellInd + 1];
+                  totalWaterVapor += vapor;
+
+                  totalSmoke += waterTextureValues[cellInd + 3];
+                }
+              }
+            }
+
+            let totalWater = totalWaterVapor + totalCloudWater;
+            console.log('Water  Vapor  Cloud  Smoke\n', Math.round(totalWater), Math.round(totalWaterVapor), Math.round(totalCloudWater), Math.round(totalSmoke));
+            */
     }
   }
 } // end of mainscript
