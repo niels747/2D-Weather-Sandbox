@@ -47,18 +47,18 @@ layout(location = 2) out ivec4 wall;
 
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 
-/*
-#define wallManhattanInfluence 0 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
-#define exchangeRate 0.001       // Rate of smoothing near surface
 
-
+// #define wallManhattanInfluence 2 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
+#define exchangeRate 0.015       // Rate of smoothing near surface
 
 void exchangeWith(vec2 texCoord) // exchange temperature and water
 {
-  base[3] -= (base[3] - texture(baseTex, texCoord)[3]) * exchangeRate;
-  water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
+  // base[TEMPERATURE] -= (base[TEMPERATURE] - texture(baseTex, texCoord)[TEMPERATURE]) * exchangeRate;
+  // water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
+
+  base[VX] -= (base[VX] - texture(baseTex, texCoord)[VX]) * exchangeRate;
 }
-*/
+
 
 float calcEvaporation(float T, float W, float V, float M)                                             // temperature, total water, vegetation, soil moisture
 {
@@ -259,33 +259,39 @@ void main()
                                     // wall[TYPE] = nearestType;     // type = type of nearest wall
     }
 
-    /*
-        if (wall[1] <= wallManhattanInfluence) { // within manhattan range of wall
+#define surfaceWindSmootingDist 5
 
-          float influenceDevider = float(wallManhattanInfluence); // devide by how many cells it's aplied to
+    if (wall[VERT_DISTANCE] <= surfaceWindSmootingDist) { // above surface
 
-          // base[0] *= 0.999; // surface drag
+      if (wall[VERT_DISTANCE] == 1) {
+        float surfaceDrag = 0.0015; // water or runway
+        if (wall[TYPE] == WALLTYPE_URBAN)
+          surfaceDrag = 0.040;
+        else if (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_FIRE)
+          surfaceDrag = map_rangeC(float(wall[VEGETATION]), 50., 127., 0.0015, 0.020);
 
-          float realTemp = potentialToRealT(base[3]);
+        // base[VX] *= 1. - surfaceDrag;                        // surface drag
+        base[VX] -= abs(base[VX]) * base[VX] * surfaceDrag * 50.; // quadratic surface drag
+      }
 
-          // Smoothing near surface
+      // Smoothing near surface
 
-          if (wallX0Yp[1] != 0 && wallX0Yp[1] <= wallManhattanInfluence) { // above
-            exchangeWith(texCoordX0Yp);
-          }
+      if (/*wallX0Yp[VERT_DISTANCE] != 0 && */ wallX0Yp[VERT_DISTANCE] <= surfaceWindSmootingDist) { // above
+        exchangeWith(texCoordX0Yp);
+      }
 
-          if (wallX0Ym[1] != 0 && wallX0Ym[1] <= wallManhattanInfluence) { // below
-            exchangeWith(texCoordX0Ym);
-          }
+      if (wallX0Ym[VERT_DISTANCE] > 0 /* && wallX0Ym[1] <= wallManhattanInfluence*/) { // below
+        exchangeWith(texCoordX0Ym);
+      }
+      /*
+            if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
+              exchangeWith(texCoordXmY0);
+            }
 
-          if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
-            exchangeWith(texCoordXmY0);
-          }
-
-          if (wallXpY0[1] != 0 && wallXpY0[1] <= wallManhattanInfluence) { // right
-            exchangeWith(texCoordXpY0);
-          }
-        }*/
+            if (wallXpY0[1] != 0 && wallXpY0[1] <= wallManhattanInfluence) { // right
+              exchangeWith(texCoordXpY0);
+            }*/
+    }
 
     if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {            // within vertical range of wall
 

@@ -742,13 +742,13 @@ class Weatherstation
   {
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
-    var baseTextureValues = new Float32Array(4);
-    gl.readPixels(this.#x, this.#y, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues);
+    var baseTextureValues = new Float32Array(4 * 2);
+    gl.readPixels(this.#x, this.#y, 1, 2, gl.RGBA, gl.FLOAT, baseTextureValues);
 
-    let T = potentialToRealT(baseTextureValues[3], this.#y); // temperature in kelvin
+    let T = potentialToRealT(baseTextureValues[0 + 3], this.#y); // temperature in kelvin
 
     this.#temperature = KtoC(T);
-    this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[0], 2) + Math.pow(baseTextureValues[1], 2)));
+    this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[4 + 0], 2) + Math.pow(baseTextureValues[4 + 1], 2)));
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
