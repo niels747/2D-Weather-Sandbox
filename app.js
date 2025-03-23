@@ -270,6 +270,8 @@ function mmToIn(mm) { return mm * 0.393701; }
 
 function msToKnots(ms) { return ms * 1.94384; };
 
+function knotsToMs(kt) { return kt * 0.514444; };
+
 function printSnowHeight(snowHeight_cm)
 {
   if (guiControls.imperialUnits) {
@@ -1503,7 +1505,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
     getTargetAlt() { return this.#targetAltInput.value / mToFt; }
-    getTargetIAS() { return this.#targetIASInput.value / msToKnots; }
+    getTargetIAS() { return knotsToMs(this.#targetIASInput.value); }
 
     remove()
     {
@@ -1662,10 +1664,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let overSpeed = 173.0; // m/s
 
       if (guiControls.imperialUnits) {
-        IAS *= msToKnots;
-        targetIAS *= msToKnots;
-        stallSpeed *= msToKnots;
-        overSpeed *= msToKnots;
+        IAS = msToKnots(IAS);
+        targetIAS = msToKnots(targetIAS);
+        stallSpeed = msToKnots(stallSpeed);
+        overSpeed = msToKnots(overSpeed);
         unit = ' kt'
       } else {
         unit = ' km/h'
