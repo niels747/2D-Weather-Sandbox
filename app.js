@@ -33,7 +33,6 @@ var cam;
 const PI = 3.14159265359;
 const degToRad = 0.0174533;
 const radToDeg = 57.2957795;
-const msToKnots = 1.94384;
 const kmToMil = 0.62137;
 const mToFt = 3.28084;
 
@@ -267,11 +266,14 @@ function printTemp(tempC)
     return tempC.toFixed(1) + '°C';
 }
 
+function mmToIn(mm) { return mm * 0.393701; }
+
+function msToKnots(ms) { return ms * 1.94384; };
+
 function printSnowHeight(snowHeight_cm)
 {
   if (guiControls.imperialUnits) {
-    let snowHeight_inches = snowHeight_cm * 0.393701;
-    return snowHeight_inches.toFixed(1) + '"'; // inches
+    return mmToIn(snowHeight_cm).toFixed(1) + '"'; // inches
   } else
     return snowHeight_cm.toFixed(1) + ' cm';
 }
@@ -279,8 +281,7 @@ function printSnowHeight(snowHeight_cm)
 function printSoilMoisture(soilMoisture_mm)
 {
   if (guiControls.imperialUnits) {
-    let soilMoisture_inches = soilMoisture_mm * 0.0393701;
-    return soilMoisture_inches.toFixed(1) + '"'; // inches
+    return mmToIn(soilMoisture_mm).toFixed(1) + '"'; // inches
   } else
     return soilMoisture_mm.toFixed(1) + ' mm';
 }
@@ -308,8 +309,7 @@ function printVelocity(ms)
 {
   var speedStr = '';
   if (guiControls.imperialUnits) {
-    let mph = ms * 2.23694;
-    speedStr = mph.toFixed() + ' mph';
+    speedStr = msToKnots(ms).toFixed() + ' kt';
   } else {
     let kmh = ms * 3.6;
     speedStr = kmh.toFixed() + ' km/h';
@@ -699,12 +699,12 @@ class Weatherstation
     if (this.#historyChart) {
       this.#historyChart.data.datasets[0].data.push(guiControls.imperialUnits ? CtoF(this.#temperature) : this.#temperature);
       this.#historyChart.data.datasets[1].data.push(guiControls.imperialUnits ? CtoF(this.#dewpoint) : this.#dewpoint);
-      this.#historyChart.data.datasets[2].data.push(this.#velocity);
+      this.#historyChart.data.datasets[2].data.push(guiControls.imperialUnits ? msToKnots(this.#velocity) : this.#velocity);
       this.#historyChart.data.datasets[3].data.push(this.#airQuality);
 
       if (this.#isOnSurface) {
-        this.#historyChart.data.datasets[4].data.push(this.#soilMoisture);
-        this.#historyChart.data.datasets[5].data.push(this.#snowHeight);
+        this.#historyChart.data.datasets[4].data.push(guiControls.imperialUnits ? mmToIn(this.#soilMoisture) : this.#soilMoisture);
+        this.#historyChart.data.datasets[5].data.push(guiControls.imperialUnits ? mmToIn(this.#snowHeight) : this.#snowHeight);
       }
 
       this.#historyChart.data.labels.push(this.#time);
