@@ -398,7 +398,9 @@ void main()
         water[SOIL_MOISTURE] -= evaporation;
 
 
-        if (int(iterNum) % 100 == 0) { // snow and soil moisture smoothing
+        if (int(iterNum) % 100 == 0) {                              // snow and soil moisture smoothing
+
+          vec4 lightAboveSurface = texture(lightTex, texCoordX0Yp); // sample cell above surface
 
           // average out snow cover
           const float snowSmoothingRate = 0.02; // max 0.9
@@ -428,26 +430,19 @@ void main()
 
           // dynamic vegetation
 
-#define vegetationAndFireUpdateInterval 700
+          int vegetationGrowthRate = int(water[SOIL_MOISTURE] * sqrt(lightAboveSurface[SUNLIGHT]) * 0.10); // 10mm = 40 vegetation    30mm = 120 vegetation
 
-          if (int(iterNum) % vegetationAndFireUpdateInterval == 0) {
-
-            if (int(iterNum) % 1400 == 0) {
-              int vegetationGrowth = int((water[SOIL_MOISTURE] * 4.0 - float(wall[VEGETATION])) * light[SUNLIGHT] * 0.05); // 10mm = 40 vegetation    30mm = 120 vegetation
-
-              //   0 C = 25 max veg
-              //  25 C = 127 veg
-
-              if (int(map_range(realTempAboveSurface, CtoK(0.0), CtoK(25.0), 25., 127.)) > wall[VEGETATION])
-                wall[VEGETATION] += clamp(vegetationGrowth, 0, 1);
-            }
-
-            int subInterval = int(iterNum) / vegetationAndFireUpdateInterval;
-
-            if (subInterval % (int(water[SOIL_MOISTURE] * 0.1 + water[SNOW] * 0.5) + 1) == 0 && wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 4.5)) { // if left or right is on fire or fire is blowing over
-              wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                                                                            // spread fire
-            }
+          if (vegetationGrowthRate > 0 && int(iterNum) % ((100 / vegetationGrowthRate) * 100) == 0) {      // growth interval
+            if (int(map_rangeC(realTempAboveSurface, CtoK(0.0), CtoK(25.0), 0., 127.)) > wall[VEGETATION]) // limit vegetation growth at lower temperatures
+              wall[VEGETATION] += 1;
           }
+
+          int subInterval = int(iterNum) / 100;
+
+          if (subInterval % (int(water[SOIL_MOISTURE] * 0.1 + water[SNOW] * 0.5) + 10) == 0 && wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 4.5)) { // if left or right is on fire or fire is blowing over
+            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                                                                             // spread fire
+          }
+          //}
         }
         break;
       case WALLTYPE_WATER:
