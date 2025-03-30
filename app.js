@@ -11,9 +11,20 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 
 function updateSetupSliders()
 {
-  document.getElementById("simResShowX").value = parseInt(simResSelX.value);
-  document.getElementById("simResShowY").value = parseInt(simResSelY.value);
-  document.getElementById("simHeightShow").value = parseInt(simHeightSel.value) + ' m';
+  let simResX = parseInt(simResSelX.value);
+  let simResY = parseInt(simResSelY.value);
+  let simHeight = parseInt(simHeightSel.value);
+
+  let cellHeight = simHeight / simResY;
+  let simWidth = cellHeight * simResX;
+
+  document.getElementById('simWorldProperties').innerHTML = 'cellHeight: ' + cellHeight.toFixed(1) + ' m  &nbsp&nbsp&nbsp   Simulation width: ' + (simWidth / 1000).toFixed(1) + ' km';
+
+  document.getElementById("simHeightWarning").style.display = (simHeight == 12000) ? 'none' : 'block';
+  document.getElementById("simResYWarning").style.display = (simResY == 300) ? 'none' : 'block';
+  document.getElementById("simResShowX").value = simResX;
+  document.getElementById("simResShowY").value = simResY
+  document.getElementById("simHeightShow").value = simHeight + ' m';
 }
 
 var FPS = 60.0;

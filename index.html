@@ -13,6 +13,11 @@
 	<script type="text/javascript" src="app.js"></script>
 	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 	<style>
+		body {
+			background-image: url('background.png');
+			background-attachment: fixed;
+		}
+
 		input[type="range"] {
 			width: 800px;
 		}
@@ -92,6 +97,8 @@
 						<input type="range" min="100" max="16000" value="2500" step="100" id="simResSelX" />
 						<output id="simResShowX"></output>
 					</td>
+					<td id="simWorldProperties" style="color:rgb(255, 255, 255);"> Cellheight: 40m Sim width: 40 km
+					</td>
 				</tr>
 				<tr>
 					<td>
@@ -100,15 +107,28 @@
 					<td>
 						<input type="range" min="100" max="500" value="300" step="10" id="simResSelY" />
 						<output id="simResShowY"></output>
+
+					</td>
+					<td><i id="simResYWarning" style="color:rgb(255, 61, 61); display: none;">Vertical resolutions other
+							than 300 are not
+							optimized and may
+							be
+							buggy!</i>
 					</td>
 				</tr>
 				<tr>
 					<td>
-						<b>Altitude</b>
+						<b>Simulation height</b>
 					</td>
 					<td>
 						<input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
 						<output id="simHeightShow"></output>
+					</td>
+					<td><i id="simHeightWarning" style="color:rgb(255, 61, 61); display: none;">Sim heights other than
+							12000 m are not
+							optimized and may
+							be
+							buggy!</i>
 					</td>
 				</tr>
 			</table>
@@ -335,8 +355,11 @@
 			<br />
 
 			<h1>$ Support me on Patreon $</h1>
-			If you love my project and want to support it's future development, please consider supporting me on
-			patreon.
+			If you love my project and want to support it's future development, please consider <a
+				href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer"
+				style="color: white">supporting me
+				on
+				patreon</a>
 			<br />
 			Every small amount helps! Thank you!
 
