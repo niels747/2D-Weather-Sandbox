@@ -1,29 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
 	<meta charset="utf-8" />
 	<title>2D Weather Sandbox</title>
 	<script type="text/javascript" src="libraries/dat.gui.min.js"></script>
 	<script type="text/javascript" src="libraries/pako.min.js"></script>
-	<!-- Include the Chart.js library from a CDN -->
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-	<!-- Include the Chart.js date adapter for date-fns -->
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 	<script type="text/javascript" src="app.js"></script>
 	<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 	<style>
+		:root {
+			--text-color: #ffffff;
+			--accent-color: #4a90e2;
+			--hover-color: #007bff;
+			--border-radius: 12px;
+			--transition-speed: 0.3s;
+			--shadow: 0 4px 6px rgba(15, 5, 5, 0.1);
+			--soft-gradient: linear-gradient(135deg, rgba(74, 144, 226, 0.1), rgba(0, 123, 255, 0.1));
+		}
+
 		body {
-			background-image: url('background.png');
+			margin: 0;
+			padding: 0;
+			font-family: 'Arial', sans-serif;
+			background: url('background.png') bottom left no-repeat;
+			background-size: cover;
+			/* Ensures it fills the screen */
 			background-attachment: fixed;
+			/* Keeps it fixed */
+			color: var(--text-color);
+			line-height: 1.6;
+			overflow-x: hidden;
+		}
+
+		#IntroScreen {
+			padding: 20px;
+			max-width: 1200px;
+			margin: 20px;
+			border-radius: var(--border-radius);
+			animation: fadeIn 1s ease-in-out;
+		}
+
+		.icon-bar {
+			display: flex;
+			justify-content: flex-end;
+			gap: 15px;
+			padding: 15px 0;
+			overflow: hidden;
+			display: block;
+
+			position: fixed;
+			top: 0;
+			width: 97%;
+		}
+
+		.icon-bar a {
+			display: inline-block;
+			opacity: 0.8;
+		}
+
+		.icon-button {
+			float: right;
+			margin: 10px;
+		}
+
+		.icon-bar a img {
+			height: 70px;
+			width: auto;
+			filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+		}
+
+		h1,
+		h2,
+		h3 {
+			margin-top: 0;
+			color: var(--text-color);
+		}
+
+		h2 {
+			font-size: 2rem;
+			margin-bottom: 10px;
+			animation: slideIn 1.2s ease-in-out;
+		}
+
+		h3 {
+			font-size: 1.5rem;
+			margin-bottom: 10px;
+			animation: slideIn 1.4s ease-in-out;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 20px 0;
+		}
+
+		table td {
+			padding: 10px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 		}
 
 		input[type="range"] {
-			width: 800px;
+			width: 100%;
+			max-width: 800px;
+			margin: 10px 0;
+			height: 8px;
 		}
 
-		canvas {
-			user-select: none;
+
+		input[type="button"] {
+			background: #007bff;
+			border: none;
+			padding: 12px 24px;
+			color: var(--text-color);
+			border-radius: var(--border-radius);
+			cursor: pointer;
+			font-size: 1rem;
+			transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+			box-shadow: var(--shadow);
+		}
+
+		input[type="button"]:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+			background-color: #004a9a;
+			transition: var(--transition-speed);
+		}
+
+		#help {
+			margin: 20px 0;
+			padding: 20px;
+			background: var(--soft-gradient);
+			border-radius: var(--border-radius);
+			box-shadow: var(--shadow);
+			animation: fadeIn 1s ease-in-out;
+		}
+
+		.tips,
+		.controls,
+		.example-files {
+			margin: 20px 0;
+			padding: 15px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: var(--border-radius);
+			box-shadow: var(--shadow);
+		}
+
+		.support {
+			margin: 20px 0;
+			padding: 15px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: var(--border-radius);
+			box-shadow: var(--shadow);
+			text-align: center;
 		}
 
 		#mainCanvas {
@@ -35,205 +166,120 @@
 		}
 
 		#graphCanvas {
-			z-index: 1;
 			position: fixed;
-			display: none
-		}
-
-		.icon-bar {
-			width: 100%;
-			height: 0px;
-			padding: 0px;
-		}
-
-		.icon-bar a {
-			float: right;
-			width: 150px;
-			text-align: center;
-			padding: 0px;
-			transition: all 0.3s ease;
-		}
-
-		.icon-bar a img {
-			height: 70px;
-			text-align: center;
-			padding: 0px;
-		}
-
-		.icon-bar a:hover {
-			background-color: #000;
+			z-index: 1;
+			display: none;
 		}
 	</style>
 </head>
 
-<body id="body" style="padding: 0px; margin: 0px; background-color: rgb(41, 41, 41);" onload="updateSetupSliders();">
-
-	<div id="IntroScreen" style="color: white; padding: 10px; font-size: 25px">
+<body id="body" onload="updateSetupSliders();">
+	<div id="IntroScreen">
 		<div class="icon-bar">
-			<a href="https://github.com/niels747/2D-Weather-Sandbox" target="_blank" rel="noopener noreferrer"><img
-					src="resources/Github.png"></a>
-			<a href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer"><img
-					src="resources/Patreon.png"></a>
-			<a href="https://www.youtube.com/user/nielsdaemen/videos" target="_blank" rel="noopener noreferrer"><img
-					src="resources/Youtube.png"></a>
-			<a href="https://discord.gg/KzXBANyGk6" target="_blank" rel="noopener noreferrer"><img
-					src="resources/Discord.png"></a>
 
+			<h1 style="float: left; margin-left: 1250px;">2D Weather Sandbox</h1>
+
+			<a href="https://github.com/niels747/2D-Weather-Sandbox" target="_blank" rel="noopener noreferrer"
+				class="icon-button"><img src="resources/Github.png"></a>
+			<a href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer"
+				class="icon-button"><img src="resources/Patreon.png"></a>
+			<a href="https://www.youtube.com/user/nielsdaemen/videos" target="_blank" rel="noopener noreferrer"
+				class="icon-button"><img src="resources/Youtube.png"></a>
+			<a href="https://discord.gg/KzXBANyGk6" target="_blank" rel="noopener noreferrer" class="icon-button"><img
+					src="resources/Discord.png"></a>
 		</div>
-		<h1>2D Weather Sandbox</h1>
-		<i>By Niels Daemen</i>
+
+
 
 		<form id="startBtn" oninput="updateSetupSliders();">
-			<p>
-				Choose a resolution. The higher the resolution, the slower it will
-				run
-			</p>
+			<p>Choose a resolution. The higher the resolution, the slower it will run</p>
 			<table>
 				<tr>
-					<td>
-						<b>Horizontal resolution</b>
-					</td>
-					<td>
+					<td><b>Horizontal resolution</b></td>
+					<td style="width: 30%">
 						<input type="range" min="100" max="16000" value="2500" step="100" id="simResSelX" />
 						<output id="simResShowX"></output>
 					</td>
-					<td id="simWorldProperties" style="color:rgb(255, 255, 255);"> Cellheight: 40m Sim width: 40 km
-					</td>
+					<td id="simWorldProperties" style="color:rgb(255, 255, 255); width: 50%"> Cellheight: 40m Sim width:
+						40 km</td>
 				</tr>
 				<tr>
-					<td>
-						<b>Vertical resolution</b>
-					</td>
+					<td><b>Vertical resolution</b></td>
 					<td>
 						<input type="range" min="100" max="500" value="300" step="10" id="simResSelY" />
 						<output id="simResShowY"></output>
-
 					</td>
 					<td><i id="simResYWarning" style="color:rgb(255, 61, 61); display: none;">Vertical resolutions other
-							than 300 are not
-							optimized and may
-							be
-							buggy!</i>
-					</td>
+							than 300 are not optimized and may be buggy!</i></td>
 				</tr>
 				<tr>
-					<td>
-						<b>Simulation height</b>
-					</td>
+					<td><b>Simulation height</b></td>
 					<td>
 						<input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
 						<output id="simHeightShow"></output>
 					</td>
 					<td><i id="simHeightWarning" style="color:rgb(255, 61, 61); display: none;">Sim heights other than
-							12000 m are not
-							optimized and may
-							be
-							buggy!</i>
-					</td>
+							12000 m are not optimized and may be buggy!</i></td>
 				</tr>
 			</table>
 			<input type="button" value="Create New Simulation" onclick="loadData()" />
-			<i>Move the mouse until you see a terrain you like, then just click to
-				start.</i>
+			<i>Move the mouse until you see a terrain you like, then just click to start.</i>
 		</form>
 
-		<p>
+		<p style="margin-top: 70px;">
 			<label for="fileInput">Load Save File:</label>
-			<input type="file" id="fileInput" name="fileInput" accept=".weathersandbox" onchange="loadData()" />
-		</p>
-		<p style="font-size: 20px">
-			<i>Save files from older versions won't work!</i>
+			<input type="file" id="fileInput" name="fileInput" accept=".weathersandbox " onchange="loadData()" />
 		</p>
 
-		<br>
+		<div class="example-files">
+			<h3>Example Save Files</h3>
+			<p><a style="color: white" href="./saves/Mountain uplift cell.weathersandbox">Mountain Uplift Cell at
+					sunset</a></p>
+			<p><a style="color: white" href="./saves/480 km map with strong derecho.weathersandbox">480 km map with
+					strong Derecho</a></p>
+			<p><a style="color: white" href="./saves/Three Nice Cells.weathersandbox">Three Nice Cells</a></p>
+			<p><a style="color: white" href="./saves/Mountain Snow Storm.weathersandbox">Mountain Snow Storm</a></p>
+			<p><a style="color: white" href="./saves/Powerful & Longlasting Cell.weathersandbox">Powerful & Longlasting
+					Cell</a></p>
+			<p><a style="color: white" href="./saves/Rain Sucked Up.weathersandbox">Powerful updraft sucking up rain and
+					turning it into hail.</a></p>
+			<p><a style="color: white" href="./saves/Powerful Hail and Snow Cells.weathersandbox">Powerful Hail and Snow
+					Cells</a></p>
+			<p><a style="color: white" href="./saves/Very nice cell over coastal mountain.weathersandbox">Very nice cell
+					over coastal mountain</a></p>
+			<p><a style="color: white" href="./saves/Awesome Convergence Cell.weathersandbox">Awesome Convergence
+					Cell</a></p>
+			<p><a style="color: white" href="./saves/Two nice cells in lake valley.weathersandbox">Two nice cells in
+					lake valley</a></p>
+			<p><a style="color: white" href="./saves/Insane CAPE.weathersandbox">Insane CAPE</a></p>
+			<p><a style="color: white" href="./saves/100 X 100 Test.weathersandbox">100 X 100 Test</a></p>
+		</div>
 
-		<h3>Example Save Files</h3>
-
-		<p>
-			<a style="color: white" href="./saves/Mountain uplift cell.weathersandbox">Mountain Uplift Cell at
-				sunset</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/480 km map with strong derecho.weathersandbox">480 km map with strong
-				Derecho</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Three Nice Cells.weathersandbox">Three Nice Cells</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Mountain Snow Storm.weathersandbox">Mountain Snow Storm</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Powerful & Longlasting Cell.weathersandbox">Powerful & Longlasting
-				Cell</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Rain Sucked Up.weathersandbox">Powerfull updraft sucking up rain and
-				turning it into hail.</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Powerful Hail and Snow Cells.weathersandbox">Powerful Hail and Snow
-				Cells</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Very nice cell over coastal mountain.weathersandbox">Very nice cell
-				over coastal mountain</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Awesome Convergence Cell.weathersandbox">Awesome Convergence Cell</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Two nice cells in lake valley.weathersandbox">Two nice cells in lake
-				valley</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/Insane CAPE.weathersandbox">Insane CAPE</a>
-		</p>
-
-		<p>
-			<a style="color: white" href="./saves/100 X 100 Test.weathersandbox">100 X 100 Test</a>
-		</p>
-
-
-
-		<br>
-
-
-		<br>
-		<div id="help" style="margin: 15px">
+		<div id="help" class="tips">
 			<h2>Tips</h2>
-			<li>Vertical resolution of 300 gives most realistic results</li>
-			<li>Larger horizontal resolutions allow stronger converging winds to develop, forming more realistic, longer
-				lasting cells</li>
-			<li>Performance is mostly GPU dependent, GTX 1070 or better recommended for realtime gameplay</li>
-			<li>If you have a laptop with a dedicated GPU, make sure the browser is actually using it! It's often using
-				the integrated graphics by default</li>
-			<li>Play in fullscreen mode (F11)</li>
+			<ul>
+				<li>Vertical resolution of 300 gives most realistic results</li>
+				<li>Larger horizontal resolutions allow stronger converging winds to develop, forming more realistic,
+					longer lasting cells</li>
+				<li>Performance is mostly GPU dependent, GTX 1070 or better recommended for realtime gameplay</li>
+				<li>If you have a laptop with a dedicated GPU, make sure the browser is actually using it! It's often
+					using the integrated graphics by default</li>
+				<li>Play in fullscreen mode (F11)</li>
+			</ul>
+		</div>
 
+		<div class="controls">
 			<h2>Controls</h2>
 			<h3>Mouse</h3>
-			<li>Middle mouse button to drag the simulation area around</li>
-			<li>
-				Mouse wheel to zoom in and out, Or to change brush size while holding
-				down B
-			</li>
-			<li>
-				Left mouse button to use selected tool. Hold down Ctrl (command on
-				mac) to perform the inverted action
-			</li>
-			<li>Touchscreen input is pretty basic for now, will add more controls in the future</li>
+			<ul>
+				<li>Middle mouse button to drag the simulation area around</li>
+				<li>Mouse wheel to zoom in and out, Or to change brush size while holding down B</li>
+				<li>Left mouse button to use selected tool. Hold down Ctrl (command on mac) to perform the inverted
+					action</li>
+				<li>Touchscreen input is pretty basic for now, will add more controls in the future</li>
+			</ul>
 			<h3>Keys</h3>
-			<table style="width: 1500px">
+			<table style="width: 100%">
 				<tr>
 					<td>1 - 9</td>
 					<td>Display Modes</td>
@@ -330,7 +376,6 @@
 					<td>L</td>
 					<td>Reload From Save File</td>
 				</tr>
-
 				<tr>
 					<td>Home</td>
 					<td>1 Iteration/sec</td>
@@ -347,34 +392,28 @@
 					<td>PgDn</td>
 					<td>Decrease Iterations/sec</td>
 				</tr>
-
-
 			</table>
+		</div>
 
-			<br />
-			<br />
-
-			<h1>$ Support me on Patreon $</h1>
-			If you love my project and want to support it's future development, please consider <a
+		<div class="support">
+			<h1 style="color: rgb(0, 255, 0)">$ Support me on Patreon $</h1>
+			If you love my project and want to support its future development, please consider <a
 				href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer"
-				style="color: white">supporting me
-				on
-				patreon</a>
+				style="color: white">supporting me on patreon</a>
 			<br />
 			Every small amount helps! Thank you!
-
 			<br />
 			<br />
 			<br />
 			<i>By Niels Daemen</i>
 		</div>
 	</div>
+
 	<canvas id="graphCanvas"></canvas>
 	<canvas id="dropletInfoCanvas" width="90" height="50"
 		style="z-index: 1; position: absolute; left: 50%; top: 50%;"></canvas>
 	<canvas id="mainCanvas">
-		Your browser does not support HTML5, you must be using a really old
-		browser!
+		Your browser does not support HTML5, you must be using a really old browser!
 	</canvas>
 </body>
 
