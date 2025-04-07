@@ -310,33 +310,36 @@ void main()
 
       switch (wall[TYPE]) {
       case WALLTYPE_FIRE:
-        //  if (wall[VERT_DISTANCE] == 1) { // forest fire & one above surface
-        float fireIntensity = calcFireIntensity(wall[VEGETATION], waterInSurface[SOIL_MOISTURE]);
+        if (wall[VERT_DISTANCE] == 1) { // forest fire & one above surface
+          float fireIntensity = calcFireIntensity(wall[VEGETATION], waterInSurface[SOIL_MOISTURE]);
 
-        fireIntensity = max(fireIntensity, 0.);
-        base[TEMPERATURE] += fireIntensity;   // heat
-        water[SMOKE] += fireIntensity * 2.0;  // smoke
-        water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
-      //  }
+          fireIntensity = max(fireIntensity, 0.);
+          base[TEMPERATURE] += fireIntensity;   // heat
+          water[SMOKE] += fireIntensity * 2.0;  // smoke
+          water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
+        }
+        // nobreak!
       case WALLTYPE_INDUSTRIAL:
+        if (wall[TYPE] == WALLTYPE_INDUSTRIAL) { // exclude WALLTYPE_FIRE
+          int texFragX = int(fragCoord.x) % 80;
 
-        int texFragX = int(fragCoord.x) % 80;
+          if (wall[VERT_DISTANCE] == 5 && (texFragX == 18 || texFragX == 22)) { // cooling towers
+            water[TOTAL] += 0.25;
+            // base[TEMPERATURE] += 0.02;
+            base.xy *= 0.5;
+            base.y += 0.05;
+          }
 
-        if (wall[VERT_DISTANCE] == 5 && (texFragX == 18 || texFragX == 22)) { // cooling towers
-          water[TOTAL] += 0.25;
-          // base[TEMPERATURE] += 0.02;
-          base.xy *= 0.5;
-          base.y += 0.05;
+          else if (wall[VERT_DISTANCE] == 6 && texFragX == 29) { // smoke stack
+            water[SMOKE] += 0.01;
+            base[TEMPERATURE] += 0.02;
+            base.xy *= 0.5;
+          }
         }
-
-        else if (wall[VERT_DISTANCE] == 6 && texFragX == 29) { // smoke stack
-          water[SMOKE] += 0.01;
-          base[TEMPERATURE] += 0.02;
-          base.xy *= 0.5;
-        }
-
+        // nobreak!
       case WALLTYPE_URBAN:
         water[SMOKE] += 0.000002; // Urban produces smog
+        // nobreak!
       case WALLTYPE_LAND:
         if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
 
