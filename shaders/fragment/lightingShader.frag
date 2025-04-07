@@ -96,6 +96,7 @@ void main()
           //   reflectedLight.rgb += vec3(1.00, 0.97, 0.57) * 0.03; // Urban area emits light
           // NOBREAK
         case WALLTYPE_URBAN:
+        case WALLTYPE_INDUSTRIAL:
           if (abs(sunAngle) > 85. * deg2rad)
             reflectedLight.rgb += vec3(1.00, 0.97, 0.57) * 0.03; // Urban area emits light
                                                                  // NOBREAK

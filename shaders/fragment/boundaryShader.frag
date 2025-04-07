@@ -223,6 +223,8 @@ void main()
           albedoTotal = map_range(float(wallX0Ym[VEGETATION]), 0., 127., albedoSoil, fullVegetationAlbedo);
         } else if (wall[TYPE] == WALLTYPE_URBAN) {
           albedoTotal = ALBEDO_URBAN;
+        } else if (wall[TYPE] == WALLTYPE_INDUSTRIAL) {
+          albedoTotal = ALBEDO_INDUSTRIAL;
         } else if (wall[TYPE] == WALLTYPE_RUNWAY) {
           albedoTotal = ALBEDO_RUNWAY;
         }
@@ -293,7 +295,8 @@ void main()
             }*/
     }
 
-    if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {            // within vertical range of wall
+    if (wall[VERT_DISTANCE] <= 8) { // within height of buildings
+
 
       const float influenceDevider = float(wallVerticalInfluence); // devide by how many cells it's aplied to
 
@@ -315,35 +318,48 @@ void main()
         water[SMOKE] += fireIntensity * 2.0;  // smoke
         water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
       //  }
+      case WALLTYPE_INDUSTRIAL:
+
+        int texFragX = int(fragCoord.x) % 80;
+
+        if (wall[VERT_DISTANCE] == 5 && (texFragX == 18 || texFragX == 22)) { // cooling towers
+          water[TOTAL] += 0.25;
+          // base[TEMPERATURE] += 0.02;
+          base.xy *= 0.5;
+          base.y += 0.05;
+        }
+
+        else if (wall[VERT_DISTANCE] == 6 && texFragX == 29) { // smoke stack
+          water[SMOKE] += 0.01;
+          base[TEMPERATURE] += 0.02;
+          base.xy *= 0.5;
+        }
+
       case WALLTYPE_URBAN:
-        water[SMOKE] += 0.00001; // City produces smog
+        water[SMOKE] += 0.000002; // Urban produces smog
       case WALLTYPE_LAND:
+        if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
 
-        //   float lightPower = lightHeatingConst * light[0] * cos(sunAngle); // Light power per horizontal surface area
+          float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
 
-        //   lightPower *= map_rangeC(snowCover, fullWhiteSnowHeight, 0.0, 1. - ALBEDO_SNOW, 1.);
+          water[TOTAL] += evaporation;
+          base[TEMPERATURE] -= evaporation * evapHeat * 0.5;                                // evaporative cooling (half the real value, to prevent boring non convective conditions)
 
-        //   base[TEMPERATURE] += lightPower / influenceDevider; // sun heating land
-
-        float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
-
-        water[TOTAL] += evaporation;
-        // base[TEMPERATURE] -= evaporation * evapHeat;
-
-        if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
-          water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
+          if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
+            water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
+          }
         }
         break;
       case WALLTYPE_WATER:
-        float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
-        base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                       // air heated or cooled by water
+        if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
+          float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
+          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                       // air heated or cooled by water
 
-        water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
-
+          water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
+        }
         break;
       }
     }
-
   } else { // this is wall
 
 
@@ -369,6 +385,8 @@ void main()
       vec2 precipDeposition = texture(precipDepositionTex, texCoord).xy;
 
       switch (wall[TYPE]) {
+      case WALLTYPE_INDUSTRIAL:
+        wall[VEGETATION] = min(wall[VEGETATION], 15); // limit vegetation in industrial areas
       case WALLTYPE_URBAN:
         wall[VEGETATION] = min(wall[VEGETATION], 75); // limit vegetation in urban areas
       case WALLTYPE_FIRE:

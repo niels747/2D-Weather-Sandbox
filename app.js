@@ -2440,6 +2440,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Lake / Sea' : 'TOOL_WALL_SEA',
         'Urban' : 'TOOL_WALL_URBAN',
         'Runway' : 'TOOL_WALL_RUNWAY',
+        'Industrial' : 'TOOL_WALL_INDUSTRIAL',
         'Fire' : 'TOOL_WALL_FIRE',
         'Smoke / Dust' : 'TOOL_SMOKE',
         'Soil Moisture' : 'TOOL_WALL_MOIST',
@@ -3197,7 +3198,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         let simXpos = Math.floor(mouseXinSim * sim_res_x);
         let simYpos = findSimYposAboveSurfaceAtMouseX();
 
-        weatherStations.push(new Weatherstation(simXpos, simYpos));
+        if (simXpos >= 0 && simXpos < sim_res_x)
+          weatherStations.push(new Weatherstation(simXpos, simYpos)); // add weather station
       }
     } else if (e.button == 1) {
       // middle mouse button
@@ -4529,6 +4531,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           inputType = 14;
         else if (guiControls.tool == 'TOOL_WALL_RUNWAY')
           inputType = 15;
+        else if (guiControls.tool == 'TOOL_WALL_INDUSTRIAL')
+          inputType = 16;
 
         // Surface environment modifiers
         else if (guiControls.tool == 'TOOL_WALL_MOIST')

@@ -18,13 +18,16 @@ precision highp isampler2D;
 #define snowMassToHeight 0.05
 
 #define snowMeltRate 0.000015
+
+
 #define ALBEDO_SNOW 0.85        // above 10 cm of snow cover without vegetation
 #define ALBEDO_SNOW_FOREST 0.30 // at max vegetation and above 10 cm of snow
 #define ALBEDO_FOREST 0.10
 #define ALBEDO_DRYSOIL 0.30     // desert sand
 #define ALBEDO_WETSOIL 0.15     // above 20 mm of soil moisture
 #define ALBEDO_URBAN 0.08
-#define ALBEDO_RUNWAY 0.05
+#define ALBEDO_INDUSTRIAL 0.08
+#define ALBEDO_RUNWAY 0.04
 
 
 // TEXTURE DESCRIPTIONS AND DEFINES
@@ -54,6 +57,7 @@ precision highp isampler2D;
 #define WALLTYPE_FIRE 3
 #define WALLTYPE_URBAN 4
 #define WALLTYPE_RUNWAY 5
+#define WALLTYPE_INDUSTRIAL 6
 
 #define DISTANCE 1      // manhattan distance to nearest wall                   0 to 127
 #define VERT_DISTANCE 2 // height above/below ground. Surface = 0               -127 to 127

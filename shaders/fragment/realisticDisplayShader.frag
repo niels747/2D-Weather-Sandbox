@@ -31,6 +31,7 @@ uniform vec2 aspectRatios; // [0] Sim       [1] canvas
 #define FIRE_FOREST 1
 #define SNOW_FOREST 2
 #define FOREST 3
+#define INDUS 4
 
 
 uniform vec2 resolution; // sim resolution
@@ -75,7 +76,7 @@ const vec3 dryGrassCol = pow(vec3(0.843, 0.588, 0.294), vec3(GAMMA));
 
 vec4 surfaceTexture(int index, vec2 pos)
 {
-#define numTextures 4.;             // number of textures in the map
+#define numTextures 5.;             // number of textures in the map
   const float texRelHeight = 1. / numTextures;
   pos.y = clamp(pos.y, 0.01, 0.99); // make sure position is within the subtexture
   pos /= numTextures;
@@ -258,7 +259,7 @@ void main()
       }
 
     case WALLTYPE_URBAN:
-
+    case WALLTYPE_INDUSTRIAL:
     case WALLTYPE_FIRE:
     case WALLTYPE_LAND:
 
@@ -352,9 +353,9 @@ void main()
       float localY = fract(fragCoord.y);
       ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
-#define texAspect 1. / 2.      // height / width of tree texture
-#define maxTreeHeight 40.      // height in meters when vegetation max = 127
-#define maxBuildingHeight 400. // height in meters upto wich the urban texture reaches
+#define texAspect 2560. / 4096. // height / width of tree texture
+#define maxTreeHeight 40.       // height in meters when vegetation max = 127
+#define maxBuildingHeight 400.  // height in meters upto wich the urban texture reaches
 
 
       if (wallX0Ym[TYPE] == WALLTYPE_URBAN) {
@@ -371,6 +372,34 @@ void main()
         urbanTexCoordY = 1.0 - urbanTexCoordY;
 
         vec4 texCol = surfaceTexture(URBAN, vec2(urbanTexCoordX, urbanTexCoordY));
+        if (texCol.a > 0.5) { // if not transparent
+
+          if (nightTime) {
+            shadowLight = 1.0;                 // city lights
+            texCol.rgb *= vec3(1.0, 0.8, 0.5); // yellowish windows
+          } else {                             // day time
+            texCol.rgb *= vec3(0.8, 0.9, 1.0); // Blueish windows
+
+            if (length(texCol.rgb) < 0.1)
+              texCol.rgb = texture(noiseTex, fragCoord * 0.3).rgb * 0.3;
+          }
+          color = texCol.rgb;
+          opacity = texCol.a;
+        }
+      } else if (wallX0Ym[TYPE] == WALLTYPE_INDUSTRIAL) {
+
+        float heightAboveGround = localY + float(wall[VERT_DISTANCE] - 1);
+
+        float urbanTexHeightNorm = maxBuildingHeight / cellHeight; // example: 200 / 40 = 5
+
+        float urbanTexCoordX = mod(fragCoord.x, resolution.x) * texAspect / urbanTexHeightNorm;
+        float urbanTexCoordY = heightAboveGround / urbanTexHeightNorm;
+
+        // urbanTexCoordY += map_rangeC(float(wallX0Ym[VEGETATION]), 127., 50., 0., 1.0); // building height
+
+        urbanTexCoordY = 1.0 - urbanTexCoordY;
+
+        vec4 texCol = surfaceTexture(INDUS, vec2(urbanTexCoordX, urbanTexCoordY));
         if (texCol.a > 0.5) { // if not transparent
 
           if (nightTime) {
