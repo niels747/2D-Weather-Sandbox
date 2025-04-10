@@ -451,7 +451,7 @@ void main()
 
           // dynamic vegetation
 
-          int vegetationGrowthRate = int(water[SOIL_MOISTURE] * sqrt(lightAboveSurface[SUNLIGHT]) * 0.10); // 10mm = 40 vegetation    30mm = 120 vegetation
+          int vegetationGrowthRate = int(water[SOIL_MOISTURE] * sqrt(lightAboveSurface[SUNLIGHT]) * 0.01);
 
           if (vegetationGrowthRate > 0 && int(iterNum) % ((100 / vegetationGrowthRate) * 100) == 0) {      // growth interval
             if (int(map_rangeC(realTempAboveSurface, CtoK(0.0), CtoK(25.0), 0., 127.)) > wall[VEGETATION]) // limit vegetation growth at lower temperatures

@@ -83,7 +83,7 @@ void main()
 {
   vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y + texelSize.y * 0.5, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
 
-  float light = texture(lightTex, lightTexCoord)[0];
+  float light = texture(lightTex, lightTexCoord)[0] / standardSunBrightness;
 
   // vec3 topBackgroundCol = vec3(0.0, 0.0, 0.0);      // 0.15 dark blue
   // vec3 bottemBackgroundCol = vec3(0.20, 0.66, 1.0); // vec3(0.35, 0.58, 0.80) milky white blue
@@ -112,7 +112,7 @@ void main()
 
   float airDensityFactor = clamp(1.0 - texCoord.y, 0., 1.);
 
-  finalColor += texture(ambientLightTex, texCoord).rgb * 0.1 * airDensityFactor;
+  finalColor += texture(ambientLightTex, texCoord).rgb * 0.1 * airDensityFactor / standardSunBrightness;
 
   // finalColor.r += texture(precipFeedbackTex, texCoord)[0] * 100.0; // check precipitation feedback
 

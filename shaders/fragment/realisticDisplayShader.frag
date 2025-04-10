@@ -204,7 +204,7 @@ void main()
   base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
   wall = texture(wallTex, bndFragCoord * texelSize);                           // texCoord
   water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
-  lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0];
+  lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0] / standardSunBrightness;
 
 
   float realTemp = potentialToRealT(base[TEMPERATURE]);
@@ -226,10 +226,10 @@ void main()
 
     color = getWallColor(depth);
 
-    lightIntensity = texture(lightTex, vec2(texCoord.x, texelSize.y))[0]; // sample lowest part of sim area
-    lightIntensity *= pow(0.5, -fragCoord.y);                             // 0.5 should be same as in lightingshader deeper is darker
+    lightIntensity = texture(lightTex, vec2(texCoord.x, texelSize.y))[0] / standardSunBrightness; // sample lowest part of sim area
+    lightIntensity *= pow(0.5, -fragCoord.y);                                                     // 0.5 should be same as in lightingshader deeper is darker
 
-  } else if (texCoord.y > 1.0) {                                          // above simulation area
+  } else if (texCoord.y > 1.0) {                                                                  // above simulation area
     // color = vec3(0); // no need to set
     opacity = 0.0;                  // completely transparent
   } else if (wall[DISTANCE] == 0) { // is wall
@@ -512,7 +512,7 @@ void main()
     shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
 
-  vec3 ambientLight = texture(ambientLightTex, texCoord).rgb * 1.0;
+  vec3 ambientLight = texture(ambientLightTex, texCoord).rgb / standardSunBrightness;
 
   onLight += ambientLight * pow(1. - clamp(-texCoord.y * 15., 0., 1.), 2.5);
 

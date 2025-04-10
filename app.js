@@ -805,8 +805,16 @@ class Weatherstation
     this.#netIRpow = lightTextureValues[2] - lightTextureValues[3]; // IR_DOWN - IR_UP
     // this.#netIRpow = lightTextureValues[1] / 0.000002; // or calculate from NET_HEATING
 
-    this.#solarPower = Math.max(lightTextureValues[0] * Math.sin(guiControls.sunAngle * degToRad) * 1361.0, 0.0);
+    let directSunlight = Math.max(lightTextureValues[0] * Math.sin(guiControls.sunAngle * degToRad), 0.0);
 
+    // gl.bindFramebuffer(gl.FRAMEBUFFER, ambientLightFBOs[0].frameBuffer);
+    // gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    // var ambientLightTextureValues = new Float32Array(4 * 2);
+    // gl.readPixels(this.#x, this.#y - 1, 1, 2, gl.RGBA, gl.FLOAT, ambientLightTextureValues);
+    // let ambientLightFromAbove = Math.max(ambientLightTextureValues[4 + 0] - ambientLightTextureValues[0 + 0] - directSunlight * 0.001, 0.) * 1.0;
+
+
+    this.#solarPower = directSunlight;
 
     if (waterTextureValues[4 + 0] > 1110) { // is not air
       this.destroy();                       // remove weather station
@@ -3078,8 +3086,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('[3] Vegetation:        ', wallTextureValues[3]);
 
     console.log('LIGHT-----------------------------------------');
-    console.log('[0] Sunlight:  ', lightTextureValues[0]);
-    console.log('[1] IR cooling:', lightTextureValues[1]); // net effect of ir
+    console.log('[0] Sunlight:  ', lightTextureValues[0].toFixed(2), 'W/m²');
+    console.log('[1] IR Heating:', (lightTextureValues[1] / 0.000002).toFixed(2), 'W/m²  (includes sunlight absorbed by smoke)'); // net effect of ir
     console.log('[2] IR down:   ', lightTextureValues[2].toFixed(2), 'W/m²', KtoC(IR_temp(lightTextureValues[2])).toFixed(2) + ' °C');
     console.log('[3] IR up:     ', lightTextureValues[3].toFixed(2), 'W/m²', KtoC(IR_temp(lightTextureValues[3])).toFixed(2) + ' °C');
     console.log('Net IR up:     ', (lightTextureValues[3] - lightTextureValues[2]).toFixed(2), 'W/m²');
@@ -5300,7 +5308,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     //	let sunIntensity = guiControls.sunIntensity *
     // Math.pow(Math.max(Math.sin((90.0 - Math.abs(guiControls.sunAngle)) *
     // degToRad) - 0.1, 0.0) * 1.111, 0.4);
-    let sunIntensity = guiControls.sunIntensity * Math.pow(Math.max(Math.sin((180.0 - guiControls.sunAngle) * degToRad), 0.0), 0.2);
+    let sunIntensity = guiControls.sunIntensity * Math.pow(Math.max(Math.sin((180.0 - guiControls.sunAngle) * degToRad), 0.0), 0.1) * 1300.0; // max 1300 w/m2 at 12 km
     // console.log("sunIntensity: ", sunIntensity);
 
     // minShadowLight = clamp(((90 + 10) - Math.abs(solarZenithAngleDeg)) * 0.006, 0.005, 0.040); // decrease until the sun goes 10 deg below the horizon
@@ -5472,16 +5480,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       lastFrameNum = frameNum;
 
 
-      console.log(FPS + ' FPS   ' + guiControls.IterPerFrame + ' Iterations / frame      ' + FPS * guiControls.IterPerFrame + ' Iterations / second');
+      if (!guiControls.paused) {
+        console.log(FPS + ' FPS   ' + guiControls.IterPerFrame + ' Iterations / frame      ' + FPS * guiControls.IterPerFrame + ' Iterations / second');
 
-      if (guiControls.auto_IterPerFrame && !(guiControls.paused || airplaneMode)) {
-        const fpsTarget = 60;
-        adjIterPerFrame((FPS / fpsTarget - 1.0) * 5.0); // example: ((30 / 60)-1.0) = -0.5
+        if (guiControls.auto_IterPerFrame && !airplaneMode) {
+          const fpsTarget = 60;
+          adjIterPerFrame((FPS / fpsTarget - 1.0) * 5.0); // example: ((30 / 60)-1.0) = -0.5
 
-        if (FPS == fpsTarget)
-          adjIterPerFrame(1);
+          if (FPS == fpsTarget)
+            adjIterPerFrame(1);
+        }
       }
-
       // calculate total amounts of water and smoke for verification of fluid simulation
       /*
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);

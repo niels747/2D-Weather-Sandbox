@@ -62,9 +62,10 @@ void main()
 
       float net_heating = 0.0;
 
-      if (fragCoord.y < resolution.y - 2.) {                                                                       // prevent shadow bug above simulation area
-        float reflection = min((water[CLOUD] * 0.20 + water[PRECIPITATION] * 0.010) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
-        float absorbtion = min(water[SMOKE] * 0.020 * cellHeightCompensation, 1.);                                 // 0.025 dust/smoke
+      if (fragCoord.y < resolution.y - 2.) {                                                                                   // prevent shadow bug above simulation area
+        float reflection = min(pow(water[CLOUD] * 0.0010 + water[PRECIPITATION] * 0.00020, 0.5) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
+        reflection += 0.0002;                                                                                                  // clear air scattering
+        float absorbtion = min(water[SMOKE] * 0.020 * cellHeightCompensation, 1.);                                             // 0.025 dust/smoke
 
         float lightReflected = sunlight * reflection;
         float lightAbsorbed = sunlight * absorbtion;
@@ -102,7 +103,7 @@ void main()
                                                                  // NOBREAK
         case WALLTYPE_LAND:
           IR_up = IR_emitted(realTemp);                          // Ir emmited upwards from surface. emissivity of surface = 1.0 for simplicity
-          net_heating += (IR_down - IR_up) * IRHeatingConst;
+          net_heating += (IR_down - IR_up) * lightHeatingConst;
           break;
         case WALLTYPE_WATER:
           float waterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE]; // sample water temperature below
@@ -131,7 +132,7 @@ void main()
         float absorbedUp = IR_up * emissivity;
         float emitted = IR_emitted(realTemp) * emissivity; // this amount is emitted both up and down
 
-        net_heating += (absorbedDown + absorbedUp - emitted * 2.0) * IRHeatingConst;
+        net_heating += (absorbedDown + absorbedUp - emitted * 2.0) * lightHeatingConst;
 
         IR_down -= absorbedDown;
         IR_down += emitted;
