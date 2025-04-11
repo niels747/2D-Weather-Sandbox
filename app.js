@@ -98,9 +98,12 @@ const guiControls_default = {
   paused : false,
   IterPerFrame : 10,
   auto_IterPerFrame : true,
-  dryLapseRate : 10.0,   // Real: 9.8 degrees / km
-  simHeight : 12000,     // meters
-  imperialUnits : false, // only for display.  false = metric
+  dryLapseRate : 10.0,     // Real: 9.8 degrees / km
+  simHeight : 12000,       // meters
+  twelveHourClock : false, // only for display.  false = metric
+  lengthUnit : 'LENGTH_UNIT_METRIC',
+  tempUnit : 'TEMP_UNIT_C',
+  windUnit : 'SPEED_UNIT_KMH',
 };
 
 var horizontalDisplayMult = 3.0; // 3.0 to cover srceen while zoomed out
@@ -269,23 +272,42 @@ function relativeHumd(T, W) { return (W / maxWater(T)) * 100.0; }
 
 // Print funtions:
 
+function convertTempToSelectedUnit(tempC)
+{
+  switch (guiControls.tempUnit) {
+  case 'TEMP_UNIT_C':
+    return tempC;
+  case 'TEMP_UNIT_F':
+    return CtoF(tempC);
+  case 'TEMP_UNIT_K':
+    return (tempC + 273.15);
+  }
+}
+
 function printTemp(tempC)
 {
-  if (guiControls.imperialUnits) {
-    return CtoF(tempC).toFixed(1) + '°F';
-  } else
-    return tempC.toFixed(1) + '°C';
+  let tempStr = convertTempToSelectedUnit(tempC).toFixed(1);
+  switch (guiControls.tempUnit) {
+  case 'TEMP_UNIT_C':
+    return tempStr + '°C';
+  case 'TEMP_UNIT_F':
+    return tempStr + '°F';
+  case 'TEMP_UNIT_K':
+    return tempStr + ' K';
+  }
 }
 
 function mmToIn(mm) { return mm * 0.393701; }
 
 function msToKnots(ms) { return ms * 1.94384; };
 
+function msToMPH(ms) { return ms * 2.23694; };
+
 function knotsToMs(kt) { return kt * 0.514444; };
 
 function printSnowHeight(snowHeight_cm)
 {
-  if (guiControls.imperialUnits) {
+  if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     return mmToIn(snowHeight_cm).toFixed(1) + '"'; // inches
   } else
     return snowHeight_cm.toFixed(1) + ' cm';
@@ -293,7 +315,7 @@ function printSnowHeight(snowHeight_cm)
 
 function printSoilMoisture(soilMoisture_mm)
 {
-  if (guiControls.imperialUnits) {
+  if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     return mmToIn(soilMoisture_mm).toFixed(1) + '"'; // inches
   } else
     return soilMoisture_mm.toFixed(1) + ' mm';
@@ -302,7 +324,7 @@ function printSoilMoisture(soilMoisture_mm)
 
 function printDistance(km)
 {
-  if (guiControls.imperialUnits) {
+  if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     let miles = km * kmToMil;
     return miles.toFixed(1) + ' miles';
   } else
@@ -311,23 +333,40 @@ function printDistance(km)
 
 function printAltitude(meters)
 {
-  if (guiControls.imperialUnits) {
+  if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     let feet = meters * mToFt;
     return feet.toFixed() + ' ft';
   } else
     return meters.toFixed() + ' m';
 }
 
+function convertVelocityToSelectedUnit(ms)
+{
+  switch (guiControls.speedUnit) {
+  case 'SPEED_UNIT_KMH':
+    return ms * 3.6;
+  case 'SPEED_UNIT_MS':
+    return ms;
+  case 'SPEED_UNIT_MPH':
+    return msToMPH(ms);
+  case 'SPEED_UNIT_KT':
+    return msToKnots(ms);
+  }
+}
+
 function printVelocity(ms)
 {
-  var speedStr = '';
-  if (guiControls.imperialUnits) {
-    speedStr = msToKnots(ms).toFixed() + ' kt';
-  } else {
-    let kmh = ms * 3.6;
-    speedStr = kmh.toFixed() + ' km/h';
+  let velStr = convertVelocityToSelectedUnit(ms).toFixed();
+  switch (guiControls.speedUnit) {
+  case 'SPEED_UNIT_KMH':
+    return velStr + ' km/h';
+  case 'SPEED_UNIT_MS':
+    return velStr + ' m/s';
+  case 'SPEED_UNIT_MPH':
+    return velStr + ' MPH';
+  case 'SPEED_UNIT_KT':
+    return velStr + ' kt';
   }
-  return speedStr + '  ' + ms.toFixed() + ' m/s';
 }
 
 function rawVelocityTo_ms(vel)
@@ -710,14 +749,14 @@ class Weatherstation
   updateChartJS() // add newest measurement to chart
   {
     if (this.#historyChart) {
-      this.#historyChart.data.datasets[0].data.push(guiControls.imperialUnits ? CtoF(this.#temperature) : this.#temperature);
-      this.#historyChart.data.datasets[1].data.push(guiControls.imperialUnits ? CtoF(this.#dewpoint) : this.#dewpoint);
-      this.#historyChart.data.datasets[2].data.push(guiControls.imperialUnits ? msToKnots(this.#velocity) : this.#velocity);
+      this.#historyChart.data.datasets[0].data.push(convertTempToSelectedUnit(this.#temperature));
+      this.#historyChart.data.datasets[1].data.push(convertTempToSelectedUnit(this.#dewpoint));
+      this.#historyChart.data.datasets[2].data.push(convertVelocityToSelectedUnit(this.#velocity));
       this.#historyChart.data.datasets[3].data.push(this.#airQuality);
 
       if (this.#isOnSurface) {
-        this.#historyChart.data.datasets[4].data.push(guiControls.imperialUnits ? mmToIn(this.#soilMoisture) : this.#soilMoisture);
-        this.#historyChart.data.datasets[5].data.push(guiControls.imperialUnits ? mmToIn(this.#snowHeight) : this.#snowHeight);
+        this.#historyChart.data.datasets[4].data.push(guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL' ? mmToIn(this.#soilMoisture) : this.#soilMoisture);
+        this.#historyChart.data.datasets[5].data.push(guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL' ? mmToIn(this.#snowHeight) : this.#snowHeight);
       }
 
       this.#historyChart.data.labels.push(this.#time);
@@ -1626,7 +1665,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let unit = ' m'
 
-      if (guiControls.imperialUnits)
+      if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL')
       {
         altitude *= mToFt;
         radarAltitude *= mToFt;
@@ -1682,7 +1721,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let stallSpeed = 70.0; // m/s
       let overSpeed = 173.0; // m/s
 
-      if (guiControls.imperialUnits) {
+      if (guiControls.speedUnit == 'SPEED_UNIT_KT') {
         IAS = msToKnots(IAS);
         targetIAS = msToKnots(targetIAS);
         stallSpeed = msToKnots(stallSpeed);
@@ -2678,11 +2717,38 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
-    display_folder.add(guiControls, 'imperialUnits').name('Imperial Units').onChange(function() {
-      for (i = 0; i < weatherStations.length; i++) {
-        weatherStations[i].clearChart();
-      }
-    });
+
+    // display_folder.add(guiControls, 'imperialUnits').name('Imperial Units').onChange(function() {
+    //   for (i = 0; i < weatherStations.length; i++) {
+    //     weatherStations[i].clearChart();
+    //   }
+    // });
+
+    display_folder.add(guiControls, 'twelveHourClock').name('12-hour clock');
+
+    display_folder
+      .add(guiControls, 'lengthUnit', {
+        'km / meters / cm / mm' : 'LENGTH_UNIT_METRIC',
+        'miles / ft / inch' : 'LENGTH_UNIT_IMPERIAL',
+      })
+      .name('Length Unit');
+
+    display_folder
+      .add(guiControls, 'speedUnit', {
+        'km/h' : 'SPEED_UNIT_KMH',
+        'm/s' : 'SPEED_UNIT_MS',
+        'mph' : 'SPEED_UNIT_MPH',
+        'kt' : 'SPEED_UNIT_KT',
+      })
+      .name('Speed Unit');
+
+    display_folder
+      .add(guiControls, 'tempUnit', {
+        '°C' : 'TEMP_UNIT_C',
+        '°F' : 'TEMP_UNIT_F',
+        'K' : 'TEMP_UNIT_K',
+      })
+      .name('Temperature Unit');
 
 
     var advanced_folder = datGui.addFolder('Advanced');
@@ -5243,9 +5309,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   function dateTimeStr()
   {
     var timeStr;
-    if (guiControls.imperialUnits) { // 12 hour clock for Americans
+    if (guiControls.twelveHourClock) { // 12 hour clock for Americans
       timeStr = simDateTime.toLocaleString('en-US', {hour12 : true, hour : 'numeric', minute : 'numeric'});
-    } else {                         // 24 hour clock
+    } else {                           // 24 hour clock
       timeStr = simDateTime.toLocaleString('nl-NL', {hour12 : false, hour : 'numeric', minute : 'numeric'});
     }
 
