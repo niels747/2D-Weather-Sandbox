@@ -1457,7 +1457,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         // wind sound
         gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
         var baseTextureValues = new Float32Array(4);
-        let justAboveSurfaceCellY = simYpos - cellsAboveSurface + 2;
+        let justAboveSurfaceCellY = simYpos - cellsAboveSurface + 3;
         gl.readPixels(simXpos, justAboveSurfaceCellY, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues); // read single cell at mouse position
 
         let windVolume = Math.abs(baseTextureValues[0]) * 10.0;
