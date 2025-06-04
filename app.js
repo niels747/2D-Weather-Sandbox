@@ -40,6 +40,7 @@ var SETUP_MODE = false;
 
 var loadingBar;
 var cam;
+var soundSystem;
 
 const PI = 3.14159265359;
 const degToRad = 0.0174533;
@@ -98,6 +99,7 @@ const guiControls_default = {
   paused : false,
   IterPerFrame : 10,
   auto_IterPerFrame : true,
+  sound : true,
   dryLapseRate : 10.0,     // Real: 9.8 degrees / km
   simHeight : 12000,       // meters
   twelveHourClock : false, // only for display.  false = metric
@@ -390,7 +392,7 @@ class Vec2D // simple 2D vector
 {
   x;
   y;
-  constructor(x, y)
+  constructor(x = 0, y = 0)
   {
     this.x = x;
     this.y = y;
@@ -1248,6 +1250,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.curYpos += yDif;
         this.curZoom += zoomDif;
       }
+
+      if (guiControls.sound) {
+        soundSystem.updateAmbientSound(this.curXpos, this.curYpos, this.curZoom);
+      }
     }
 
     changeViewZoom(change)
@@ -1291,6 +1297,232 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cam = new Camera();
 
+
+  class SoundSystem
+  {
+    audioCtx;
+
+    thunderCCSounds = [];
+    thunderCGSounds = [];
+
+    urban_sound;
+    forest_sound;
+    beach_sound;
+    rain_sound;
+    wind_sound;
+
+
+    constructor()
+    {
+      this.audioCtx = new window.AudioContext();
+      // load sound files asynchronously
+      this.loadThunderSounds('cc', 13).then(buffers => { this.thunderCCSounds = buffers; });
+      this.loadThunderSounds('cg', 13).then(buffers => { this.thunderCGSounds = buffers; });
+
+      this.loadSound('urban.m4a').then(buffer => { this.urban_sound = this.playLoop(buffer, 0.0); });
+      this.loadSound('forest.mp3').then(buffer => { this.forest_sound = this.playLoop(buffer, 0.0); });
+      this.loadSound('beach.mp3').then(buffer => { this.beach_sound = this.playLoop(buffer, 0.0); });
+      this.loadSound('rain.m4a').then(buffer => { this.rain_sound = this.playLoop(buffer, 0.0); });
+      this.loadSound('wind.m4a').then(buffer => { this.wind_sound = this.playLoop(buffer, 0.0); });
+    }
+
+    async loadSound(url)
+    {
+      const resp = await fetch('resources/sounds/' + url);
+      const arrayBuffer = await resp.arrayBuffer();
+      return await this.audioCtx.decodeAudioData(arrayBuffer);
+    }
+
+    async loadThunderSounds(name, num)
+    {
+      const soundPromises = [];
+      for (let i = 1; i <= num; i++) {
+        const filename = name + `${i}.m4a`;
+        soundPromises.push(this.loadSound(filename));
+      }
+      return await Promise.all(soundPromises);
+    }
+
+    soundThunder(x, y, intensity)
+    {
+      let camXnorm = 1. - (cam.curXpos + 1.0) / 2.0;
+
+      let camDistFromSim = cellHeight * sim_res_x * 0.5 / cam.curZoom; // asuming 90° HFOV
+
+      let camHorDistFromStrike = (x - camXnorm) * cellHeight * sim_res_x;
+
+      let vecStrikeToCam = new Vec2D(camDistFromSim, camHorDistFromStrike);
+
+      let distance = vecStrikeToCam.mag();
+
+      let leftRightBalance = -vecStrikeToCam.angle();
+
+      // console.log(camDistFromSim, camHorDistFromStrike, distance, leftRightBalance);
+
+      // Speed of sound ≈ 343 m/s
+      let soundDelay = distance / 343;                                            // in seconds
+
+      let simTimeMult = timePerIteration * guiControls.IterPerFrame * FPS * 3600; // how much faster sime time is than real time
+
+      soundDelay /= simTimeMult;
+
+      let soundArray = intensity > 1.0 ? this.thunderCGSounds : this.thunderCCSounds;
+      let randomThunderSound = soundArray[Math.floor(Math.random() * soundArray.length)];
+      this.playOnce(randomThunderSound, intensity / (distance * 0.001), leftRightBalance, soundDelay);
+    }
+
+    playOnce(buffer, volume = 1, leftRightBalance = 0, delay = 0)
+    {
+      const src = this.audioCtx.createBufferSource();
+      const gain = this.audioCtx.createGain();
+      const pan = this.audioCtx.createStereoPanner();
+      src.buffer = buffer;
+      src.loop = false;
+      gain.gain.value = volume;
+      pan.pan.value = leftRightBalance;
+      src.connect(gain).connect(pan).connect(this.audioCtx.destination);
+      src.start(this.audioCtx.currentTime + delay);
+    }
+
+    playLoop(buffer, volume = 1, leftRightBalance = 0)
+    {
+      const src = this.audioCtx.createBufferSource();
+      const gain = this.audioCtx.createGain();
+      const pan = this.audioCtx.createStereoPanner();
+      src.buffer = buffer;
+      src.loop = true;
+      gain.gain.value = volume;
+      pan.pan.value = leftRightBalance;
+      src.connect(gain).connect(pan).connect(this.audioCtx.destination);
+      src.start();
+      return {gain : gain.gain, pan : pan.pan};
+    }
+
+    updateAmbientSound(Xpos, Ypos, zoom)
+    {
+      let camDistFromSim = cellHeight * sim_res_x * 0.5 / zoom; // asuming 90° HFOV
+
+      if (camDistFromSim < 5000) {
+
+        const sampleWidth = Math.floor(clamp(camDistFromSim / cellHeight * 3, 30, 200)); // sample just a litte wider than the fov
+        const sampleWidth_2 = Math.floor(sampleWidth / 2);
+        const sampleWidth_3 = Math.floor(sampleWidth / 3);
+
+        let simXpos = Math.floor((-Xpos + 1) * 0.5 * sim_res_x);
+        let simYpos = Math.floor((-Ypos * sim_aspect + 1) * 0.5 * sim_res_y);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+        gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
+        var wallTextureValues = new Int8Array(4 * sampleWidth);
+        gl.readPixels(simXpos - sampleWidth_2, simYpos, sampleWidth, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
+
+        let cellsAboveSurface = wallTextureValues[sampleWidth_2 * 4 + 2];
+
+        let camHeightAboveSurface = cellsAboveSurface * cellHeight;
+
+        let vecCamToSurface = new Vec2D(camDistFromSim, camHeightAboveSurface);
+
+        let distanceToSurface = vecCamToSurface.mag();
+
+        let forest = new Vec2D();
+        let beach = new Vec2D();
+        let urban = new Vec2D();
+
+        let distVolumeMult = map_range_C(1.0 / (clamp(distanceToSurface, 1000, 5000) / 1000.0), 0.2, 1.0, 0.0, 1.0); // multiplier based on camera distance to surface
+
+        for (let i = 0; i < sampleWidth; i++) {
+
+          let Lgain = clamp((sampleWidth_3 - Math.abs(i - sampleWidth_3)) / (sampleWidth_3 * sampleWidth_3), 0., 1.);
+          let Rgain = clamp((sampleWidth_3 - Math.abs(i - sampleWidth_3 * 2)) / (sampleWidth_3 * sampleWidth_3), 0., 1.);
+          let gain = new Vec2D(Lgain, Rgain);
+
+          if (wallTextureValues[i * 4 + 0] == 1) { // land vegetation
+            let vegetationNorm = wallTextureValues[i * 4 + 3] / 127.0;
+            forest.add(gain.mult(vegetationNorm));
+          } else if (wallTextureValues[i * 4 + 0] == 2) {                                      // water
+            beach.add(gain);
+          } else if (wallTextureValues[i * 4 + 0] == 4 || wallTextureValues[i * 4 + 0] == 6) { // urban or industrial
+            urban.add(gain);
+          }
+        }
+
+        forest.mult(distVolumeMult * 0.15);
+        beach.mult(distVolumeMult * 1.0);
+        urban.mult(distVolumeMult * 1.0);
+
+        this.setSoundLeftRight(this.forest_sound, forest.x, forest.y);
+        this.setSoundLeftRight(this.beach_sound, beach.x, beach.y);
+        this.setSoundLeftRight(this.urban_sound, urban.x, urban.y);
+
+        // wind sound
+        gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
+        var baseTextureValues = new Float32Array(4);
+        let justAboveSurfaceCellY = simYpos - cellsAboveSurface + 2;
+        gl.readPixels(simXpos, justAboveSurfaceCellY, 1, 1, gl.RGBA, gl.FLOAT, baseTextureValues); // read single cell at mouse position
+
+        let windVolume = Math.abs(baseTextureValues[0]) * 10.0;
+
+        windVolume *= distVolumeMult;
+
+        this.setSoundGainAndPan(this.wind_sound, windVolume);
+
+        let tempC = KtoC(potentialToRealT(baseTextureValues[3], justAboveSurfaceCellY));
+
+        // rain sound
+
+        let rainVolume = 0;
+
+        if (tempC > 0) {
+
+          gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
+          var waterTextureValues = new Float32Array(4);
+
+          gl.readPixels(simXpos, justAboveSurfaceCellY, 1, 1, gl.RGBA, gl.FLOAT, waterTextureValues);
+
+          rainVolume = Math.pow(waterTextureValues[2] * 0.5, 0.5);
+
+          rainVolume *= map_range_C(tempC, 0., 3., 0., 1.); // rain sound fades as temperature approaches 0 (wet snow)
+
+          rainVolume *= distVolumeMult;
+        }
+
+        this.setSoundGainAndPan(this.rain_sound, rainVolume);
+
+        //    console.log(distVolumeMult, rainVolume, windVolume);
+
+      } else {
+        this.mute();
+      }
+    }
+
+    setSoundLeftRight(sound, L, R)
+    {
+      let gain = Math.max(L, R);
+      if (gain == 0) {
+        this.setSoundGainAndPan(sound, 0, 0);
+        return;
+      }
+      let pan = (R - L) / gain;
+      this.setSoundGainAndPan(sound, gain, pan);
+    }
+
+    setSoundGainAndPan(sound, gain, pan = 0.0)
+    {
+      if (sound) {
+        sound.gain.value = gain;
+        sound.pan.value = pan;
+      }
+    }
+
+    mute()
+    {
+      this.setSoundGainAndPan(this.forest_sound, 0);
+      this.setSoundGainAndPan(this.beach_sound, 0);
+      this.setSoundGainAndPan(this.urban_sound, 0);
+      this.setSoundGainAndPan(this.rain_sound, 0);
+      this.setSoundGainAndPan(this.wind_sound, 0);
+    }
+  }
 
   // AIRPLANE
 
@@ -1571,7 +1803,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#panelDiv.remove()
     }
 
-    async loadImages() { this.#panelImg = await loadImage('resources/Panel.png'); }
+    async loadImages() { this.#panelImg = await loadImage('resources/img/Panel.png'); }
 
     async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
     {
@@ -2493,8 +2725,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'Soil Moisture' : 'TOOL_WALL_MOIST',
         'Vegetation' : 'TOOL_VEGETATION',
         'Snow' : 'TOOL_WALL_SNOW',
-        'wind' : 'TOOL_WIND',
-        'weather station' : 'TOOL_STATION',
+        'Wind' : 'TOOL_WIND',
+        'Weather Station' : 'TOOL_STATION',
       })
       .name('Tool')
       .listen();
@@ -2764,6 +2996,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).onChange(function() { guiControls.auto_IterPerFrame = false; }).name('Iterations / Frame').listen();
 
     advanced_folder.add(guiControls, 'auto_IterPerFrame').name('Auto Adjust').listen();
+
+
+    advanced_folder.add(guiControls, 'sound').name('Enable Sound').onChange(function() {
+      if (guiControls.sound) {
+        if (soundSystem == null) {
+          soundSystem = new SoundSystem();
+        }
+      } else {
+        soundSystem.mute();
+      }
+    });
+
     advanced_folder.add(guiControls, 'resetSettings').name('Reset all settings');
 
     datGui.add(guiControls, 'paused').name('Paused').listen();
@@ -4187,7 +4431,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightningDataTexture, 0);
 
   // load images
-  imgElement = await loadImage('resources/noise_texture.jpg');
+  imgElement = await loadImage('resources/img/noise_texture.jpg');
 
   gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -4203,7 +4447,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   //     gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
   //     gl.REPEAT);  // default, so no need to set
 
-  imgElement = await loadImage('resources/A380.png');
+  imgElement = await loadImage('resources/img/A380.png');
 
   gl.bindTexture(gl.TEXTURE_2D, A380Texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -4214,7 +4458,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
   // NEAREST_MIPMAP_LINEAR create weird effects
 
-  imgElement = await loadImage('resources/A380_gear.png');
+  imgElement = await loadImage('resources/img/A380_gear.png');
 
   gl.bindTexture(gl.TEXTURE_2D, A380GearTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -4224,7 +4468,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
 
-  imgElement = await loadImage('resources/surfaceTextureMap.png');
+  imgElement = await loadImage('resources/img/surfaceTextureMap.png');
 
   gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -4235,7 +4479,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
 
 
-  imgElement = await loadImage('resources/ColorScales.png');
+  imgElement = await loadImage('resources/img/ColorScales.png');
 
   gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
@@ -4262,7 +4506,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     document.body.removeChild(link);
   }
 
-  await loadingBar.set(85, 'Generating lightning textures');
 
   function generateLightningTexture(i, imgData)
   {
@@ -4288,13 +4531,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     lightningGeneratorWorker.postMessage({width : 2500, height : 5000}); // 10000 5000
   }
 
+  await loadingBar.set(90, 'Setting up FBO`s');
 
   createHdrFBO();
 
   createBloomFBOs();
-
-  // createAmbientLightFBOs();
-
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
@@ -4499,7 +4740,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     startSimulation();
   }
 
-  await loadingBar.set(100, 'Loading complete'); // loading complete
+  if (guiControls.sound) {
+    soundSystem = new SoundSystem();
+  }
+
+  await loadingBar.set(95, 'Loading sounds and generating lightning textures'); // loading complete
   await loadingBar.remove();
 
   var srcVAO;
@@ -4816,11 +5061,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-              // only for debugging
-              // gl.readBuffer(gl.COLOR_ATTACHMENT0);
-              // var lightningDataValues = new Float32Array(4);
-              // gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningDataValues);
-              // console.log('lightningDataValues: ', lightningDataValues[0], lightningDataValues[1], lightningDataValues[2], IterNum);
+              if (guiControls.sound) {
+                gl.readBuffer(gl.COLOR_ATTACHMENT0);
+                var lightningDataValues = new Float32Array(4);
+                gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningDataValues);
+                // console.log('lightningDataValues: ', lightningDataValues[0], lightningDataValues[1], lightningDataValues[2], IterNum, lightningDataValues[3]);
+
+                if (Math.round(lightningDataValues[2]) == IterNum) {
+                  soundSystem.soundThunder(lightningDataValues[0], lightningDataValues[1], Math.pow(lightningDataValues[3], 2.0));
+                }
+              }
             }
 
             if (displayWeatherStations && IterNum % 208 == 0) { // ~every 60 in game seconds:  0.00008 *3600 * 208 = 59.9
