@@ -1409,7 +1409,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         const sampleWidth_3 = Math.floor(sampleWidth / 3);
 
         let simXpos = Math.floor((-Xpos + 1) * 0.5 * sim_res_x);
-        let simYpos = Math.floor((-Ypos * sim_aspect + 1) * 0.5 * sim_res_y);
+        let simYpos = clamp(Math.floor((-Ypos * sim_aspect + 1) * 0.5 * sim_res_y), 0, sim_res_y - 1);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
         gl.readBuffer(gl.COLOR_ATTACHMENT2); // walltexture
