@@ -4155,7 +4155,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let dy = mouseYinSim - y;
       let dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < guiControls.brushSize / 2.0 / sim_res_y) {
+      if (dist < guiControls.brushSize / 2.0 / sim_res_y && water >= 0) { // if droplet is within the brush and active
         console.log("n:", n);
         console.log("x:", x);
         console.log("y:", y);
