@@ -69,7 +69,8 @@ vec3 emittedLight = vec3(0.); // pure light, like lightning
 vec3 onLight;                 // extra light that lights up objects, just like sunlight and shadowlight
 
 
-const vec3 bareEarthCol = pow(vec3(0.5, 0.2, 0.1), vec3(GAMMA));
+const vec3 bareDrySoilCol = pow(vec3(0.85, 0.60, 0.40), vec3(GAMMA));
+const vec3 bareWetSoilCol = pow(vec3(0.5, 0.2, 0.1), vec3(GAMMA));
 const vec3 greenGrassCol = pow(vec3(0.0, 0.7, 0.2), vec3(GAMMA));
 const vec3 dryGrassCol = pow(vec3(0.843, 0.588, 0.294), vec3(GAMMA));
 
@@ -89,7 +90,9 @@ vec3 getWallColor(float depth)
 {
   vec3 vegetationCol = mix(greenGrassCol, dryGrassCol, max(1.0 - water[SOIL_MOISTURE] * (1. / fullGreenSoilMoisture), 0.)); // green to brown
 
-  vec3 surfCol = mix(bareEarthCol, vegetationCol, min(float(wall[VEGETATION]) / 50., 1.));
+  vec3 bareSoilCol = mix(bareDrySoilCol, bareWetSoilCol, map_rangeC(water[SOIL_MOISTURE], 0.0, 20.0, 0.0, 1.0));
+
+  vec3 surfCol = mix(bareSoilCol, vegetationCol, min(float(wall[VEGETATION]) / 50., 1.));
 
   const vec3 rockCol = vec3(0.70);                                 // gray rock
 

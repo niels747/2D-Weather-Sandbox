@@ -366,13 +366,11 @@ void main()
   } else { // this is wall
 
 
-    wall[VERT_DISTANCE] = wallX0Yp[VERT_DISTANCE] - 1; // height below ground is counted
+    wall[VERT_DISTANCE] = wallX0Yp[VERT_DISTANCE] - 1;                     // height below ground is counted
 
-    if (wall[VERT_DISTANCE] < 0) {                     // below surface
-      if (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN) {
-        water.ba = texture(waterTex, texCoordX0Yp).ba; // soil moisture and snow is copied from above
-        wall[VEGETATION] = wallX0Yp[VEGETATION];       // vegetation is copied from above
-      }
+    if (wall[VERT_DISTANCE] < 0) {                                         // below surface
+      water.ba = texture(waterTex, texCoordX0Yp).ba;                       // soil moisture and snow is copied from above
+      wall[VEGETATION] = wallX0Yp[VEGETATION];                             // vegetation is copied from above
 
       if (wallX0Yp[DISTANCE] == 0) {                                       // if above is wall
         if (wallX0Yp[TYPE] != WALLTYPE_WATER) {                            // above is not water
@@ -487,6 +485,10 @@ void main()
           base[TEMPERATURE] = CtoK(25.0);
         }
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
+
+        wall[VEGETATION] = 0;
+        water[SOIL_MOISTURE] = 100.0;
+        water[SNOW] = 0.0;
         break;
       }
     }
