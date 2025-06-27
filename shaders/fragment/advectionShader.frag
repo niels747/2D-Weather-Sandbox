@@ -37,6 +37,7 @@ uniform float meltingHeat;
 uniform float globalEffectsHeight;
 uniform float globalDrying;
 uniform float globalHeating;
+uniform float soundingForcing;
 uniform float waterTemperature;
 
 layout(location = 0) out vec4 base;
@@ -143,39 +144,38 @@ void main()
     // float relHum = relativeHumd(realTemp, water[TOTAL]); // not used
 
     // Radiative cooling and heating effects
-    /*
-        if (texCoord.y > globalEffectsHeight) {
-          water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
 
-          base[TEMPERATURE] += globalHeating;
+    if (texCoord.y > globalEffectsHeight) {
+      water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
 
-          if (texCoord.y > 0.93) {
-            base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
-            water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
-          }
-        }
-    */
-    // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
-    // drying !
+      base[TEMPERATURE] += globalHeating;
 
 
-    // apply real sounding
-
-    if (globalEffectsHeight > 0.5) {
+      // apply real sounding
 
       int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
 
       float Tdiff = base[TEMPERATURE] - getRealWorldSounding_T(soundingArrayindex);
-      base[TEMPERATURE] -= Tdiff * 0.001;
+      base[TEMPERATURE] -= Tdiff * 0.001 * soundingForcing;
 
 
       float Wdiff = water[TOTAL] - getRealWorldSounding_W(soundingArrayindex);
-      water[TOTAL] -= Wdiff * 0.001;
+      water[TOTAL] -= Wdiff * 0.001 * soundingForcing;
 
+      base.xy *= 1.0 - map_rangeC(soundingForcing, 0.1, 1.0, 0.0, 0.001); // drag to stabilize with high forcing
 
       float velDiff = base[VX] - getRealWorldSounding_Vel(soundingArrayindex);
-      base[VX] -= velDiff * 0.001;
+      base[VX] -= velDiff * map_rangeC(soundingForcing, 0.9, 1.0, 0.0, 0.001);
+
+
+      // if (texCoord.y > 0.93) {
+      //   base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
+      //   water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
+      // }
     }
+
+    // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
+    // drying !
 
 
     water[TOTAL] = max(water[TOTAL], 0.0); // prevent water from going negative

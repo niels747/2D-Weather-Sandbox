@@ -97,7 +97,7 @@ async function loadSounding(stationID, timeStamp)
   const SoundingGraphImgUrl = await getSoundingGraphImgUrl(graphPageUrl);
 
   const soundingImgEl = document.getElementById('soundingPreview');
-  // soundingImgEl.src = SoundingGraphImgUrl;
+  soundingImgEl.src = SoundingGraphImgUrl;
 
   return scrapeTableData(tablePageUrl);
 }
@@ -134,32 +134,73 @@ function rawSoundingToSimSounding(soundingData, simHeight, simResY)
     soundingForSim[y] = {'t' : s.t, 'td' : s.td, 'vel' : inSimVel}; // Put the requered data in an array of objects
   }
 
+  // console.log('soundingForSim', soundingForSim);
+
   return soundingForSim;
 }
 
 var stationSelector;
 
-
 const stationIDs = {
-  'Essen' : 10410,
   'De Bilt' : 6260,
-  'Nimes' : 7645,
-  'Munich' : 10868,
-  'Rome' : 16245,
+  'Norderney' : 10113,
+  'Hamburg' : 10035,
+  'Greifswald' : 10184,
+  'Meppen' : 10304,
+  'Essen' : 10410,
+  'Bergen' : 10238,
   'Berlin' : 10393,
   'Idar-Oberstein' : 10618,
-  'Bergen' : 10238,
-  'Lapland' : 2836,
-  'Moscow' : 27730,
-  'Krete' : 16754,
+  'Stuttgart' : 10739,
+  'Meiningen' : 10548,
+  'Nuremberg' : 10771,
+  'Munich' : 10868,
+  'Brussels' : 6458,
+  'Nottingham' : 3354,
+  'Brest' : 7110,
+  'Paris' : 7145,
+  'Bordeaux' : 7510,
+  'Montpellier' : 7645,
   'Ajaccio' : 7761,
+  'Bern' : 6610,
+  'Insbruck' : 11120,
+  'Vienna' : 11035,
+  'Cuneo' : 16113,
   'Milan' : 16064,
+  'Udine' : 16045,
+  'Bologna' : 16144,
+  'Rome' : 16245,
+  'Sardinia' : 16546,
+  'Sicilia' : 16429,
+  'Zagreb' : 14240,
+  'Zadar' : 14430,
+  'Madrid' : 8221,
+  'Barcelona' : 8190,
+  'Lisbon' : 8536,
+  'Wroclaw' : 12425,
+  'Warsaw' : 12374,
+  'Gdańsk' : 12120,
+  'Kraków' : 12575,
+  'Bucharest' : 15420,
+  'Istanbul' : 17064,
+  'Krete' : 16754,
+  'Athens' : 16716,
+  'Cyprus' : 17607,
+  'Cairo' : 62378,
+  'Tel-Aviv' : 40179,
+  'Gotland' : 2591,
+  'Helsinki' : 2963,
+  'Lapland' : 2836,
+  'Iceland' : 4018,
+  'North Sea' : 1400,
+  'Moscow' : 27730,
 };
 
 function createSelect(stationIDs)
 {
   let select = document.createElement('select');
-  document.body.insertBefore(select, document.body.firstChild);
+  let datePicker = document.getElementById('datePicker');
+  datePicker.parentNode.insertBefore(select, datePicker);
 
   for (const [key, value] of Object.entries(stationIDs)) {
     let option = document.createElement('option');
@@ -167,12 +208,18 @@ function createSelect(stationIDs)
     option.innerHTML = key;
     select.appendChild(option);
   }
+  select.value = 10868;
+
+  select.onchange = function() { prepareSounding(); };
   return select;
 }
 
 
 // Ensure the DOM is fully loaded before running the function
-document.addEventListener('DOMContentLoaded', () => { stationSelector = createSelect(stationIDs); });
+document.addEventListener('DOMContentLoaded', () => {
+  stationSelector = createSelect(stationIDs);
+  prepareSounding();
+});
 
 
 var canvas;
@@ -198,11 +245,12 @@ const saveFileVersionID = 263574036; // Uint32 id to check if save file is compa
 
 const guiControls_default = {
   vorticity : 0.005,
-  dragMultiplier : 0.01, // 0.1
-  wind : -0.0001,
-  globalEffectsHeight : 10000,
-  globalDrying : 0.000003, // 0.000010
+  dragMultiplier : 0.001, // 0.01
+  wind : 0.0,
+  globalEffectsHeight : 0,
+  globalDrying : 0.000000, // 0.000010
   globalHeating : 0.0,
+  soundingForcing : 0.0,
   sunIntensity : 1.0,
   waterTemperature : 25.0, // °C
   landEvaporation : 0.00005,
@@ -532,7 +580,6 @@ function msToRawVelocity(vel)
   vel *= timePerIteration; // convert to raw (cells per iteration)
   return vel;
 }
-
 
 function CtoK(c) { return c + 273.15; }
 
@@ -1319,7 +1366,9 @@ function setLoadingBar()
   });
 }
 
-async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops)
+var soundingData;
+
+async function prepareSounding()
 {
   const dateSel = document.getElementById('datePicker');
   const date = new Date(dateSel.value);
@@ -1330,13 +1379,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   epochTime += hour * 3600;
 
-  const soundingData = await loadSounding(stationSelector.options[stationSelector.selectedIndex].value, epochTime);
+  soundingData = await loadSounding(stationSelector.options[stationSelector.selectedIndex].value, epochTime);
+}
 
-  console.log(soundingData);
-
-  const soundingForSim = rawSoundingToSimSounding(soundingData, 12000 /*guiControls.simHeight*/, 305);
-
-  console.log('soundingForSim', soundingForSim);
+async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops)
+{
 
 
   await setLoadingBar();
@@ -2784,6 +2831,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'meltingHeat'), guiControls.meltingHeat);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
+    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'), guiControls.globalEffectsHeight / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.useProgram(precipitationProgram);
@@ -2874,12 +2922,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Global Heating');
 
+    // , 0, 1.0, 0.01
+    fluidParams_folder.add(guiControls, 'soundingForcing', 0, 1.0, 0.01)
+      .onChange(function() {
+        gl.useProgram(advectionProgram);
+        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
+      })
+      .name('Sounding Forcing');
+
     fluidParams_folder.add(guiControls, 'globalEffectsHeight', 0, guiControls.simHeight, 10)
       .onChange(function() {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'), guiControls.globalEffectsHeight / guiControls.simHeight);
       })
-      .name('Starting Height');
+      .name('Apply above altitude');
+
 
     var UI_folder = datGui.addFolder('User Interaction');
 
@@ -4716,7 +4773,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
 
 
-  // generate Initial temperature profile
+  // generate sounding data for forcing in sim
+
+  var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
 
   var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
@@ -4731,10 +4790,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td), y);        // initial temperature profile
     realWorldSounding_Vel[y] = soundingSample.vel;
   }
-
-  console.log(realWorldSounding_T);
-  console.log(realWorldSounding_W);
-  console.log(realWorldSounding_Vel);
+  // console.log(realWorldSounding_T);
+  // console.log(realWorldSounding_W);
+  // console.log(realWorldSounding_Vel);
 
 
   // generate Initial temperature profile

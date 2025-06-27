@@ -202,6 +202,25 @@
     </nav>
 
     <div id="IntroScreen">
+
+        <p style="margin-top: 50px;"></p>
+
+        <div style="width: 100%; height: 500px;">
+            <div style="float: left; margin-right: 100px;">
+                <input type="date" id="datePicker" value="2025-06-15" min="2010-01-01" onchange="prepareSounding();" />
+
+                <select id="hourSelector" onchange="prepareSounding();">
+                    <option value="0">00H</option>
+                    <option value="6">06H</option>
+                    <option value="12" selected>12H</option>
+                    <option value="18">18H</option>
+                </select>
+                <p>Select a real world sounding to use as forcing in the simulation</p>
+            </div>
+            <img style="float: left; height: 500px;" id="soundingPreview"
+                alt="Sounding not available, Please select a different time.">
+        </div>
+
         <form id="startBtn" oninput="updateSetupSliders();">
             <div class="resolution-warning">
                 <p>Choose a resolution - Higher resolutions provide more detail but significantly impact performance
@@ -215,7 +234,8 @@
                         <input type="range" min="100" max="16000" value="2500" step="100" id="simResSelX" />
                         <output id="simResShowX"></output>
                     </td>
-                    <td id="simWorldProperties" style="color:rgb(255, 255, 255); width: 50%"> Cellheight: 40m Sim width:
+                    <td id="simWorldProperties" style="color:rgb(255, 255, 255); width: 50%"> Cellheight: 40m Sim
+                        width:
                         40 km</td>
                 </tr>
                 <tr>
@@ -224,7 +244,8 @@
                         <input type="range" min="100" max="500" value="300" step="10" id="simResSelY" />
                         <output id="simResShowY"></output>
                     </td>
-                    <td><i id="simResYWarning" style="color:rgb(255, 61, 61); display: none;">Vertical resolutions other
+                    <td><i id="simResYWarning" style="color:rgb(255, 61, 61); display: none;">Vertical resolutions
+                            other
                             than 300 are not optimized and may be buggy!</i></td>
                 </tr>
                 <tr>
@@ -233,7 +254,8 @@
                         <input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
                         <output id="simHeightShow"></output>
                     </td>
-                    <td><i id="simHeightWarning" style="color:rgb(255, 61, 61); display: none;">Sim heights other than
+                    <td><i id="simHeightWarning" style="color:rgb(255, 61, 61); display: none;">Sim heights other
+                            than
                             12000 m are not optimized and may be buggy!</i></td>
                 </tr>
             </table>
@@ -257,13 +279,17 @@
                     strong Derecho</a></p>
             <p><a style="color: white" href="./saves/Three Nice Cells.weathersandbox">Three Nice Cells</a></p>
             <p><a style="color: white" href="./saves/Mountain Snow Storm.weathersandbox">Mountain Snow Storm</a></p>
-            <p><a style="color: white" href="./saves/Powerful & Longlasting Cell.weathersandbox">Powerful & Longlasting
+            <p><a style="color: white" href="./saves/Powerful & Longlasting Cell.weathersandbox">Powerful &
+                    Longlasting
                     Cell</a></p>
-            <p><a style="color: white" href="./saves/Rain Sucked Up.weathersandbox">Powerful updraft sucking up rain and
+            <p><a style="color: white" href="./saves/Rain Sucked Up.weathersandbox">Powerful updraft sucking up rain
+                    and
                     turning it into hail.</a></p>
-            <p><a style="color: white" href="./saves/Powerful Hail and Snow Cells.weathersandbox">Powerful Hail and Snow
+            <p><a style="color: white" href="./saves/Powerful Hail and Snow Cells.weathersandbox">Powerful Hail and
+                    Snow
                     Cells</a></p>
-            <p><a style="color: white" href="./saves/Very nice cell over coastal mountain.weathersandbox">Very nice cell
+            <p><a style="color: white" href="./saves/Very nice cell over coastal mountain.weathersandbox">Very nice
+                    cell
                     over coastal mountain</a></p>
             <p><a style="color: white" href="./saves/Awesome Convergence Cell.weathersandbox">Awesome Convergence
                     Cell</a></p>
@@ -277,10 +303,12 @@
             <h2>Tips</h2>
             <ul>
                 <li>Vertical resolution of 300 gives most realistic results</li>
-                <li>Larger horizontal resolutions allow stronger converging winds to develop, forming more realistic,
+                <li>Larger horizontal resolutions allow stronger converging winds to develop, forming more
+                    realistic,
                     longer lasting cells</li>
                 <li>Performance is mostly GPU dependent, GTX 1070 or better recommended for realtime gameplay</li>
-                <li>If you have a laptop with a dedicated GPU, make sure the browser is actually using it! It's often
+                <li>If you have a laptop with a dedicated GPU, make sure the browser is actually using it! It's
+                    often
                     using the integrated graphics by default</li>
                 <li>Play in fullscreen mode (F11)</li>
             </ul>
