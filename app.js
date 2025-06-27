@@ -29,6 +29,152 @@ function updateSetupSliders()
 
 var FPS = 60.0;
 
+
+const corsUrl = 'https://corsproxy.io/?'; // need proxy to allow for cross origin request
+
+async function getSoundingGraphImgUrl(url)
+{
+  try {
+    const response = await fetch(corsUrl + url);
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const img = doc.querySelectorAll('img')[0];
+    return 'https://www.meteociel.fr/' + img.getAttribute("src");
+  } catch (error) {
+    console.error('Error fetching the data:', error);
+  }
+}
+
+// Function to scrape table data from the given URL
+async function scrapeTableData(url)
+{
+  try {
+    const response = await fetch(corsUrl + url);
+    const html = await response.text();
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Select the rows of the main table (starting at line 51)
+    const rows = doc.querySelectorAll('table:nth-of-type(2) tr:not(:first-child)');
+
+    const tableData = [];
+
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+
+      const rowData = {
+        alt : parseFloat(cells[0].textContent),
+        p : parseFloat(cells[1].textContent),
+        t : parseFloat(cells[2].textContent),
+        tw : parseFloat(cells[3].textContent),
+        td : parseFloat(cells[4].textContent),
+        rh : parseFloat(cells[5].textContent),
+        vel : parseFloat(cells[6].textContent.split(' / ')[1]),
+        angle : parseFloat(cells[6].textContent.split(' / ')[0]),
+      };
+
+      tableData.push(rowData);
+    });
+
+    return tableData;
+
+  } catch (error) {
+    console.error('Error fetching the data:', error);
+  }
+}
+
+async function loadSounding(stationID, timeStamp)
+{
+
+  const imgMapType = 1; // 0 = large classic emagram   1 = small emagram
+  const graphPageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=' + imgMapType + '&date=' + timeStamp;
+  const tablePageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=4&date=' + timeStamp;
+
+  // console.log(graphPageUrl, tablePageUrl);
+
+  const SoundingGraphImgUrl = await getSoundingGraphImgUrl(graphPageUrl);
+
+  const soundingImgEl = document.getElementById('soundingPreview');
+  // soundingImgEl.src = SoundingGraphImgUrl;
+
+  return scrapeTableData(tablePageUrl);
+}
+
+function sampleIsInvalid(s) { return isNaN(s.t) || isNaN(s.td) || isNaN(s.vel); }
+
+function rawSoundingToSimSounding(soundingData, simHeight, simResY)
+{
+  let soundingForSim = [];
+
+  soundingDataIndex = soundingData.length - 1;
+
+  for (let y = 0; y < simResY; y++) {
+
+    const inSimAlt = y * (simHeight / simResY);
+
+    while (inSimAlt >= soundingData[soundingDataIndex]['alt'] || sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches the in sim altitude
+      soundingDataIndex--;
+    }
+
+    const s = soundingData[soundingDataIndex];
+
+    // y = length * sin(angle)
+
+    let twoDimentionalVel = s.vel * Math.cos(s.angle * degToRad); // km/h
+
+    // if (isNaN(twoDimentionalVel))
+    //   twoDimentionalVel = 0.0;
+
+    //  console.log(twoDimentionalVel);
+
+    const inSimVel = msToRawVelocity(twoDimentionalVel / 3.6);      // convert to m/s first
+
+    soundingForSim[y] = {'t' : s.t, 'td' : s.td, 'vel' : inSimVel}; // Put the requered data in an array of objects
+  }
+
+  return soundingForSim;
+}
+
+var stationSelector;
+
+
+const stationIDs = {
+  'Essen' : 10410,
+  'De Bilt' : 6260,
+  'Nimes' : 7645,
+  'Munich' : 10868,
+  'Rome' : 16245,
+  'Berlin' : 10393,
+  'Idar-Oberstein' : 10618,
+  'Bergen' : 10238,
+  'Lapland' : 2836,
+  'Moscow' : 27730,
+  'Krete' : 16754,
+  'Ajaccio' : 7761,
+  'Milan' : 16064,
+};
+
+function createSelect(stationIDs)
+{
+  let select = document.createElement('select');
+  document.body.insertBefore(select, document.body.firstChild);
+
+  for (const [key, value] of Object.entries(stationIDs)) {
+    let option = document.createElement('option');
+    option.value = value;
+    option.innerHTML = key;
+    select.appendChild(option);
+  }
+  return select;
+}
+
+
+// Ensure the DOM is fully loaded before running the function
+document.addEventListener('DOMContentLoaded', () => { stationSelector = createSelect(stationIDs); });
+
+
 var canvas;
 var gl;
 
@@ -134,7 +280,7 @@ var sim_res_y;
 var sim_aspect; //  = sim_res_x / sim_res_y
 var sim_height = 12000;
 
-var cellHeight = 0; // guiControls.simHeight / sim_res_y;  // in meters // cell width is the same
+var cellHeight = 12000. / 300.; // guiControls.simHeight / sim_res_y;  // in meters // cell width is the same
 
 var frameNum = 0;
 var lastFrameNum = 0;
@@ -378,6 +524,15 @@ function rawVelocityTo_ms(vel)
   vel /= 3600.0;           // convert to m/s
   return vel;
 }
+
+function msToRawVelocity(vel)
+{                          // Raw velocity is in cells/iteration
+  vel *= 3600;             // convert to meters per hour
+  vel /= cellHeight;       // convert to cells per hour
+  vel *= timePerIteration; // convert to raw (cells per iteration)
+  return vel;
+}
+
 
 function CtoK(c) { return c + 273.15; }
 
@@ -862,7 +1017,7 @@ class Weatherstation
     }
 
     this.#time = simDateTime.toISOString();
-    // console.log('measurement at: ', this.#time);
+    console.log('measurement at: ', this.#time);
     this.updateChartJS(); // update chart
   }
 
@@ -1166,6 +1321,24 @@ function setLoadingBar()
 
 async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops)
 {
+  const dateSel = document.getElementById('datePicker');
+  const date = new Date(dateSel.value);
+  let epochTime = Math.floor(date.getTime() / 1000);
+
+  const hourSelector = document.getElementById('hourSelector');
+  const hour = hourSelector.options[hourSelector.selectedIndex].value;
+
+  epochTime += hour * 3600;
+
+  const soundingData = await loadSounding(stationSelector.options[stationSelector.selectedIndex].value, epochTime);
+
+  console.log(soundingData);
+
+  const soundingForSim = rawSoundingToSimSounding(soundingData, 12000 /*guiControls.simHeight*/, 305);
+
+  console.log('soundingForSim', soundingForSim);
+
+
   await setLoadingBar();
 
   let lastSaveTime = new Date();
@@ -4545,6 +4718,27 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // generate Initial temperature profile
 
+  var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
+  var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
+  var realWorldSounding_Vel = new Float32Array(504); // sim_res_y + 1
+
+  for (var y = 0; y < sim_res_y + 1; y++) {
+    //   let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
+
+    let soundingSample = soundingForSim[y];
+
+    realWorldSounding_T[y] = realToPotentialT(CtoK(soundingSample.t), y); // initial temperature profile
+    realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td), y);        // initial temperature profile
+    realWorldSounding_Vel[y] = soundingSample.vel;
+  }
+
+  console.log(realWorldSounding_T);
+  console.log(realWorldSounding_W);
+  console.log(realWorldSounding_Vel);
+
+
+  // generate Initial temperature profile
+
   var initial_T = new Float32Array(504); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
@@ -4556,7 +4750,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cellHeight = guiControls.simHeight / sim_res_y; // in meters
 
-  // Set uniforms
+  // Set constant uniforms
   gl.useProgram(setupProgram);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -4577,6 +4771,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
+
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
+  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Velv'), realWorldSounding_Vel);
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
@@ -4699,13 +4897,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'wallTex'), 2);
 
   gl.useProgram(postProcessingProgram);
-  // gl.uniform2f(gl.getUniformLocation(postProcessingProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
   gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'hdrTex'), 0);
   gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'bloomTex'), 1);
 
 
   gl.useProgram(isolateBrightPartsProgram);
-  // gl.uniform2f(gl.getUniformLocation(isolateBrightPartsProgram, 'texelSize'), texelSizeX, texelSizeY); // should be canvas texsize
   gl.uniform1i(gl.getUniformLocation(isolateBrightPartsProgram, 'hdrTex'), 0);
 
   gl.useProgram(lightningLocationProgram);
