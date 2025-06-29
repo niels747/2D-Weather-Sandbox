@@ -4775,25 +4775,27 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // generate sounding data for forcing in sim
 
-  var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
-
   var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_Vel = new Float32Array(504); // sim_res_y + 1
+  if (soundingData.length > 100) {
+    var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
 
-  for (var y = 0; y < sim_res_y + 1; y++) {
-    //   let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
+    for (var y = 0; y < sim_res_y + 1; y++) {
+      //   let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
 
-    let soundingSample = soundingForSim[y];
+      let soundingSample = soundingForSim[y];
 
-    realWorldSounding_T[y] = realToPotentialT(CtoK(soundingSample.t), y); // initial temperature profile
-    realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td), y);        // initial temperature profile
-    realWorldSounding_Vel[y] = soundingSample.vel;
+      realWorldSounding_T[y] = realToPotentialT(CtoK(soundingSample.t), y); // initial temperature profile
+      realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td), y);        // initial temperature profile
+      realWorldSounding_Vel[y] = soundingSample.vel;
+    }
+    // console.log(realWorldSounding_T);
+    // console.log(realWorldSounding_W);
+    // console.log(realWorldSounding_Vel);
+  } else {
+    console.log('No valid sounding loaded!');
   }
-  // console.log(realWorldSounding_T);
-  // console.log(realWorldSounding_W);
-  // console.log(realWorldSounding_Vel);
-
 
   // generate Initial temperature profile
 
