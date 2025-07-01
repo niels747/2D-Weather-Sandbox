@@ -108,6 +108,7 @@ void main()
         case WALLTYPE_WATER:
           float waterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE]; // sample water temperature below
           IR_up = IR_emitted(waterTemperature);                                 // emissivity = 1.0
+          net_heating += (IR_down - IR_up) * lightHeatingConst;
           break;
         case WALLTYPE_FIRE:
           IR_up = IR_emitted(realTemp + 100.); // fire emits heat

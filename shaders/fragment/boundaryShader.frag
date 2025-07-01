@@ -35,6 +35,8 @@ uniform float sunAngle;
 
 uniform float iterNum; // used as seed for random function
 
+uniform float dynamicWaterTemperature;
+
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
@@ -93,9 +95,10 @@ void main()
 
     wall[TYPE] = wallX0Ym[TYPE];                     // copy wall type from wall below
 
-    base[TEMPERATURE] += light[NET_HEATING];         // IR heating/cooling effect
+    if (wall[TYPE] != WALLTYPE_WATER)
+      base[TEMPERATURE] += light[NET_HEATING]; // IR heating/cooling effect
 
-    base[TEMPERATURE] += precipFeedback[HEAT];       // rain cools air and riming heats air
+    base[TEMPERATURE] += precipFeedback[HEAT]; // rain cools air and riming heats air
 
 
     float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water turns into rain
@@ -115,7 +118,7 @@ void main()
     // rain removes smoke from air
     water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.1, 0.0) + precipFeedback[MASS] * 0.000; // rain formation in clouds removes smoke
                                                                                                 // quickly , falling rain slower
-    water[SMOKE] -= precipFeedback[MASS] * 0.0002;                                              // linearly to remove last little bit
+    water[SMOKE] -= precipFeedback[MASS] * 0.0001;                                              // linearly to remove last little bit
 
 
     water[SMOKE] -= max((water[SMOKE] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
@@ -356,7 +359,7 @@ void main()
       case WALLTYPE_WATER:
         if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
           float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
-          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * 0.0002;                       // air heated or cooled by water
+          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * waterHeatExchangeRate;        // air heated or cooled by water
 
           water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
         }
@@ -384,6 +387,8 @@ void main()
     } else if (wall[VERT_DISTANCE] == 0) { // at/in surface layer
 
       vec2 precipDeposition = texture(precipDepositionTex, texCoord).xy;
+
+      vec4 lightAboveSurface = texture(lightTex, texCoordX0Yp); // sample cell above surface
 
       switch (wall[TYPE]) {
       case WALLTYPE_INDUSTRIAL:
@@ -417,9 +422,7 @@ void main()
         water[SOIL_MOISTURE] -= evaporation;
 
 
-        if (int(iterNum) % 100 == 0) {                              // snow and soil moisture smoothing
-
-          vec4 lightAboveSurface = texture(lightTex, texCoordX0Yp); // sample cell above surface
+        if (int(iterNum) % 100 == 0) { // snow and soil moisture smoothing
 
           // average out snow cover
           const float snowSmoothingRate = 0.02; // max 0.9
@@ -484,6 +487,28 @@ void main()
         if (base[TEMPERATURE] > 500.0) { // set water temperature for older savefiles
           base[TEMPERATURE] = CtoK(25.0);
         }
+
+        if (dynamicWaterTemperature >= 1.0) {
+
+          float airTemperature = potentialToRealT(texture(baseTex, texCoordX0Yp)[TEMPERATURE], texCoordX0Yp.y);
+          vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
+          float netWaterHeating = 0.0;
+          netWaterHeating += (airTemperature - base[TEMPERATURE]) * waterHeatExchangeRate;                                  // water heated or cooled by the air above
+
+          netWaterHeating -= max((maxWater(base[TEMPERATURE]) - waterX0Yp[TOTAL]) * waterEvaporation, 0.) * evapHeat * 0.5; // evaporative cooling (half the real value, to prevent boring non convective conditions)
+
+          float lightPower = max(lightAboveSurface[SUNLIGHT] * cos(sunAngle), 0.0);                                         // Light power per horizontal surface area;
+
+          lightPower *= (1. - ALBEDO_WATER);
+          lightPower *= lightHeatingConst;
+          netWaterHeating += lightPower; // sun heating water
+
+
+          netWaterHeating += lightAboveSurface[NET_HEATING]; // IR heating/cooling effect
+
+          base[TEMPERATURE] += netWaterHeating / waterHeatCapacity;
+        }
+
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
 
         wall[VEGETATION] = 0;

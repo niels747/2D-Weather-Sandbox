@@ -155,6 +155,8 @@ const stationIDs = {
   'Meiningen' : 10548,
   'Nuremberg' : 10771,
   'Munich' : 10868,
+  'Altenstadt' : 10954,
+  'peißenberg' : 10962,
   'Brussels' : 6458,
   'Nottingham' : 3354,
   'Brest' : 7110,
@@ -253,6 +255,7 @@ const guiControls_default = {
   soundingForcing : 0.0,
   sunIntensity : 1.0,
   waterTemperature : 25.0, // °C
+  dynamicWaterTemperature : false,
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
   evapHeat : 2.90,          //  Real: 2260 J/g
@@ -1064,7 +1067,6 @@ class Weatherstation
     }
 
     this.#time = simDateTime.toISOString();
-    console.log('measurement at: ', this.#time);
     this.updateChartJS(); // update chart
   }
 
@@ -1599,7 +1601,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       src.buffer = buffer;
       src.loop = false;
       gain.gain.value = volume;
-      pan.pan.value = leftRightBalance;
+      pan.pan.value = clamp(leftRightBalance, -1., 1.);
       src.connect(gain).connect(pan).connect(this.audioCtx.destination);
       src.start(this.audioCtx.currentTime + delay);
     }
@@ -1612,7 +1614,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       src.buffer = buffer;
       src.loop = true;
       gain.gain.value = volume;
-      pan.pan.value = leftRightBalance;
+      pan.pan.value = clamp(leftRightBalance, -1., 1.);
       src.connect(gain).connect(pan).connect(this.audioCtx.destination);
       src.start();
       return {gain : gain.gain, pan : pan.pan};
@@ -2816,6 +2818,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
+    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterWeight'), guiControls.waterWeight);
     gl.useProgram(velocityProgram);
@@ -3015,6 +3018,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
       })
       .name('Lake / Sea Temperature (°C)');
+
+    water_folder.add(guiControls, 'dynamicWaterTemperature').name('Dynamic Water Temperature').onChange(function() {
+      gl.useProgram(boundaryProgram);
+      gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
+    });
+
     water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
       .onChange(function() {
         gl.useProgram(boundaryProgram);

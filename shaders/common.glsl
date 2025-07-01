@@ -12,6 +12,9 @@ precision highp isampler2D;
 
 #define maxWaterTemp 40.0
 
+#define waterHeatExchangeRate 0.0002
+
+#define waterHeatCapacity 50.0     // as multiple of airs heat capacity
 
 #define fullGreenSoilMoisture 50.0 // level of soil moisture where vegetation reaches the greenest color
 
@@ -29,7 +32,7 @@ precision highp isampler2D;
 #define ALBEDO_URBAN 0.08
 #define ALBEDO_INDUSTRIAL 0.08
 #define ALBEDO_RUNWAY 0.04
-
+#define ALBEDO_WATER 0.05
 
 // TEXTURE DESCRIPTIONS AND DEFINES
 
