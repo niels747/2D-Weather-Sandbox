@@ -190,7 +190,7 @@ void main()
       base[TEMPERATURE] = 1000.0;      // Set snow melting feedback to 0
     }
 
-    water[TOTAL] = 1111.; // indicate this is wall
+    // water[TOTAL] = 1111.; // indicate this is wall
 
     ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
 
@@ -390,12 +390,15 @@ void main()
   }
 
   if (wall[DISTANCE] == 0) { // is wall
-    // base[3] += 1000.0; // WHY DOES WALL TEMP HAVE AFFECT ON SIMULATION?
-    // special temperature, just to identify that it is a wall cell when drawing
-    // the graph
-    water[TOTAL] = 1111.; // indicate this is wall
-  } else {                // no wall
-                          //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
+
+    if (wall[TYPE] == WALLTYPE_WATER) {
+      water[TOTAL] = 1002.;
+    } else { // any type of land wall
+      water[TOTAL] = 1001.;
+    }
+
+  } else { // no wall
+           //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
   }
   // airplaneValues.xy
   float planeInfluence = max(0.003 - length(texCoord - airplaneValues.xy), 0.) * 10.0;

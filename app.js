@@ -255,7 +255,7 @@ const guiControls_default = {
   soundingForcing : 0.0,
   sunIntensity : 1.0,
   waterTemperature : 25.0, // °C
-  dynamicWaterTemperature : false,
+  dynamicWaterTemperature : true,
   landEvaporation : 0.00005,
   waterEvaporation : 0.0001,
   evapHeat : 2.90,          //  Real: 2260 J/g
@@ -745,7 +745,8 @@ class Weatherstation
   #x; // position in simulation
   #y;
 
-  #isOnSurface = true;
+  #isOnLand = false;
+  #isOnWater = false;
 
   #time;             // ISO time string of moment of last measurement
   #temperature = 0;  // °C
@@ -755,6 +756,7 @@ class Weatherstation
   #soilMoisture = 0; // mm
   #snowHeight = 0;   // cm
   #airQuality = 0;   // AQI
+  #waterTemperature = 0;
 
   #netIRpow = 0;
   #solarPower = 0;
@@ -844,7 +846,7 @@ class Weatherstation
         datasets : [
           {
             label : 'Temperature',
-            data : [], // Data points
+            data : [],
             backgroundColor : 'rgba(255, 0, 0, 0.9)',
             borderColor : 'rgba(255, 0, 0, 1)',
             radius : 0,
@@ -853,53 +855,18 @@ class Weatherstation
           },
           {
             label : 'Dew Point',
-            data : [], // Data points
+            data : [],
             backgroundColor : '#00FFFF',
             borderColor : '#00FFFF',
             radius : 0,
             borderWidth : 1,
             fill : false,
           },
-          {
-            label : 'Wind Speed',
-            data : [], // Data points
-            backgroundColor : '#AAAAAA',
-            borderColor : '#AAAAAA',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
-            hidden : true
-          },
-          {
-            label : 'Air Quality',
-            data : [], // Data points
-            backgroundColor : '#803c00',
-            borderColor : '#803c00',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
-            hidden : true
-          },
-          {
-            label : 'Precipitation',
-            data : [], // Data points
-            backgroundColor : '#0055FF',
-            borderColor : '#0055FF',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
-            hidden : true
-          },
-          {
-            label : 'Snow Height',
-            data : [], // Data points
-            backgroundColor : '#FFFFFF',
-            borderColor : '#FFFFFF',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
-            hidden : true
-          }
+          {label : 'Wind Speed', data : [], backgroundColor : '#AAAAAA', borderColor : '#AAAAAA', radius : 0, borderWidth : 1, fill : false, hidden : true},                            //
+          {label : 'Air Quality', data : [], backgroundColor : '#803c00', borderColor : '#803c00', radius : 0, borderWidth : 1, fill : false, hidden : true},                           //
+          {label : 'Precipitation', data : [], backgroundColor : '#0055FF', borderColor : '#0055FF', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true},    //
+          {label : 'Snow Height', data : [], backgroundColor : '#FFFFFF', borderColor : '#FFFFFF', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true},      //
+          {label : 'Water Temperature', data : [], backgroundColor : '#406cff', borderColor : '#406cff', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true} //
         ]
       },
       options : {
@@ -940,7 +907,8 @@ class Weatherstation
               font : {
                 size : 14,
                 family : 'Arial' // Optional: Ensure font family is set
-              }
+              },
+              filter : function(item, chart) { return !chart.datasets[item.datasetIndex].reallyHidden; }
             }
           }
         },
@@ -961,9 +929,11 @@ class Weatherstation
       this.#historyChart.data.datasets[2].data.push(convertVelocityToSelectedUnit(this.#velocity));
       this.#historyChart.data.datasets[3].data.push(this.#airQuality);
 
-      if (this.#isOnSurface) {
+      if (this.#isOnLand) {
         this.#historyChart.data.datasets[4].data.push(guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL' ? mmToIn(this.#soilMoisture) : this.#soilMoisture);
         this.#historyChart.data.datasets[5].data.push(guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL' ? mmToIn(this.#snowHeight) : this.#snowHeight);
+      } else if (this.#isOnWater) {
+        this.#historyChart.data.datasets[6].data.push(convertTempToSelectedUnit(this.#waterTemperature));
       }
 
       this.#historyChart.data.labels.push(this.#time);
@@ -1001,18 +971,29 @@ class Weatherstation
   {
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
-    var baseTextureValues = new Float32Array(4 * 2);
-    gl.readPixels(this.#x, this.#y, 1, 2, gl.RGBA, gl.FLOAT, baseTextureValues);
+    var baseTextureValues = new Float32Array(4 * 3);
+    gl.readPixels(this.#x, this.#y - 1, 1, 3, gl.RGBA, gl.FLOAT, baseTextureValues);
 
-    let T = potentialToRealT(baseTextureValues[0 + 3], this.#y); // temperature in kelvin
+    let T = potentialToRealT(baseTextureValues[1 * 4 + 3], this.#y); // temperature in kelvin
 
     this.#temperature = KtoC(T);
-    this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[4 + 0], 2) + Math.pow(baseTextureValues[4 + 1], 2)));
+    this.#velocity = rawVelocityTo_ms(Math.sqrt(Math.pow(baseTextureValues[2 * 4 + 0], 2) + Math.pow(baseTextureValues[4 + 1], 2)));
 
     // gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
     var waterTextureValues = new Float32Array(2 * 4);
     gl.readPixels(this.#x, this.#y - 1, 1, 2, gl.RGBA, gl.FLOAT, waterTextureValues);
+
+    if (waterTextureValues[4 + 0] > 1000.) { // is not air
+      this.destroy();                        // remove weather station
+      return;
+    }
+
+    if (waterTextureValues[0 + 0] > 1001.5) { // water wall
+      this.#waterTemperature = KtoC(baseTextureValues[0 + 3]);
+    } else {
+      this.#waterTemperature = -100.;
+    }
 
     this.#dewpoint = KtoC(dewpoint(waterTextureValues[4 + 0]));
 
@@ -1026,17 +1007,40 @@ class Weatherstation
       this.#relativeHumd = Math.min(this.#relativeHumd, 100.0);
     }
 
-    if (waterTextureValues[0] > 1110) { // surface below
+
+    if (waterTextureValues[0] > 1000.5 && waterTextureValues[0] < 1001.5) { // on land surface
       this.#soilMoisture = waterTextureValues[2];
       this.#snowHeight = waterTextureValues[3];
-    } else {
-      if (this.#isOnSurface) {
-        this.#isOnSurface = false;
+
+      if (!this.#isOnLand) {
+        this.clearChart();
+        this.#isOnLand = true;
+        this.#isOnWater = false;
+        this.#historyChart.data.datasets[4].reallyHidden = false;
+        this.#historyChart.data.datasets[5].reallyHidden = false;
+        this.#historyChart.data.datasets[6].reallyHidden = true;
+      }
+
+    } else if (waterTextureValues[0] > 1001.5) { // on water surface
+      if (!this.#isOnWater) {
+        this.clearChart();
+        this.#isOnWater = true;
+        this.#isOnLand = false;
+        this.#historyChart.data.datasets[4].reallyHidden = true;
+        this.#historyChart.data.datasets[5].reallyHidden = true;
+        this.#historyChart.data.datasets[6].reallyHidden = false;
+      }
+    } else { // in air
+      if (this.#isOnLand || this.#isOnWater) {
+        this.clearChart();
+        this.#isOnLand = false;
+        this.#isOnWater = false;
         this.#soilMoisture = 0;
         this.#snowHeight = 0;
-
-        this.#historyChart.data.datasets.splice(5, 1); // remove unused datasets
-        this.#historyChart.data.datasets.splice(4, 1); // remove back to front to prevent errors
+        this.#waterTemperature = -10.0;
+        this.#historyChart.data.datasets[4].reallyHidden = true;
+        this.#historyChart.data.datasets[5].reallyHidden = true;
+        this.#historyChart.data.datasets[6].reallyHidden = true;
       }
     }
 
@@ -1053,18 +1057,7 @@ class Weatherstation
 
     let directSunlight = Math.max(lightTextureValues[0] * Math.sin(guiControls.sunAngle * degToRad), 0.0);
 
-    // gl.bindFramebuffer(gl.FRAMEBUFFER, ambientLightFBOs[0].frameBuffer);
-    // gl.readBuffer(gl.COLOR_ATTACHMENT0);
-    // var ambientLightTextureValues = new Float32Array(4 * 2);
-    // gl.readPixels(this.#x, this.#y - 1, 1, 2, gl.RGBA, gl.FLOAT, ambientLightTextureValues);
-    // let ambientLightFromAbove = Math.max(ambientLightTextureValues[4 + 0] - ambientLightTextureValues[0 + 0] - directSunlight * 0.001, 0.) * 1.0;
-
-
     this.#solarPower = directSunlight;
-
-    if (waterTextureValues[4 + 0] > 1110) { // is not air
-      this.destroy();                       // remove weather station
-    }
 
     this.#time = simDateTime.toISOString();
     this.updateChartJS(); // update chart
@@ -1120,6 +1113,10 @@ class Weatherstation
       if (this.#soilMoisture > 0.) {
         c.fillText(printSoilMoisture(this.#soilMoisture), 0, 52);
         c.fillText('💧', 20, 65);
+      } else if (this.#waterTemperature > -1.0) {
+        c.fillStyle = '#406cff';
+        c.fillText(printTemp(this.#waterTemperature), 0, 52);
+        c.fillText('🌊 🌡', 20, 65);
       }
 
       if (this.#snowHeight > 0.) {
@@ -3189,11 +3186,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
 
-    // display_folder.add(guiControls, 'imperialUnits').name('Imperial Units').onChange(function() {
-    //   for (i = 0; i < weatherStations.length; i++) {
-    //     weatherStations[i].clearChart();
-    //   }
-    // });
 
     display_folder.add(guiControls, 'twelveHourClock').name('12-hour clock');
 
@@ -3202,7 +3194,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'km / meters / cm / mm' : 'LENGTH_UNIT_METRIC',
         'miles / ft / inch' : 'LENGTH_UNIT_IMPERIAL',
       })
-      .name('Length Unit');
+      .name('Length Unit')
+      .onChange(function() {
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].clearChart();
+        }
+      });
 
     display_folder
       .add(guiControls, 'speedUnit', {
@@ -3211,7 +3208,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         'mph' : 'SPEED_UNIT_MPH',
         'kt' : 'SPEED_UNIT_KT',
       })
-      .name('Speed Unit');
+      .name('Speed Unit')
+      .onChange(function() {
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].clearChart();
+        }
+      });
 
     display_folder
       .add(guiControls, 'tempUnit', {
@@ -3219,7 +3221,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         '°F' : 'TEMP_UNIT_F',
         'K' : 'TEMP_UNIT_K',
       })
-      .name('Temperature Unit');
+      .name('Temperature Unit')
+      .onChange(function() {
+        for (i = 0; i < weatherStations.length; i++) {
+          weatherStations[i].clearChart();
+        }
+      });
 
 
     var advanced_folder = datGui.addFolder('Advanced');
