@@ -488,7 +488,9 @@ void main()
           base[TEMPERATURE] = CtoK(25.0);
         }
 
-        if (dynamicWaterTemperature >= 1.0) {
+        const float waterTempUpdateInterval = 20.0; // Update less often but with bigger value to reduce rounding error
+
+        if (dynamicWaterTemperature >= 1.0 && mod(iterNum, waterTempUpdateInterval) < 0.5) {
 
           float airTemperature = potentialToRealT(texture(baseTex, texCoordX0Yp)[TEMPERATURE], texCoordX0Yp.y);
           vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
@@ -506,7 +508,7 @@ void main()
 
           netWaterHeating += lightAboveSurface[NET_HEATING]; // IR heating/cooling effect
 
-          base[TEMPERATURE] += netWaterHeating / waterHeatCapacity;
+          base[TEMPERATURE] += netWaterHeating / waterHeatCapacity * waterTempUpdateInterval;
         }
 
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range

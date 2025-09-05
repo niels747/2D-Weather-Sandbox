@@ -31,6 +31,7 @@ var FPS = 60.0;
 
 
 const corsUrl = 'https://corsproxy.io/?'; // need proxy to allow for cross origin request
+// const corsUrl = 'https://crossorigin.me/';
 
 async function getSoundingGraphImgUrl(url)
 {
@@ -92,12 +93,12 @@ async function loadSounding(stationID, timeStamp)
   const graphPageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=' + imgMapType + '&date=' + timeStamp;
   const tablePageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=4&date=' + timeStamp;
 
-  // console.log(graphPageUrl, tablePageUrl);
-
   const SoundingGraphImgUrl = await getSoundingGraphImgUrl(graphPageUrl);
 
   const soundingImgEl = document.getElementById('soundingPreview');
   soundingImgEl.src = SoundingGraphImgUrl;
+
+  // console.log(graphPageUrl, SoundingGraphImgUrl, tablePageUrl);
 
   return scrapeTableData(tablePageUrl);
 }
@@ -260,7 +261,8 @@ const guiControls_default = {
   waterEvaporation : 0.0001,
   evapHeat : 2.90,          //  Real: 2260 J/g
   meltingHeat : 0.43,       //  Real:  334 J/g
-  waterWeight : 0.50,       // 0.50
+  condensationRate : 0.0010,
+  waterWeight : 0.25,       // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
   subZeroThreshold : 0.005, // 0.01
@@ -2574,19 +2576,38 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let heightAboveObstacles = this.#radarAltitude;
 
+      let gearTouchAlt = 8.0 - this.#gearExtPos;
+
+      let bounceForceMult = 100000.0;
+
+
       if (wallTextureValues[0] == 1) {                                               // over land
 
         heightAboveObstacles -= map_range_C(wallTextureValues[3], 80, 127, 0., 15.); // trees
 
       } else if (wallTextureValues[0] == 2) {                                        // over water
-        heightAboveGround += 100.0;
-      } else if (wallTextureValues[0] == 4) {                                        // over urban
+        heightAboveObstacles += 10.;
+        gearTouchAlt = 5.0;                                                          // + (7.0 - this.#gearExtPos) * 0.2;
+        bounceForceMult = 9000.0 + Math.abs(this.phys.vel.x) * 600.0;
+
+        let draught = gearTouchAlt - heightAboveGround;
+        if (draught > 0.0) {
+          let waterDragForce = this.phys.vel.x * -30000.0 * draught;
+          // console.log(waterDragForce);
+          if (waterDragForce > 1800000 || this.#gearExtPos < 7.0) { // crash on water
+            guiControls.IterPerFrame = 1;
+            guiControls.auto_IterPerFrame = false;
+            this.#framesSinceCrash = 0;
+          }
+
+          this.phys.applyForce(new Vec2D(waterDragForce, 0.));
+        }
+
+      } else if (wallTextureValues[0] == 4) { // over urban
         heightAboveObstacles -= 100.0;
       }
 
-      let gearTouchAlt = 8.0 - this.#gearExtPos;
-
-      let mainGearForce = Math.max(gearTouchAlt - heightAboveGround, 0.0) * 10000000.0;
+      let mainGearForce = Math.max(gearTouchAlt - heightAboveGround, 0.0) * bounceForceMult * 100.0;
 
       if (mainGearForce > 0.0) {
         this.#gearOnGround = true;
@@ -2601,7 +2622,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let frontGearAlt = heightAboveGround + Math.sin(this.phys.angle) * frontGearPosX;
 
-      let frontGearForce = Math.max(gearTouchAlt - frontGearAlt, 0.0) * 500000.0;
+      let frontGearForce = Math.max(gearTouchAlt - frontGearAlt, 0.0) * bounceForceMult * 5.0;
 
       if (frontGearForce > 0.0)
         frontGearForce -= this.phys.aVel * 5000000; // damping
@@ -2613,12 +2634,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'gearPos'), gearPos);
 
+      // if (wallTextureValues[0] == 2) {     // over water
 
+      // } else {                             // over land
       if (heightAboveObstacles <= 6.0) { // crash into the surface
         guiControls.IterPerFrame = 1;
         guiControls.auto_IterPerFrame = false;
         this.#framesSinceCrash = 0;
       }
+      //}
 
       this.#groundSpeed = this.phys.vel.mag();
 
@@ -2804,15 +2828,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     setupDatGui(JSON.stringify(guiControls_default));
     guiControls.simHeight = sim_height;
   } else {
-    setupDatGui(guiControlsFromSaveFile); // use settings from save file
+    setupDatGui(guiControlsFromSaveFile);                     // use settings from save file
+
+    for (const [key, value] of Object.entries(guiControls)) { // set numerical values that could not be loaded from the savefile to their defaults.
+      if (value === -1) {
+        guiControls[key] = guiControls_default[key];
+      }
+    }
   }
 
   function setGuiUniforms()
-  {
-    // set all uniforms to new values
+  { // set all uniforms to new values
     gl.useProgram(boundaryProgram);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'), guiControls.vorticity);
-    // gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
@@ -2829,6 +2857,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(advectionProgram);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'meltingHeat'), guiControls.meltingHeat);
+    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'condensationRate'), guiControls.condensationRate);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
@@ -3051,6 +3080,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingHeat'), guiControls.meltingHeat);
       })
       .name('Melting Heat');
+    water_folder.add(guiControls, 'condensationRate', 0.001, 0.020, 0.001)
+      .onChange(function() {
+        gl.useProgram(advectionProgram);
+        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'condensationRate'), guiControls.condensationRate);
+      })
+      .listen()
+      .name('Condensation Rate');
     water_folder.add(guiControls, 'waterWeight', 0.0, 2.0, 0.01)
       .onChange(function() {
         gl.useProgram(boundaryProgram);
@@ -4794,7 +4830,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_Vel = new Float32Array(504); // sim_res_y + 1
-  if (soundingData.length > 100) {
+  if (soundingData && soundingData.length > 100) {
     var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
 
     for (var y = 0; y < sim_res_y + 1; y++) {
@@ -5287,9 +5323,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum); // % 777
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum);
               gl.enable(gl.BLEND);
-              gl.blendFunc(gl.ONE, gl.ONE);                                                  // add everything together
+              gl.blendFunc(gl.ONE, gl.ONE); // add everything together
               gl.activeTexture(gl.TEXTURE0);
               gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
               gl.activeTexture(gl.TEXTURE1);

@@ -202,8 +202,8 @@ void main()
       float growth = water[CLOUD] * growthRate * surfaceArea;
 
       // Hail growth enhancement:
-      if (realTemp < CtoK(0.0) && density == 1.0) {            // below freezing
-        growth += surfaceArea * water[PRECIPITATION] * 0.0030; // rain freezing onto hail
+      if (realTemp < CtoK(0.0) && water[CLOUD] > 0.0 && density == 1.0) { // below freezing
+        growth += surfaceArea * water[PRECIPITATION] * 0.0030;            // rain freezing onto hail
       }
 
       feedback[VAPOR] -= growth * 1.0; // takes water from the air
@@ -256,17 +256,17 @@ void main()
       // move with air    * 2. because droplet position goes from -1. to 1
       newPos += base.xy / resolution * 2.;
       newPos.y -= fallSpeed * newDensity * sqrt(totalMass / surfaceArea); // fall speed relative to air
-                                                                          /*
-                                                                           // falling at fixed speed:
-                                                                          float cellHeight = texelSize.y * 12000.0; // in meters
-                                                                          float realSecPerIter = 0.288;
-                                                                          float metersPerSec = 6.0;
-                                                                          float cellsPerSec = metersPerSec / cellHeight;
-                                                                          float cellsPerIter = cellsPerSec * realSecPerIter;
-                                                                          newPos.y -= cellsPerIter * 2. * texelSize.y;
-                                                                          */
+      /*
+       // falling at fixed speed:
+      float cellHeight = texelSize.y * 12000.0; // in meters
+      float realSecPerIter = 0.288;
+      float metersPerSec = 6.0;
+      float cellsPerSec = metersPerSec / cellHeight;
+      float cellsPerIter = cellsPerSec * realSecPerIter;
+      newPos.y -= cellsPerIter * 2. * texelSize.y;
+      */
 
-      newPos.x = mod(newPos.x + 1., 2.) - 1.;                             // wrap horizontal position around map edges
+      newPos.x = mod(newPos.x + 1., 2.) - 1.; // wrap horizontal position around map edges
 
       feedback[MASS] = totalMass;
 

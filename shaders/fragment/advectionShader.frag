@@ -33,6 +33,7 @@ uniform bool wrapHorizontally;
 uniform float dryLapse;
 uniform float evapHeat;
 uniform float meltingHeat;
+uniform float condensationRate;
 
 uniform float globalEffectsHeight;
 uniform float globalDrying;
@@ -115,11 +116,16 @@ void main()
 
     float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
 
-    float condensation = overSaturation * 0.004;       // 0.002 amount of the oversaturated water vapor that slowly condences
+    float condensation;
 
-    condensation = max(condensation, -water[CLOUD]);   // can't evaporate more than there is
+    if (overSaturation < 0.) {                          // evaporation
+      condensation = overSaturation * 0.20;             // evaporation is rapid
+    } else {                                            // condensation
+      condensation = overSaturation * condensationRate; // 0.002 0.25 amount of the oversaturated water vapor that slowly condences
+    }
+    condensation = max(condensation, -water[CLOUD]);    // Prevent cloudwater from going negative
 
-    float dT = condensation * evapHeat * 1.0;          // how much that water phase change would change the temperature
+    float dT = condensation * evapHeat * 1.0;           // how much that water phase change would change the temperature
     base[TEMPERATURE] += dT;
     realTemp += dT;
     water[CLOUD] += condensation;
