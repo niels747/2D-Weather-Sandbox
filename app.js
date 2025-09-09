@@ -261,7 +261,7 @@ const guiControls_default = {
   waterEvaporation : 0.0001,
   evapHeat : 2.90,          //  Real: 2260 J/g
   meltingHeat : 0.43,       //  Real:  334 J/g
-  condensationRate : 0.0010,
+  condensationRate : 0.0050,
   waterWeight : 0.25,       // 0.50
   inactiveDroplets : 0,
   aboveZeroThreshold : 1.0, // PRECIPITATION
