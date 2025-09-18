@@ -55,10 +55,9 @@ uniform vec4 realWorldSounding_Wv[126];
 uniform vec4 realWorldSounding_Velv[126];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
-
-float getRealWorldSounding_T(int y) { return realWorldSounding_Tv[y / 4][y % 4]; }
-float getRealWorldSounding_W(int y) { return realWorldSounding_Wv[y / 4][y % 4]; }
-float getRealWorldSounding_Vel(int y) { return realWorldSounding_Velv[y / 4][y % 4]; }
+float getRealWorldSounding_T(int y) { return (realWorldSounding_Tv[y / 4][y % 4] + realWorldSounding_Tv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
+float getRealWorldSounding_W(int y) { return (realWorldSounding_Wv[y / 4][y % 4] + realWorldSounding_Wv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
+float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y % 4] + realWorldSounding_Velv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
 
 #include "common.glsl"
 

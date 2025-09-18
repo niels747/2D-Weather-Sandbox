@@ -30,6 +30,45 @@ function updateSetupSliders()
 var FPS = 60.0;
 
 
+function mixGeneric(a, b, t, {clamp = false} = {})
+{
+  const clampT = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+  if (typeof a === 'number' && typeof b === 'number') {
+    const tt = clamp ? clampT(t) : t;
+    return a * (1 - tt) + b * tt;
+  }
+
+  // arrays / typed arrays
+  if (Array.isArray(a) || ArrayBuffer.isView(a)) {
+    if (!Array.isArray(b) && !ArrayBuffer.isView(b))
+      throw new TypeError('mismatched types');
+    if (a.length !== b.length)
+      throw new RangeError('length mismatch');
+    const out = new (Array.isArray(a) ? Array : a.constructor)(a.length);
+    for (let i = 0; i < a.length; i++) {
+      const tt = clamp ? clampT(t[i] ?? t) : (Array.isArray(t) ? t[i] ?? t : t);
+      out[i] = a[i] * (1 - tt) + b[i] * tt;
+    }
+    return out;
+  }
+
+  // vector-like object with same keys
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const out = {};
+    for (const k of Object.keys(a)) {
+      if (typeof a[k] === 'number' && typeof b[k] === 'number') {
+        const tt = clamp ? clampT(t[k] ?? t) : (t && typeof t === 'object' ? (t[k] ?? t) : t);
+        out[k] = a[k] * (1 - tt) + b[k] * tt;
+      }
+    }
+    return out;
+  }
+
+  throw new TypeError('Unsupported types for mixGeneric');
+}
+
+
 const corsUrl = 'https://corsproxy.io/?'; // need proxy to allow for cross origin request
 // const corsUrl = 'https://crossorigin.me/';
 
@@ -76,9 +115,11 @@ async function scrapeTableData(url)
         angle : parseFloat(cells[6].textContent.split(' / ')[0]),
       };
 
-      tableData.push(rowData);
-    });
+      const hasNaN = Object.values(rowData).some(v => Number.isNaN(v));
 
+      if (!hasNaN) // discard if the row contains any NaN
+        tableData.push(rowData);
+    });
     return tableData;
 
   } catch (error) {
@@ -105,30 +146,33 @@ async function loadSounding(stationID, timeStamp)
 
 function sampleIsInvalid(s) { return isNaN(s.t) || isNaN(s.td) || isNaN(s.vel); }
 
-function rawSoundingToSimSounding(soundingData, simHeight, simResY)
+function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 {
   let soundingForSim = [];
 
-  soundingDataIndex = soundingData.length - 1;
+  soundingDataIndex = soundingData.length - 1; // start from lowest datapoint
 
-  for (let y = 0; y < simResY; y++) {
+  for (let y = 0; y < inSimSoundingRes; y++) {
 
-    const inSimAlt = y * (simHeight / simResY);
+    const inSimAlt = y * (simHeight / sim_res_y);
 
-    while (inSimAlt >= soundingData[soundingDataIndex]['alt'] || sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches the in sim altitude
+    while (soundingData[soundingDataIndex]['alt'] < inSimAlt || sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
       soundingDataIndex--;
     }
 
-    const s = soundingData[soundingDataIndex];
+    const sampleAboveOrEqual = soundingData[soundingDataIndex];
 
-    // y = length * sin(angle)
+    const sampleBelow = soundingData[Math.min(soundingDataIndex + 1, soundingData.length - 1)];
 
-    let twoDimentionalVel = s.vel * Math.cos(s.angle * degToRad); // km/h
+    let s = sampleAboveOrEqual;
+    if (sampleAboveOrEqual['alt'] != inSimAlt && inSimAlt >= soundingData[soundingData.length - 1].alt) {
+      let a = (inSimAlt - sampleBelow['alt']) / (sampleAboveOrEqual['alt'] - sampleBelow['alt']);
+      s = mixGeneric(sampleBelow, sampleAboveOrEqual, a);
+    }
 
-    // if (isNaN(twoDimentionalVel))
-    //   twoDimentionalVel = 0.0;
+    // console.log(inSimAlt, sampleBelow['alt'], sampleAboveOrEqual['alt'], s);
 
-    //  console.log(twoDimentionalVel);
+    let twoDimentionalVel = s.vel * Math.cos(s.angle * degToRad);   // km/h
 
     const inSimVel = msToRawVelocity(twoDimentionalVel / 3.6);      // convert to m/s first
 
@@ -4830,11 +4874,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_Vel = new Float32Array(504); // sim_res_y + 1
-  if (soundingData && soundingData.length > 100) {
+  if (soundingData && soundingData.length > 10) {
     var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
 
     for (var y = 0; y < sim_res_y + 1; y++) {
-      //   let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
 
       let soundingSample = soundingForSim[y];
 
