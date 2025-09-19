@@ -1968,7 +1968,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#autopilot = autopilot;
       this.#panelDiv = document.createElement('div');
       this.#instrumentCanvas = document.createElement('canvas');
-      this.#instrumentCanvas.width = 750;
+      this.#instrumentCanvas.width = 800;
       this.#instrumentCanvas.height = 660; // 660
       this.#panelDiv.style.opacity = 0.7;
       this.#panelDiv.style.position = 'absolute';
@@ -2073,7 +2073,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
     {
       let ctx = this.#instrumentCanvas.getContext("2d");
-      let width = this.#instrumentCanvas.width;
+      let width = this.#instrumentCanvas.width - 50;
       let height = this.#instrumentCanvas.height;
       const topBarHeight = 50;
       let mainHeight = height - topBarHeight; // height of virtual horizon part
@@ -2187,7 +2187,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
       ctx.stroke();
       ctx.fillStyle = 'black';
-      ctx.fillRect(altIndXpos - 3, mainHeight / 2 + topBarHeight - 25, 150, 50);
+      ctx.fillRect(altIndXpos - 3, mainHeight / 2 + topBarHeight - 25, 113, 50);
       ctx.fillStyle = 'white';
       ctx.fillText(altitude.toFixed(0) + unit, altIndXpos, mainHeight / 2 + topBarHeight + 10);
 
@@ -2271,12 +2271,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.strokeStyle = 'green';
       ctx.stroke();
 
+      // VERTICAL VElOCITY INDICATOR
+      ctx.fillStyle = 'black';
+      ctx.fillRect(width, topBarHeight, 50, mainHeight);
+      let hue = clamp(120.0 + trueVel.y * 10.0, 0.0, 200.0);
+      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+
+      let verticalSpeedIndicatorVal = trueVel.y < 0 ? Math.sqrt(-trueVel.y) : -Math.sqrt(trueVel.y);
+      ctx.fillRect(width + 10, mainHeight / 2 + topBarHeight, 30, verticalSpeedIndicatorVal * 40.);
+
+      ctx.fillStyle = 'black';
+      ctx.fillRect(width, mainHeight / 2 + topBarHeight - 13, 50, 26);
+
+      ctx.font = '20px serif';
+      ctx.fillStyle = 'white';
+      ctx.fillText(trueVel.y > 0. ? '+' + trueVel.y.toFixed(1) : trueVel.y.toFixed(1), width, mainHeight / 2 + topBarHeight + 6);
 
       // OVERHEAD
       ctx.fillStyle = '#222222';
       ctx.fillRect(0, 0, this.#instrumentCanvas.width, topBarHeight);
 
       ctx.fillStyle = '#00FFFF';
+      ctx.font = "30px serif";
       ctx.fillText('🌡 ' + printTemp(OAT_C), 0, 40);
 
       ctx.fillStyle = '#FFFF00';
@@ -2749,7 +2765,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.phys.applyForce(new Vec2D(this.phys.vel.x > 0.0 ? -gearDragForce : gearDragForce, 0.));
       }
 
-      this.phys.aVel *= 1. - 0.07 * dt; // angular velocity drag
+      this.phys.aVel *= 1. - 0.15 * dt; // angular velocity drag
 
       this.phys.move();
     }
@@ -3974,7 +3990,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyA') {
       if (airplaneMode)
         airplane.disableAirplaneMode();
-      else
+      else if (!SETUP_MODE)
         airplane.enableAirplaneMode(event.getModifierState('CapsLock'));
     } else if (event.code == 'CapsLock') {
       if (airplaneMode)
