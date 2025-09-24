@@ -5956,8 +5956,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {                                                   // increment time
         simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
-        guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60.0;
-        guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.0;
+        guiControls.timeOfDay = simDateTime.getHours() + simDateTime.getMinutes() / 60. + simDateTime.getSeconds() / 3600.;
+        guiControls.month = simDateTime.getMonth() + 1 + simDateTime.getDate() / 30.5 + simDateTime.getHours() / 720.;
       } else {
         for (i = 0; i < weatherStations.length; i++) {
           weatherStations[i].clearChart();
