@@ -513,7 +513,7 @@ void main()
 
         base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
 
-        wall[VEGETATION] = 0;
+        wall[VEGETATION] = 20;
         water[SOIL_MOISTURE] = 100.0;
         water[SNOW] = 0.0;
         break;

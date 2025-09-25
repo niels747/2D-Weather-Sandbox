@@ -25,6 +25,10 @@ float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
 
+float dryLapse; // NOT USED needs to be declared for common.glsl
+vec2 resolution;
+#include "common.glsl"
+
 void main()
 {
   base = texture(baseTex, texCoord);
@@ -33,31 +37,26 @@ void main()
 
   wall = texture(wallTex, texCoord);
 
-  if (wall[1] == 0) // is wall
+  if (wall[DISTANCE] == 0) // is wall
   {
-    base[0] = 0.0;  // velocities in wall are 0
-    base[1] = 0.0;  // this will make a wall not let any pressure trough and
-                    // thereby reflect any pressure waves back
+    base[VX] = 0.0;        // velocities in wall are 0
+    base[VY] = 0.0;        // this will make a wall not let any pressure trough and
+                           // thereby reflect any pressure waves back
   } else {
 
     // The velocity through the cell changes proportionally to the pressure
     // gradient across the cell. It's basically just newtons 2nd law.
-    base[0] += base[2] - baseXpY0[2];
-    base[1] += base[2] - baseX0Yp[2];
+    base[VX] += base[PRESSURE] - baseXpY0[PRESSURE];
+    base[VY] += base[PRESSURE] - baseX0Yp[PRESSURE];
 
-    // if(texCoord.y > 0.50){
-    //   //base[0] *= 0.99995;
-    //   base[1] *= 0.99995;
-    // }
-
-    base[0] *= 1. - dragMultiplier * 0.0002; // linear drag
-    base[1] *= 1. - dragMultiplier * 0.0002;
+    base[VX] *= 1. - dragMultiplier * 0.0002; // linear drag
+    base[VY] *= 1. - dragMultiplier * 0.0002;
 
     // quadratic drag
-    // base[0] -= base[0] * base[0] * base[0] * base[0] * base[0] *
-    // dragMultiplier; base[1] -= base[1] * base[1] * base[1] * base[1] *
-    // base[1] * dragMultiplier;
+    // base[VX] -= base[VX] * base[VX] * base[VX] * base[VX] * base[VX] *
+    // dragMultiplier; base[VY] -= base[VY] * base[VY] * base[VY] * base[VY] *
+    // base[VY] * dragMultiplier;
 
-    base[0] += wind * 0.000001;
+    base[VX] += wind * 0.000001;
   }
 }

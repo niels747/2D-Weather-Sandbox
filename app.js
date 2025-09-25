@@ -2646,8 +2646,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         heightAboveObstacles -= map_range_C(wallTextureValues[3], 80, 127, 0., 15.); // trees
 
       } else if (wallTextureValues[0] == 2) {                                        // over water
-        heightAboveObstacles += 10.;
-        gearTouchAlt = 5.0;                                                          // + (7.0 - this.#gearExtPos) * 0.2;
+        heightAboveObstacles += 20.;
+        gearTouchAlt = -5.0;                                                         // + (7.0 - this.#gearExtPos) * 0.2;
         bounceForceMult = 9000.0 + Math.abs(this.phys.vel.x) * 600.0;
 
         let draught = gearTouchAlt - heightAboveGround;

@@ -66,7 +66,9 @@ float opacity = 1.0;
 
 vec3 emittedLight = vec3(0.); // pure light, like lightning
 
-vec3 onLight;                 // extra light that lights up objects, just like sunlight and shadowlight
+float shadowLight;
+
+vec3 onLight; // extra light that lights up objects, just like sunlight and shadowlight
 
 
 const vec3 bareDrySoilCol = pow(vec3(0.85, 0.60, 0.40), vec3(GAMMA));
@@ -201,6 +203,79 @@ vec3 spectral_zucconi(float w)
 }
 
 
+vec4 getAirColor(vec2 fragCoordIn)
+{
+  vec2 bndFragCoord = vec2(fragCoordIn.x, clamp(fragCoordIn.y, 0., resolution.y)); // bound y within range
+  base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
+  wall = texture(wallTex, bndFragCoord * texelSize);                               // texCoord
+  water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
+  lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0] / standardSunBrightness;
+
+  ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+
+  float realTemp = potentialToRealT(base[TEMPERATURE]);
+
+  bool nightTime = abs(sunAngle) > 85.0 * deg2rad; // false = day time
+
+  shadowLight = minShadowLight;
+
+  // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
+
+  float cloudwater = water[CLOUD];
+
+  vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black
+
+  float cloudDensity = max(cloudwater * 13.6, 0.0);
+
+  float totalDensity = cloudDensity + water[PRECIPITATION] * 0.8; // visualize precipitation
+
+
+  // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
+  float cloudOpacity = clamp(1.0 - (1.0 / (1. + totalDensity)), 0.0, 1.0);
+
+  const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
+  const vec3 smokeThickCol = vec3(0., 0., 0.);
+
+
+  float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
+  float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
+
+  vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
+
+  vec3 smokeOrFireCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
+
+  shadowLight += fireIntensity * 2.5;                                                                                 // 1.5
+
+  float opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                     // alpha blending
+  vec3 color = (smokeOrFireCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
+
+
+  vec4 lightningData = texture(lightningDataTex, vec2(0.5));
+  vec2 lightningPos = lightningData.xy;
+  float lightningStartIterNum = lightningData[START_ITERNUM];
+
+  float lightningTime = calcLightningTime(lightningStartIterNum);
+  float currentLightningIntensity = lightningIntensityOverTime(lightningTime, lightningPos, lightningData[INTENSITY]);
+
+
+  if (lightningData[INTENSITY] > 1.0) { // CG
+    emittedLight += displayLightning(lightningPos, lightningTime, currentLightningIntensity);
+    emittedLight /= 1. + cloudDensity * 100.0;
+  }
+
+#define lightningOnLightBrightness 0.004 // 0.002
+
+  vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
+  dist.x *= aspectRatios[0];
+  float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
+  lightningOnLight *= currentLightningIntensity;
+  onLight += vec3(lightningOnLight);
+
+  return vec4(color, opacity);
+}
+
+float rand(float n) { return fract(sin(n) * 43758.5453123); }
+
 void main()
 {
   vec2 bndFragCoord = vec2(fragCoord.x, clamp(fragCoord.y, 0., resolution.y)); // bound y within range
@@ -209,21 +284,19 @@ void main()
   water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
   lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0] / standardSunBrightness;
 
+  ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
   float realTemp = potentialToRealT(base[TEMPERATURE]);
 
   bool nightTime = abs(sunAngle) > 85.0 * deg2rad; // false = day time
 
-  float shadowLight = minShadowLight;
+  shadowLight = minShadowLight;
 
   // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
 
   float cloudwater = water[CLOUD];
 
-  if (texCoord.y < 0.) { // < texelSize.y below simulation area
-
-    // ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
-    // ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+  if (texCoord.y < 0.) {                                     // < texelSize.y below simulation area
 
     float depth = float(-wall[VERT_DISTANCE]) - fragCoord.y; // -1.0?
 
@@ -237,6 +310,10 @@ void main()
     opacity = 0.0;                  // completely transparent
   } else if (wall[DISTANCE] == 0) { // is wall
                                     // color = getWallColor(texCoord);
+
+    ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
+    ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+
     switch (wall[TYPE]) {
       // case WALLTYPE_INERT:
       //   color = vec3(0, 0, 0);
@@ -266,8 +343,6 @@ void main()
     case WALLTYPE_FIRE:
     case WALLTYPE_LAND:
 
-      ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
-      ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
       // horizontally interpolate depth value
       float interpDepth = mix(mix(float(-wallXmY0[VERT_DISTANCE]), float(-wall[VERT_DISTANCE]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[VERT_DISTANCE]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
       float depth = interpDepth - fract(fragCoord.y); // - 1.0 ?
@@ -276,62 +351,72 @@ void main()
 
       break;
     case WALLTYPE_WATER:
-      color = vec3(0, 0.5, 1.0);
+
+      // Precomputed values (tweak to taste)
+      // Frequencies
+      const int numWaveComp = 5;
+      const float freqs[numWaveComp] = float[numWaveComp](2.3, 3.7, 5.1, 7.6, 21.7);
+      // Amplitudes
+      const float amps[numWaveComp] = float[numWaveComp](0.05, 0.03, 0.02, 0.015, 0.004);
+      // Speeds
+      const float speeds[numWaveComp] = float[numWaveComp](0.006, 0.011, 0.018, 0.025, 0.05);
+      // Phases (in radians)
+      const float phases[numWaveComp] = float[numWaveComp](1.2, 3.9, 0.7, 5.1, 3.1);
+
+      // Sum up the components
+      float waveSignalL = 0.0;
+      float waveSignalR = 0.0;
+
+      for (int i = 0; i < numWaveComp; i++) {
+        waveSignalL += sin(fragCoord.x * freqs[i] + iterNum * speeds[i] + phases[i]) * amps[i];
+        waveSignalR += sin(fragCoord.x * freqs[i] - iterNum * speeds[i] + phases[i]) * amps[i];
+      }
+
+      vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
+      float windSpeed = baseX0Yp[VX] * 10.;
+
+      // combine based on wind direction
+      float waterLevel = 0.8 + waveSignalL * max(-windSpeed, 0.) + waveSignalR * max(windSpeed, 0.);
+
+      if (wall[VERT_DISTANCE] == 0 && fract(fragCoord.y) > waterLevel) { // air
+        vec4 airColor = getAirColor(fragCoord + vec2(0., 0.5));
+
+        opacity = airColor.a;
+        color = airColor.rgb;
+      } else {
+        color = vec3(0, 0.5, 1.0); // water
+      }
+
+      // draw 45° slopes under water
+
+      float localX = fract(fragCoord.x);
+      float localY = fract(fragCoord.y);
+
+      if (wallXmY0[DISTANCE] == 0 && wallXmY0[TYPE] != WALLTYPE_WATER && (fragCoord.y < 1. || wallX0Ym[TYPE] != WALLTYPE_WATER)) { // wall to the left and below
+        if (localX + localY < 1.0) {
+          opacity = 1.0;
+          water = texture(waterTex, texCoord);
+          color = getWallColor(float(-wall[VERT_DISTANCE]) - localY);
+          shadowLight = minShadowLight;
+        }
+      }
+      if (wallXpY0[DISTANCE] == 0 && wallXpY0[TYPE] != WALLTYPE_WATER && (fragCoord.y < 1. || wallX0Ym[TYPE] != WALLTYPE_WATER)) { // wall to the right and below
+        if (localY - localX < 0.0) {
+          opacity = 1.0;
+          water = texture(waterTex, texCoord);
+          color = getWallColor(float(-wall[VERT_DISTANCE]) - localY);
+          shadowLight = minShadowLight;
+        }
+      }
+
       break;
     }
-  } else {                                                  // air
+  } else { // air
 
-    vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black
-    // vec3 cloudCol = vec3(1.0); // white
+    vec4 airColor = getAirColor(fragCoord);
 
-    // float curl = bilerp(curlTex, fragCoord).x;
-    //  float curl = texture(curlTex, texCoord).x;
-
-    // fragmentColor = vec4(vec3(curl * 5.), 1.0);
-
-    float cloudDensity = max(cloudwater * 13.6, 0.0);
-
-    float totalDensity = cloudDensity + water[PRECIPITATION] * 0.8; // visualize precipitation
-
-    // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
-    float cloudOpacity = clamp(1.0 - (1.0 / (1. + totalDensity)), 0.0, 1.0);
-
-    const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
-    const vec3 smokeThickCol = vec3(0., 0., 0.);
-
-
-    float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
-    float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
-
-    vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
-
-    vec3 smokeOrFireCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
-
-    shadowLight += fireIntensity * 2.5;                                                                            // 1.5
-
-    opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                      // alpha blending
-    color = (smokeOrFireCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
-
-    vec4 lightningData = texture(lightningDataTex, vec2(0.5));
-    vec2 lightningPos = lightningData.xy;
-    float lightningStartIterNum = lightningData[START_ITERNUM];
-
-    float lightningTime = calcLightningTime(lightningStartIterNum);
-    float currentLightningIntensity = lightningIntensityOverTime(lightningTime, lightningPos, lightningData[INTENSITY]);
-
-
-    if (lightningData[INTENSITY] > 1.0) { // CG
-      emittedLight += displayLightning(lightningPos, lightningTime, currentLightningIntensity);
-      emittedLight /= 1. + cloudDensity * 100.0;
-    }
-
-#define lightningOnLightBrightness 0.004 // 0.002
-
-    vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
-    dist.x *= aspectRatios[0];
-    float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
-    lightningOnLight *= currentLightningIntensity;
-    onLight += vec3(lightningOnLight);
+    opacity = airColor.a;
+    color = airColor.rgb;
 
 
     vec2 rainbowCenter = vec2(0.0, -1.5 + abs(sunAngle) * 0.60);
@@ -355,7 +440,7 @@ void main()
     if (wall[VERT_DISTANCE] >= 0 && wall[VERT_DISTANCE] < 10) { // near surface
       float localX = fract(fragCoord.x);
       float localY = fract(fragCoord.y);
-      ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+      // ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
 
 #define texAspect 2560. / 4096. // height / width of tree texture
 #define maxTreeHeight 40.       // height in meters when vegetation max = 127
@@ -466,23 +551,25 @@ void main()
         }
 
         // draw 45° slopes
-        if (texture(wallTex, texCoordXmY0)[DISTANCE] == 0) { // wall to the left and below
+        ivec4 wallXmY0 = texture(wallTex, texCoordXmY0);
+        ivec4 wallXpY0 = texture(wallTex, texCoordXpY0);
+
+        if (wallXmY0[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER) { // wall to the left and below
           if (localX + localY < 1.0) {
             opacity = 1.0;
             water = texture(waterTex, texCoordX0Ym);
-            color = getWallColor(-0.6);
+            color = getWallColor(localY - 0.6);
             shadowLight = minShadowLight; // fire should not light ground
           }
         }
-        if (texture(wallTex, texCoordXpY0)[DISTANCE] == 0) { // wall to the right and below
+        if (wallXpY0[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER) { // wall to the right and below
           if (localY - localX < 0.0) {
             opacity = 1.0;
             water = texture(waterTex, texCoordX0Ym);
-            color = getWallColor(-0.6);
+            color = getWallColor(localY - 0.6);
             shadowLight = minShadowLight; // fire should not light ground
           }
         }
-        //}
       }
     }
     float arrow = vectorField(base.xy, displayVectorField);
@@ -497,12 +584,7 @@ void main()
     // opacity += arrow;
     // lightIntensity += arrow;
   }
-  /*
-    lightIntensity = min(lightIntensity, 1.);
-    opacity = min(opacity, 1.);
-    color = min(color, vec3(1.));
-  */
-  // float scatering = clamp((0.15 / max(cos(sunAngle), 0.) - 0.15) * (2.0 - texCoord.y * 0.99) * 0.5, 0., 1.); // how red the sunlight is
+
 
   float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
 
@@ -516,7 +598,7 @@ void main()
     shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
   }
 
-  vec3 ambientLight = texture(ambientLightTex, texCoord).rgb / standardSunBrightness;
+  vec3 ambientLight = texture(ambientLightTex, texCoord).rgb;
 
   onLight += ambientLight * pow(1. - clamp(-texCoord.y * 15., 0., 1.), 2.5);
 

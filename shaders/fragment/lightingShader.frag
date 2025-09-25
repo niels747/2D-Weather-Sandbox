@@ -56,9 +56,9 @@ void main()
     float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
     vec3 sunlightColor = sunColor(scatering);
 
-    if (wall[DISTANCE] != 0) {                                                  // is not wall
+    if (wall[DISTANCE] != 0) {                                                                          // is not wall
 
-      reflectedLight.rgb += sunlightColor * sunlight * (1. - texCoord.y) * 2.0; // scatering in air
+      reflectedLight.rgb += sunlightColor * sunlight * (1. - texCoord.y) * 2.0 / standardSunBrightness; // scatering in air
 
       float net_heating = 0.0;
 
@@ -75,7 +75,7 @@ void main()
 
         // vec3 finalLight = sunColor(scatering)
 
-        reflectedLight.rgb = sunlightColor * lightReflected; // sunlight reflected by clouds and precipitation
+        reflectedLight.rgb = sunlightColor * lightReflected / standardSunBrightness; // sunlight reflected by clouds and precipitation
 
 
         // float avgSunlight = (texture(lightTex, texCoordX0Ym)[SUNLIGHT] + texture(lightTex, texCoordX0Yp)[SUNLIGHT] + texture(lightTex, texCoordXmY0)[SUNLIGHT] + texture(lightTex, texCoordXpY0)[SUNLIGHT]) / 4.0;
@@ -164,7 +164,7 @@ void main()
         vec3 lightAbsorbed = vec3(sunlight) - lightReflected;
 
         light = vec4(0.0, 0, 0, 0); // all light absorbed by ground
-        reflectedLight.rgb += lightReflected;
+        reflectedLight.rgb += lightReflected / standardSunBrightness;
       }
     }
   }
