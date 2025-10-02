@@ -67,7 +67,7 @@ float calcEvaporation(float T, float W, float V, float M)                       
   return max((maxWater(T) - W) * landEvaporation * (V / 127. + 0.1) * min(M + 1.0, 50.0) * 0.05, 0.); // landEvaporation should be adjusted to remove * 0.05 factor
 }
 
-float calcFireIntensity(int veg, float moist) { return float(veg) * 0.00025 - moist * 0.00020; }
+float calcFireIntensity(int veg, float moist, float precip) { return max(float(veg) * 0.00025 - moist * 0.00020 - precip * 0.02, 0.); }
 
 void main()
 {
@@ -112,7 +112,7 @@ void main()
 
 
     //  0.004 for rain visualisation
-    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.995 - 0.00001 + precipFeedback[MASS] * 0.005, 0.0);
+    water[PRECIPITATION] = max(water[PRECIPITATION] * 0.997 - 0.00001 + precipFeedback[MASS] * 0.005, 0.0);
 
 
     // rain removes smoke from air
@@ -124,6 +124,10 @@ void main()
     water[SMOKE] -= max((water[SMOKE] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
 
     water[SMOKE] = max(water[SMOKE], 0.0);                // snow and smoke can't go below 0
+
+    if (water[SMOKE] > 4.0) {
+      water[SMOKE] -= water[PRECIPITATION] * 0.02; // falling precipitation extinguishes flames
+    }
 
     // GRAVITY
     // temperature is calculated for Vy location
@@ -314,7 +318,7 @@ void main()
       switch (wall[TYPE]) {
       case WALLTYPE_FIRE:
         if (wall[VERT_DISTANCE] == 1) { // forest fire & one above surface
-          float fireIntensity = calcFireIntensity(wall[VEGETATION], waterInSurface[SOIL_MOISTURE]);
+          float fireIntensity = calcFireIntensity(wall[VEGETATION], waterInSurface[SOIL_MOISTURE], water[PRECIPITATION]);
 
           fireIntensity = max(fireIntensity, 0.);
           base[TEMPERATURE] += fireIntensity;   // heat
@@ -366,8 +370,7 @@ void main()
         break;
       }
     }
-  } else { // this is wall
-
+  } else {                                                                 // this is wall
 
     wall[VERT_DISTANCE] = wallX0Yp[VERT_DISTANCE] - 1;                     // height below ground is counted
 
@@ -386,6 +389,8 @@ void main()
 
     } else if (wall[VERT_DISTANCE] == 0) { // at/in surface layer
 
+      vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
+
       vec2 precipDeposition = texture(precipDepositionTex, texCoord).xy;
 
       vec4 lightAboveSurface = texture(lightTex, texCoordX0Yp); // sample cell above surface
@@ -397,14 +402,14 @@ void main()
         wall[VEGETATION] = min(wall[VEGETATION], 75); // limit vegetation in urban areas
       case WALLTYPE_FIRE:
         if (wall[TYPE] == WALLTYPE_FIRE) {            // extra check to make sure it's not urban
-          float fireIntensity = calcFireIntensity(wall[VEGETATION], water[SOIL_MOISTURE]);
+          float fireIntensity = calcFireIntensity(wall[VEGETATION], water[SOIL_MOISTURE], waterX0Yp[PRECIPITATION]);
 
           if (fireIntensity < minimalFireIntensity) { // fire goes out
-            wall[TYPE] = WALLTYPE_LAND;
+            wall[TYPE] = WALLTYPE_LAND;               // turn off fire
           } else if (int(iterNum) % (int(10. / fireIntensity) + 1) == 0) {
-            wall[VEGETATION] -= 1;        // reduce vegetation
+            wall[VEGETATION] -= 1;                    // reduce vegetation
             if (wall[VEGETATION] < 10)
-              wall[TYPE] = WALLTYPE_LAND; // turn off fire
+              wall[TYPE] = WALLTYPE_LAND;             // turn off fire
           }
         }
       case WALLTYPE_LAND:                                                                                          // no break,can also be fire or urban:
@@ -493,7 +498,7 @@ void main()
         if (dynamicWaterTemperature >= 1.0 && mod(iterNum, waterTempUpdateInterval) < 0.5) {
 
           float airTemperature = potentialToRealT(texture(baseTex, texCoordX0Yp)[TEMPERATURE], texCoordX0Yp.y);
-          vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
+
           float netWaterHeating = 0.0;
           netWaterHeating += (airTemperature - base[TEMPERATURE]) * waterHeatExchangeRate;                                  // water heated or cooled by the air above
 

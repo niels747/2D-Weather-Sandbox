@@ -2842,7 +2842,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planePos'), normXpos, normYpos, this.phys.angle);
       gl.useProgram(advectionProgram);
-      gl.uniform4f(gl.getUniformLocation(advectionProgram, 'airplaneValues'), normXpos, normYpos, this.throttle, this.#framesSinceCrash > 0 ? 1.0 : 0.0);
+      gl.uniform4f(gl.getUniformLocation(advectionProgram, 'airplaneValues'), normXpos, normYpos, this.throttle, this.#framesSinceCrash > 0 ? 1.0 : (zPressed ? -1.0 : 0.0));
       gl.useProgram(skyBackgroundDisplayProgram);
 
       if (this.#camFollow) {
@@ -3767,6 +3767,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var upPressed = false;
   var plusPressed = false;
   var minusPressed = false;
+  var zPressed = false;
 
 
   // EVENT LISTENERS
@@ -3947,8 +3948,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var lastBpressTime;
 
   document.addEventListener('keydown', (event) => {
-    if (event.code == 'ControlLeft' || event.key == 'Meta') {
-      // ctrl or cmd on mac
+    if (event.code == 'ControlLeft') {
       ctrlPressed = true;
     }
     if (event.code == 'ControlRight') {
@@ -3984,6 +3984,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyS') {
       // S: log sample at mouse location
       logSample();
+    } else if (event.code == 'KeyZ') {
+      zPressed = true;
     } else if (event.code == 'KeyX') {
       // Sample droplets around mouse location
       logDropletsAndToggleFollow();
@@ -4112,7 +4114,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   });
 
   document.addEventListener('keyup', (event) => {
-    if (event.keyCode == 17 || event.keyCode == 224) {
+    if (event.code == 'ControlLeft') {
       ctrlPressed = false;
     }
     if (event.code == 'ControlRight') {
@@ -4121,6 +4123,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyB') {
       bPressed = false;
       lastBpressTime = new Date().getTime();
+    } else if (event.code == 'KeyZ') {
+      zPressed = false;
     } else if (event.key == 'ArrowLeft') {
       leftPressed = false;  // <
     } else if (event.key == 'ArrowUp') {

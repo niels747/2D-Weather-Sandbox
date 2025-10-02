@@ -99,7 +99,7 @@ void main()
 
                                                                        //   water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
     // // precipitation visualization
-    water.z = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05)).z; // precipitation visualization advected with flow, and downward
+    water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05))[PRECIPITATION]; // precipitation visualization advected with flow, and downward
 
     // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
 
@@ -405,28 +405,39 @@ void main()
   } else { // no wall
            //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
   }
-  // airplaneValues.xy
-  float planeInfluence = max(0.003 - length(texCoord - airplaneValues.xy), 0.) * 10.0;
-  water[TOTAL] += planeInfluence * airplaneValues[2] * 1.0; // moisture
-  // water[3] += planeInfluence * 0.1; // smoke
-  //  base[3] += planeInfluence * 74.0; // heat
+
+  vec2 vecFromPlane;
+
+  if (wrapHorizontally) {
+    vecFromPlane = vec2(absHorizontalDist(airplaneValues.x, texCoord.x), airplaneValues.y - texCoord.y);
+  } else {
+    vecFromPlane = vec2(abs(airplaneValues.x - texCoord.x), airplaneValues.y - texCoord.y);
+  }
+
+  vecFromPlane.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
+  vecFromPlane *= resolution.y;                // convert to cell coordinates
+
+  if (airplaneValues[3] < 0.0)
+    vecFromPlane += vec2(0., -1.);            // dump water below plane
+
+  float distFromPlane = length(vecFromPlane); // in cells
+
+
+  float planeInfluence = max(1.0 - distFromPlane, 0.) * 0.03;
+
+
+  if (airplaneValues[3] < 0.0) {
+    water[PRECIPITATION] += planeInfluence * 100.0; // dump water
+  }
+
+  // water[TOTAL] += planeInfluence * airplaneValues[2] * 1.0; // moisture
+  // water[SMOKE] += planeInfluence * 0.1;                     // smoke
+  //   base[TEMPERATURE] += planeInfluence * 74.0; // heat
 
 
   if (airplaneValues[3] > 0.9) { // PLANE CRASH!
 
-    vec2 vecFromPlane;
-
-    if (wrapHorizontally) {
-      vecFromPlane = vec2(absHorizontalDist(airplaneValues.x, texCoord.x), airplaneValues.y - texCoord.y);
-    } else {
-      vecFromPlane = vec2(abs(airplaneValues.x - texCoord.x), airplaneValues.y - texCoord.y);
-    }
-
-    vecFromPlane.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
-
-    float distFromPlane = length(vecFromPlane);
-
-    if (distFromPlane < 1. / resolution.y * 1.5) {
+    if (distFromPlane < 1.5) {
       if (wall[DISTANCE] == 0) {
         if (wall[TYPE] == WALLTYPE_LAND && wall[VERT_DISTANCE] == 0) // if land surface, set ground on fire
           wall[TYPE] = WALLTYPE_FIRE;                                // start fire when plane hits the ground
