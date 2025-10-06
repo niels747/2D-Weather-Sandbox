@@ -207,15 +207,22 @@
 
         <div style="width: 100%; height: 500px;">
             <div style="float: left; margin-right: 100px;">
-                <input type="date" id="datePicker" value="2025-06-15" min="2010-01-01" onchange="prepareSounding();" />
+                <div>
+                    Preset:<select id="presetSelect" style="margin: 10px;"></select>
+                </div>
+                <div>
+                    <select id="stationSelect"></select>
+                    <input type="date" id="datePicker" value="2025-06-15" min="2010-01-01"
+                        onchange="prepareSounding();" />
 
-                <select id="hourSelector" onchange="prepareSounding();">
-                    <option value="0">00H</option>
-                    <option value="6">06H</option>
-                    <option value="12" selected>12H</option>
-                    <option value="18">18H</option>
-                </select>
-                <p>Select a real world sounding to use as forcing in the simulation</p>
+                    <select id="hourSelector" onchange="prepareSounding();">
+                        <option value="0">00H</option>
+                        <option value="6">06H</option>
+                        <option value="12" selected>12H</option>
+                        <option value="18">18H</option>
+                    </select>
+                    <p>Select a real world sounding to use as forcing in the simulation</p>
+                </div>
             </div>
             <img style="float: left; height: 500px;" id="soundingPreview"
                 alt="Sounding not available, Please select a different time.">

@@ -466,45 +466,48 @@ void main()
 
           int subInterval = int(iterNum) / 100;
 
-          if (subInterval % (int(water[SOIL_MOISTURE] * 0.1 + water[SNOW] * 0.5) + 10) == 0 && wall[VEGETATION] >= minimalFireVegetation && (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 4.5)) { // if left or right is on fire or fire is blowing over
-            wall[TYPE] = WALLTYPE_FIRE;                                                                                                                                                                                                                             // spread fire
+          if (subInterval % (int(water[SOIL_MOISTURE] * 0.1 + water[SNOW] * 0.5) + 10) == 0 && wall[VEGETATION] >= minimalFireVegetation &&
+              (wallXmY0[TYPE] == WALLTYPE_FIRE || wallXpY0[TYPE] == WALLTYPE_FIRE || texture(waterTex, texCoordX0Yp)[SMOKE] > 4.5)) { // if left or right is on fire or fire is blowing over
+            wall[TYPE] = WALLTYPE_FIRE;                                                                                               // spread fire
           }
           //}
         }
         break;
       case WALLTYPE_WATER:
-        // average out temperature
-        float numNeighbors = 0.;
-        float totalNeighborTemp = 0.0;
-
-        if (wallXmY0[TYPE] == WALLTYPE_WATER) { // left is water
-          totalNeighborTemp += texture(baseTex, texCoordXmY0)[TEMPERATURE];
-          numNeighbors += 1.;
-        }
-        if (wallXpY0[TYPE] == WALLTYPE_WATER) { // right is water
-          totalNeighborTemp += texture(baseTex, texCoordXpY0)[TEMPERATURE];
-          numNeighbors += 1.;
-        }
-        if (numNeighbors > 0.) { // prevent devide by 0
-          float avgNeighborTemp = totalNeighborTemp / numNeighbors;
-          base[TEMPERATURE] += (avgNeighborTemp - base[TEMPERATURE]) * 0.25;
-        }
-        if (base[TEMPERATURE] > 500.0) { // set water temperature for older savefiles
-          base[TEMPERATURE] = CtoK(25.0);
-        }
 
         const float waterTempUpdateInterval = 20.0; // Update less often but with bigger value to reduce rounding error
 
         if (dynamicWaterTemperature >= 1.0 && mod(iterNum, waterTempUpdateInterval) < 0.5) {
 
+          // average out temperature
+          float numNeighbors = 0.;
+          float totalNeighborTemp = 0.0;
+
+          if (wallXmY0[TYPE] == WALLTYPE_WATER) { // left is water
+            totalNeighborTemp += texture(baseTex, texCoordXmY0)[TEMPERATURE];
+            numNeighbors += 1.;
+          }
+          if (wallXpY0[TYPE] == WALLTYPE_WATER) { // right is water
+            totalNeighborTemp += texture(baseTex, texCoordXpY0)[TEMPERATURE];
+            numNeighbors += 1.;
+          }
+          if (numNeighbors > 0.) { // prevent devide by 0
+            float avgNeighborTemp = totalNeighborTemp / numNeighbors;
+            base[TEMPERATURE] += (avgNeighborTemp - base[TEMPERATURE]) * 0.10;
+          }
+          if (base[TEMPERATURE] > 500.0) { // set water temperature for older savefiles
+            base[TEMPERATURE] = CtoK(25.0);
+          }
+
           float airTemperature = potentialToRealT(texture(baseTex, texCoordX0Yp)[TEMPERATURE], texCoordX0Yp.y);
 
           float netWaterHeating = 0.0;
-          netWaterHeating += (airTemperature - base[TEMPERATURE]) * waterHeatExchangeRate;                                  // water heated or cooled by the air above
+          netWaterHeating += (airTemperature - base[TEMPERATURE]) * waterHeatExchangeRate; // water heated or cooled by the air above
 
-          netWaterHeating -= max((maxWater(base[TEMPERATURE]) - waterX0Yp[TOTAL]) * waterEvaporation, 0.) * evapHeat * 0.5; // evaporative cooling (half the real value, to prevent boring non convective conditions)
+          netWaterHeating -=
+            max((maxWater(base[TEMPERATURE]) - waterX0Yp[TOTAL]) * waterEvaporation, 0.) * evapHeat * 0.5; // evaporative cooling (half the real value, to prevent boring non convective conditions)
 
-          float lightPower = max(lightAboveSurface[SUNLIGHT] * cos(sunAngle), 0.0);                                         // Light power per horizontal surface area;
+          float lightPower = max(lightAboveSurface[SUNLIGHT] * cos(sunAngle), 0.0);                        // Light power per horizontal surface area;
 
           lightPower *= (1. - ALBEDO_WATER);
           lightPower *= lightHeatingConst;

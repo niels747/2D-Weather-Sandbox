@@ -156,7 +156,8 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 
     const inSimAlt = y * (simHeight / sim_res_y);
 
-    while (soundingData[soundingDataIndex]['alt'] < inSimAlt || sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
+    while (soundingData[soundingDataIndex]['alt'] < inSimAlt ||
+           sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
       soundingDataIndex--;
     }
 
@@ -186,85 +187,130 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 
 var stationSelector;
 
-const stationIDs = {
-  'De Bilt' : 6260,
-  'Norderney' : 10113,
-  'Hamburg' : 10035,
-  'Greifswald' : 10184,
-  'Meppen' : 10304,
-  'Essen' : 10410,
-  'Bergen' : 10238,
-  'Berlin' : 10393,
-  'Idar-Oberstein' : 10618,
-  'Stuttgart' : 10739,
-  'Meiningen' : 10548,
-  'Nuremberg' : 10771,
-  'Munich' : 10868,
-  'Altenstadt' : 10954,
-  'peißenberg' : 10962,
-  'Brussels' : 6458,
-  'Nottingham' : 3354,
-  'Brest' : 7110,
-  'Paris' : 7145,
-  'Bordeaux' : 7510,
-  'Montpellier' : 7645,
-  'Ajaccio' : 7761,
-  'Bern' : 6610,
-  'Insbruck' : 11120,
-  'Vienna' : 11035,
-  'Cuneo' : 16113,
-  'Milan' : 16064,
-  'Udine' : 16045,
-  'Bologna' : 16144,
-  'Rome' : 16245,
-  'Sardinia' : 16546,
-  'Sicilia' : 16429,
-  'Zagreb' : 14240,
-  'Zadar' : 14430,
-  'Madrid' : 8221,
-  'Barcelona' : 8190,
-  'Lisbon' : 8536,
-  'Wroclaw' : 12425,
-  'Warsaw' : 12374,
-  'Gdańsk' : 12120,
-  'Kraków' : 12575,
-  'Bucharest' : 15420,
-  'Istanbul' : 17064,
-  'Krete' : 16754,
-  'Athens' : 16716,
-  'Cyprus' : 17607,
-  'Cairo' : 62378,
-  'Tel-Aviv' : 40179,
-  'Gotland' : 2591,
-  'Helsinki' : 2963,
-  'Lapland' : 2836,
-  'Iceland' : 4018,
-  'North Sea' : 1400,
-  'Moscow' : 27730,
+const presets = [
+  {name : 'Summer storms in northern Italy', location : 'Milan', date : '2025-06-05', hour : 12}, {name : 'Some cells in the Netherlands', location : "Essen", date : '2016-06-23', hour : 12},
+  {name : 'Supercell in the Netherlands', location : "De Bilt", date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : "Gotland", date : '2025-01-03', hour : 12},
+  {name : 'Spring cells in Germany', location : "Stuttgart", date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : "Madrid", date : '2018-07-07', hour : 12},
+  {name : 'Double inversion over Sicily', location : "Sicily", date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : "Rome", date : '2021-07-16', hour : 12}
+];
+
+var startDate;
+var startLatitude;
+
+function createPresetSelect()
+{
+  let select = document.getElementById('presetSelect');
+
+  //  console.log(presets);
+
+  presets.forEach((preset, index) => {
+    const option = document.createElement("option");
+    option.value = index;
+    option.textContent = preset.name;
+    select.appendChild(option);
+  });
+  select.value = -1;
+
+  select.onchange = function() {
+    let preset = presets[select.selectedIndex];
+
+    document.getElementById('datePicker').value = preset.date;
+
+    startDate = new Date(preset.date);
+
+    document.getElementById('hourSelector').value = preset.hour;
+
+    stationSelector.selectedIndex = Object.keys(soundingStations).indexOf(preset.location);
+    stationSelector.dispatchEvent(new Event('change', {bubbles : true}));
+
+    prepareSounding();
+  };
+}
+
+const soundingStations = {
+  'Andoya' : {id : 1010, lat : 69.1144},
+  'Lapland' : {id : 2836, lat : 67.4160},
+  'Iceland' : {id : 4018, lat : 64.9631},
+  'Trondheim' : {id : 1241, lat : 63.4305},
+  'Helsinki' : {id : 2963, lat : 60.1699},
+  'Stavanger' : {id : 1415, lat : 58.9700},
+  'Gotland' : {id : 2591, lat : 57.6359},
+  'North Sea' : {id : 1400, lat : 56.5333},
+  'Moscow' : {id : 27730, lat : 55.7558},
+  'Gdańsk' : {id : 12120, lat : 54.3520},
+  'Greifswald' : {id : 10184, lat : 54.0833},
+  'Norderney' : {id : 10113, lat : 53.7000},
+  'Hamburg' : {id : 10035, lat : 53.5507},
+  'Nottingham' : {id : 3354, lat : 52.9500},
+  'Bergen(DE)' : {id : 10238, lat : 52.8092},
+  'Meppen' : {id : 10304, lat : 52.7928},
+  'Berlin' : {id : 10393, lat : 52.5235},
+  'Warsaw' : {id : 12374, lat : 52.2297},
+  'De Bilt' : {id : 6260, lat : 52.1085},
+  'Essen' : {id : 10410, lat : 51.4556},
+  'Wroclaw' : {id : 12425, lat : 51.1079},
+  'Brussels' : {id : 6458, lat : 50.8371},
+  'Meiningen' : {id : 10548, lat : 50.5678},
+  'Kraków' : {id : 12575, lat : 50.0647},
+  'Idar-Oberstein' : {id : 10618, lat : 49.7167},
+  'Nuremberg' : {id : 10771, lat : 49.4521},
+  'Paris' : {id : 7145, lat : 48.8567},
+  'Stuttgart' : {id : 10739, lat : 48.7758},
+  'Brest' : {id : 7110, lat : 48.3900},
+  'Vienna' : {id : 11035, lat : 48.2092},
+  'Altenstadt' : {id : 10954, lat : 48.3556},
+  'Munich' : {id : 10868, lat : 48.1333},
+  'peißenberg' : {id : 10962, lat : 47.7975},
+  'Insbruck' : {id : 11120, lat : 47.2692},
+  'Bern' : {id : 6610, lat : 46.9480},
+  'Udine' : {id : 16045, lat : 46.0713},
+  'Zagreb' : {id : 14240, lat : 45.8150},
+  'Milan' : {id : 16064, lat : 45.4642},
+  'Bordeaux' : {id : 7510, lat : 44.8378},
+  'Bologna' : {id : 16144, lat : 44.4968},
+  'Bucharest' : {id : 15420, lat : 44.4268},
+  'Cuneo' : {id : 16113, lat : 44.3843},
+  'Zadar' : {id : 14430, lat : 44.1194},
+  'Montpellier' : {id : 7645, lat : 43.6119},
+  'Barcelona' : {id : 8190, lat : 41.3851},
+  'Ajaccio' : {id : 7761, lat : 41.9192},
+  'Rome' : {id : 16245, lat : 41.9028},
+  'Istanbul' : {id : 17064, lat : 41.0082},
+  'Madrid' : {id : 8221, lat : 40.4168},
+  'Sardinia' : {id : 16546, lat : 40.1209},
+  'Lisbon' : {id : 8536, lat : 38.7223},
+  'Athens' : {id : 16716, lat : 37.9792},
+  'Sicily' : {id : 16429, lat : 37.6000},
+  'Krete' : {id : 16754, lat : 35.2401},
+  'Cyprus' : {id : 17607, lat : 35.1264},
+  'Palestine' : {id : 40179, lat : 32.0853},
+  'Cairo' : {id : 62378, lat : 30.0444},
 };
 
-function createSelect(stationIDs)
+function createStationSelect()
 {
-  let select = document.createElement('select');
-  let datePicker = document.getElementById('datePicker');
-  datePicker.parentNode.insertBefore(select, datePicker);
+  let select = document.getElementById('stationSelect');
 
-  for (const [key, value] of Object.entries(stationIDs)) {
+  for (const [key, value] of Object.entries(soundingStations)) {
     let option = document.createElement('option');
-    option.value = value;
-    option.innerHTML = key;
+    option.value = value.id;
+    option.innerHTML = key + ' ' + value.lat.toFixed(1) + '° N';
     select.appendChild(option);
   }
   select.value = 10868;
 
-  select.onchange = function() { prepareSounding(); };
+  select.onchange = function() {
+    startLatitude = Object.values(soundingStations)[select.selectedIndex].lat;
+    prepareSounding();
+  };
   return select;
 }
 
 
 // Ensure the DOM is fully loaded before running the function
 document.addEventListener('DOMContentLoaded', () => {
-  stationSelector = createSelect(stationIDs);
+  createPresetSelect();
+  stationSelector = createStationSelect();
   prepareSounding();
 });
 
@@ -294,7 +340,8 @@ const guiControls_default = {
   vorticity : 0.005,
   dragMultiplier : 0.001, // 0.01
   wind : 0.0,
-  globalEffectsHeight : 0,
+  globalEffectsStartAlt : 0,
+  globalEffectsEndAlt : 10000,
   globalDrying : 0.000000, // 0.000010
   globalHeating : 0.0,
   soundingForcing : 0.0,
@@ -1288,7 +1335,6 @@ async function loadData()
     }
   } else {
     // no file, so create new simulation
-    // texture resolution limit on most GPU's: 16384
     sim_res_x = parseInt(document.getElementById('simResSelX').value);
     sim_res_y = parseInt(document.getElementById('simResSelY').value);
     sim_height = parseInt(document.getElementById('simHeightSel').value);
@@ -2853,7 +2899,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let vecToRunway = this.calcVecToRunway();
 
-      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
+      this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0,
+                                    this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
     }
   }
 
@@ -2887,6 +2934,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   if (guiControlsFromSaveFile == null) { // use default settings
     setupDatGui(JSON.stringify(guiControls_default));
     guiControls.simHeight = sim_height;
+    guiControls.globalEffectsEndAlt = sim_height;
+
+    if (startDate) {
+      guiControls.month = startDate.getMonth() + 1 + startDate.getDate() / 30.5;
+    }
+
+    if (startLatitude) {
+      guiControls.latitude = startLatitude;
+    }
+
   } else {
     setupDatGui(guiControlsFromSaveFile);                     // use settings from save file
 
@@ -2921,7 +2978,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
-    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'), guiControls.globalEffectsHeight / guiControls.simHeight);
+    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsStartAlt'), guiControls.globalEffectsStartAlt / guiControls.simHeight);
+    gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsEndAlt'), guiControls.globalEffectsEndAlt / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.useProgram(precipitationProgram);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapHeat'), guiControls.evapHeat);
@@ -3019,11 +3077,29 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Sounding Forcing');
 
-    fluidParams_folder.add(guiControls, 'globalEffectsHeight', 0, guiControls.simHeight, 10)
+    fluidParams_folder.add(guiControls, 'globalEffectsEndAlt', 0, guiControls.simHeight, 10)
       .onChange(function() {
         gl.useProgram(advectionProgram);
-        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsHeight'), guiControls.globalEffectsHeight / guiControls.simHeight);
+        if (guiControls.globalEffectsEndAlt < guiControls.globalEffectsStartAlt) {
+          guiControls.globalEffectsStartAlt = guiControls.globalEffectsEndAlt;
+          gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsStartAlt'), guiControls.globalEffectsStartAlt / guiControls.simHeight);
+        }
+        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsEndAlt'), guiControls.globalEffectsEndAlt / guiControls.simHeight);
       })
+      .listen()
+      .name('Apply below altitude');
+
+    fluidParams_folder.add(guiControls, 'globalEffectsStartAlt', 0, guiControls.simHeight, 10)
+      .onChange(function() {
+        gl.useProgram(advectionProgram);
+        if (guiControls.globalEffectsStartAlt > guiControls.globalEffectsEndAlt) {
+          guiControls.globalEffectsEndAlt = guiControls.globalEffectsStartAlt;
+          gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsEndAlt'), guiControls.globalEffectsEndAlt / guiControls.simHeight);
+        }
+
+        gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsStartAlt'), guiControls.globalEffectsStartAlt / guiControls.simHeight);
+      })
+      .listen()
       .name('Apply above altitude');
 
 
@@ -6055,7 +6131,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         let strGuiControls = JSON.stringify(guiControls);
 
-        let saveDataArray = [ Uint16Array.of(sim_res_x), Uint16Array.of(sim_res_y), baseTextureValues, waterTextureValues, wallTextureValues, precipBufferValues, Uint16Array.of(weatherStations.length), weatherStationsPositions, strGuiControls ];
+        let saveDataArray = [
+          Uint16Array.of(sim_res_x), Uint16Array.of(sim_res_y), baseTextureValues, waterTextureValues, wallTextureValues, precipBufferValues, Uint16Array.of(weatherStations.length),
+          weatherStationsPositions, strGuiControls
+        ];
         let blob = new Blob(saveDataArray);        // combine everything into a single blob
         let arrBuff = await blob.arrayBuffer();    // turn into array for pako
         let arr = new Uint8Array(arrBuff);
