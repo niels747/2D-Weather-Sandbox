@@ -303,6 +303,13 @@ function createStationSelect()
     startLatitude = Object.values(soundingStations)[select.selectedIndex].lat;
     prepareSounding();
   };
+
+  let datePicker = document.getElementById('datePicker');
+  datePicker.onchange = function() {
+    startDate = new Date(datePicker.value);
+    prepareSounding();
+  };
+
   return select;
 }
 
