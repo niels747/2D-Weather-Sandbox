@@ -5532,7 +5532,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                 weatherStations[i].measure();
               }
             }
-            IterNum++;
+            if (!airplaneMode) {
+              IterNum++;
+            }
           }
         }
 
@@ -5712,7 +5714,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
-      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), IterNum);
+      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'frameNum'), frameNum);
 
       gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
 

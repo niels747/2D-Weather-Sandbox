@@ -13,13 +13,12 @@ uniform vec2 aspectRatios;
 uniform sampler2D lightTex;
 uniform sampler2D planeTex;
 uniform sampler2D planeGearTex;
-// uniform sampler2D precipFeedbackTex;
 
 uniform sampler2D ambientLightTex;
 
 uniform float minShadowLight;
 
-uniform float iterNum;
+uniform float frameNum;
 
 uniform float simHeight;
 
@@ -34,7 +33,7 @@ const float dryLapse = 0.; // definition needed for common.glsl
 
 #include "commonDisplay.glsl"
 
-vec4 displayA380(vec2 pos, float angle)
+vec4 displayA380(vec2 pos, float angle, out vec3 emittedLight, out vec3 onLight)
 {
   vec2 planeTexCoord = texCoord;
 
@@ -55,7 +54,7 @@ vec4 displayA380(vec2 pos, float angle)
   float sin_factor = sin(angle);
   float cos_factor = cos(angle);
 
-  planeTexCoord = vec2((planeTexCoord.x), planeTexCoord.y) * mat2(cos_factor, sin_factor, -sin_factor, cos_factor);
+  planeTexCoord = vec2(planeTexCoord.x, planeTexCoord.y) * mat2(cos_factor, sin_factor, -sin_factor, cos_factor);
 
   planeTexCoord *= 0.15;              // scale
   planeTexCoord *= vec2(500., 1000.); // Aspect ratio
@@ -70,11 +69,37 @@ vec4 displayA380(vec2 pos, float angle)
 
   vec4 outputCol = texture(planeTex, planeTexCoord);
 
-  // outputCol.a = 0.6;
+  vec2 planeFragCoord = planeTexCoord * vec2(1000., 500.);
+
+  emittedLight += vec3(1., 0., 0.) * 5. * max(3. - length(planeFragCoord - vec2(611., 287.)), 0.); // left wing red continuous light
+  emittedLight += vec3(1., 1., 1.) * 5. * max(3. - length(planeFragCoord - vec2(861., 286.)), 0.); // Tail white continuous light
+
+  float T = mod(frameNum, 60.) / 60.;
+
+  emittedLight += vec3(1., 0., 0.) * 20. * max(7. - length(planeFragCoord - vec2(341., 256.)), 0.) * ((T > 0.5 && T < 0.55) ? 1. : 0.);                                 // red beacon light top
+
+  emittedLight += vec3(1., 0., 0.) * 10. * max(5. - length(planeFragCoord - vec2(460., 347.)), 0.) * ((T > 0.5 && T < 0.55) ? 1. : 0.);                                 // red beacon light bottem
+
+  emittedLight += vec3(0.50, 0.65, 1.) * 30. * max(7. - length(planeFragCoord - vec2(611., 287.)), 0.) * (((T > 0.0 && T < 0.05) || (T > 0.10 && T < 0.15)) ? 1. : 0.); // white wing beacon light
+
+  emittedLight += vec3(1., 1., 1.) * 20. * max(7. - length(planeFragCoord - vec2(861., 286.)), 0.) * ((T > 0.0 && T < 0.05) ? 1. : 0.);                                 // Tail white beacon light
+
+  // logo lights:
+  onLight += vec3(1., 1., 1.) * (1. - smoothstep(0.0, 130.0, length(planeFragCoord - vec2(800., 170.)))); // Tail logo
+
+  // landing lights:
+  if (gearPos < 1.0) {                                                                                     // gear extended
+    emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(170., 350.))), 0.); // Front gear landing light
+
+    emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(336., 323.))), 0.); // Wing landing light
+
+    onLight += vec3(1., 1., 1.) * 0.9 * (1. - smoothstep(0.0, 150.0, length(planeFragCoord - vec2(220., 400.))));
+  }
 
   if (outputCol.a < 0.5)
     outputCol += texture(planeGearTex, gearTexCoord);
 
+  onLight *= outputCol.a; // only shine on plane itself
   return outputCol;
 }
 
@@ -102,19 +127,22 @@ void main()
 
   vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));                     // blue air
 
+  vec3 airplaneLights;
 
-  vec4 A380Col = displayA380(planePos.xy, planePos.z);
+  vec3 airplaneOnLight;
+
+  vec4 A380Col = displayA380(planePos.xy, planePos.z, airplaneLights, airplaneOnLight);
 
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb * A380Col.a;
 
-  vec3 finalColor = mixedCol * (light + minShadowLight);
+  vec3 finalColor = mixedCol * (light + minShadowLight + airplaneOnLight);
 
   float airDensityFactor = clamp(1.0 - texCoord.y, 0., 1.);
 
   finalColor += texture(ambientLightTex, texCoord).rgb * 0.1 * airDensityFactor / standardSunBrightness;
 
-  // finalColor.r += texture(precipFeedbackTex, texCoord)[0] * 100.0; // check precipitation feedback
+  finalColor += airplaneLights;
 
   fragmentColor = vec4(finalColor, 1.0);
 }
