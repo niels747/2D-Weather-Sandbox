@@ -48,7 +48,6 @@ The dew points and cape are very low in this example, but it's just enough to fo
 
 # The Code
 The simulation is based on a simple fluid simulation topology.
-In total the project contains arround 5000 lines of code of wich 2800 in JS and 2000 in GLSL.
 All code was written by me (Niels Daemen) except for the libraries included
 
 ## Fluid Model
