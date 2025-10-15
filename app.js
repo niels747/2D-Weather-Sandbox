@@ -20,11 +20,11 @@ function updateSetupSliders()
 
   document.getElementById('simWorldProperties').innerHTML = 'cellHeight: ' + cellHeight.toFixed(1) + ' m  &nbsp&nbsp&nbsp   Simulation width: ' + (simWidth / 1000).toFixed(1) + ' km';
 
-  document.getElementById("simHeightWarning").style.display = (simHeight == 12000) ? 'none' : 'block';
-  document.getElementById("simResYWarning").style.display = (simResY == 300) ? 'none' : 'block';
-  document.getElementById("simResShowX").value = simResX;
-  document.getElementById("simResShowY").value = simResY
-  document.getElementById("simHeightShow").value = simHeight + ' m';
+  document.getElementById('simHeightWarning').style.display = (simHeight == 12000) ? 'none' : 'block';
+  document.getElementById('simResYWarning').style.display = (simResY == 300) ? 'none' : 'block';
+  document.getElementById('simResShowX').value = simResX;
+  document.getElementById('simResShowY').value = simResY
+  document.getElementById('simHeightShow').value = simHeight + ' m';
 }
 
 var FPS = 60.0;
@@ -80,7 +80,7 @@ async function getSoundingGraphImgUrl(url)
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const img = doc.querySelectorAll('img')[0];
-    return 'https://www.meteociel.fr/' + img.getAttribute("src");
+    return 'https://www.meteociel.fr/' + img.getAttribute('src');
   } catch (error) {
     console.error('Error fetching the data:', error);
   }
@@ -188,10 +188,10 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 var stationSelector;
 
 const presets = [
-  {name : 'Summer storms in northern Italy', location : 'Milan', date : '2025-06-05', hour : 12}, {name : 'Some cells in the Netherlands', location : "Essen", date : '2016-06-23', hour : 12},
-  {name : 'Supercell in the Netherlands', location : "De Bilt", date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : "Gotland", date : '2025-01-03', hour : 12},
-  {name : 'Spring cells in Germany', location : "Stuttgart", date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : "Madrid", date : '2018-07-07', hour : 12},
-  {name : 'Double inversion over Sicily', location : "Sicily", date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : "Rome", date : '2021-07-16', hour : 12}
+  {name : 'Summer storms in northern Italy', location : 'Milan', date : '2025-06-05', hour : 12}, {name : 'Some cells in the Netherlands', location : 'Essen', date : '2016-06-23', hour : 12},
+  {name : 'Supercell in the Netherlands', location : 'De Bilt', date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : 'Gotland', date : '2025-01-03', hour : 12},
+  {name : 'Spring cells in Germany', location : 'Stuttgart', date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : 'Madrid', date : '2018-07-07', hour : 12},
+  {name : 'Double inversion over Sicily', location : 'Sicily', date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : 'Rome', date : '2021-07-16', hour : 12}
 ];
 
 var startDate;
@@ -204,7 +204,7 @@ function createPresetSelect()
   //  console.log(presets);
 
   presets.forEach((preset, index) => {
-    const option = document.createElement("option");
+    const option = document.createElement('option');
     option.value = index;
     option.textContent = preset.name;
     select.appendChild(option);
@@ -436,7 +436,7 @@ var cellHeight = 12000. / 300.; // guiControls.simHeight / sim_res_y;  // in met
 var frameNum = 0;
 var lastFrameNum = 0;
 
-var IterNum = 0;
+var iterNum = 0;
 
 // global framebuffers for measurements
 var frameBuff_0;
@@ -932,7 +932,7 @@ class Weatherstation
 
     style.display = 'none'; // hide initially
 
-    // this.#chartCanvas.style.position = "absolute";
+    // this.#chartCanvas.style.position = 'absolute';
 
     // let screenY = simToScreenY(this.#y) - this.#height; // error because main canvas not yet initialized
 
@@ -1169,7 +1169,7 @@ class Weatherstation
 
   setHidden(hidden)
   {
-    this.#mainDiv.style.display = hidden ? "none" : "block";
+    this.#mainDiv.style.display = hidden ? 'none' : 'block';
     this.#chartCanvas.style.display = 'none'; // hide charts
   }
 
@@ -1196,12 +1196,12 @@ class Weatherstation
     if (this.#displaySunAndIRPower) {
       c.font = '12px Arial';
       c.fillStyle = '#00FFFF';
-      c.fillText(this.#relativeHumd.toFixed(1) + " %", 30, 28);
+      c.fillText(this.#relativeHumd.toFixed(1) + ' %', 30, 28);
 
       c.fillStyle = '#FFFFFF';
-      c.fillText("🔅 " + this.#solarPower.toFixed(1) + "W/m2", 10, 40);
+      c.fillText('🔅 ' + this.#solarPower.toFixed(1) + 'W/m2', 10, 40);
       c.fillStyle = '#FFFFFF';
-      c.fillText("♨️" + this.#netIRpow.toFixed(1) + "W/m2", 10, 55);
+      c.fillText('♨️' + this.#netIRpow.toFixed(1) + 'W/m2', 10, 55);
     } else {
       c.font = '12px Arial';
       c.fillStyle = '#00FFFF';
@@ -1312,7 +1312,7 @@ async function loadData()
         let numWeatherStationsBuf = await numWeatherStationsArrayBlob.arrayBuffer();
         let numWeatherStations = new Int16Array(numWeatherStationsBuf)[0];
 
-        console.log("numWeatherStations", numWeatherStations);
+        console.log('numWeatherStations', numWeatherStations);
 
         sliceStart = sliceEnd;
         sliceEnd += numWeatherStations * 2 * Int16Array.BYTES_PER_ELEMENT;
@@ -1925,7 +1925,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.targetPitch = 0.0;
       this.targetAltitude = 5000.0;
       this.targetIAS = 0.0;
-      this.mode = "ALTITUDE";
+      this.mode = 'ALTITUDE';
     }
 
     bindInstrumentPanel(instrumentPanel) { this.#instrumentPanel = instrumentPanel; }
@@ -1946,13 +1946,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       switch (this.mode) {
 
-      case "ALTITUDE":
+      case 'ALTITUDE':
         this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
 
         this.targetPitch *= 1.0 - Math.abs(trueVel.y) * 0.03;                                               // limit vertical speed
 
         break;
-      case "AUTOLAND":
+      case 'AUTOLAND':
 
         let targetGlideslope = -3.0;
 
@@ -2035,14 +2035,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     setMode_AUTOLAND()
     {
-      this.#autopilot.setMode("AUTOLAND");
+      this.#autopilot.setMode('AUTOLAND');
       this.#autolandButton.style.backgroundColor = 'green';
       this.#altHoldButton.style.backgroundColor = 'grey';
     }
 
     setMode_ALTITUDE()
     {
-      this.#autopilot.setMode("ALTITUDE");
+      this.#autopilot.setMode('ALTITUDE');
       this.#autolandButton.style.backgroundColor = 'grey';
       this.#altHoldButton.style.backgroundColor = 'green';
     }
@@ -2125,7 +2125,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
     {
-      let ctx = this.#instrumentCanvas.getContext("2d");
+      let ctx = this.#instrumentCanvas.getContext('2d');
       let width = this.#instrumentCanvas.width - 50;
       let height = this.#instrumentCanvas.height;
       const topBarHeight = 50;
@@ -2193,7 +2193,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         ctx.lineTo(width / 2 + width * 0.15, runwayIndY);
         ctx.stroke();
         ctx.fillStyle = 'blue';
-        ctx.font = "20px serif";
+        ctx.font = '20px serif';
         ctx.fillText(printDistance(distToRunway / 1000.0), width / 2 - width * 0.15 - 135, runwayIndY);
       }
 
@@ -2211,7 +2211,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.strokeStyle = 'white';
       ctx.fillStyle = 'white';
       ctx.stroke();
-      ctx.font = "30px serif";
+      ctx.font = '30px serif';
 
       let unit = ' m'
 
@@ -2266,7 +2266,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.strokeStyle = 'white';
       ctx.fillStyle = 'white';
       ctx.stroke();
-      ctx.font = "30px serif";
+      ctx.font = '30px serif';
 
       let stallSpeed = 70.0; // m/s
       let overSpeed = 173.0; // m/s
@@ -2345,20 +2345,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillRect(0, 0, this.#instrumentCanvas.width, topBarHeight);
 
       ctx.fillStyle = '#00FFFF';
-      ctx.font = "30px serif";
+      ctx.font = '30px serif';
       ctx.fillText('🌡 ' + printTemp(OAT_C), 0, 40);
 
       ctx.fillStyle = '#FFFF00';
       ctx.fillText('🎚️ ' + throttle.toFixed() + ' %', 140, 40);
 
       let gearStatusIndicator = '';
-      if (gearStatus == "UP") {
+      if (gearStatus == 'UP') {
         gearStatusIndicator = 'UP';
         ctx.fillStyle = '#444444';
-      } else if (gearStatus == "EXTENDING" || gearStatus == "RETRACTING") {
+      } else if (gearStatus == 'EXTENDING' || gearStatus == 'RETRACTING') {
         gearStatusIndicator = 'UNLK';
         ctx.fillStyle = '#FF0000';
-      } else if (gearStatus == "DOWN") {
+      } else if (gearStatus == 'DOWN') {
         gearStatusIndicator = '▽▽▽';
         ctx.fillStyle = '#00FF00';
       }
@@ -2428,7 +2428,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                                           // console.log(F);
         F.rotate(-angleToCm); // make force vector perpendicular to vector to center off mass
 
-                              // console.log("After rotating ", F, angleToCm * radToDeg);
+                              // console.log('After rotating ', F, angleToCm * radToDeg);
 
         let torque = -F.y * pos.mag(); // if force perpendicular to vector from center, mult by dist from center
         this.aVel += torque / this.I;
@@ -2560,10 +2560,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.throttle = startsOnSurface ? 0.00 : 0.40; // %
 
       if (startsOnSurface) {
-        this.#gearStatus = "DOWN";
+        this.#gearStatus = 'DOWN';
         this.#gearExtPos = 0.0;
       } else {
-        this.#gearStatus = "UP";
+        this.#gearStatus = 'UP';
         this.#gearExtPos = 7.0;
 
         this.#runwayThresholdPos = this.getClosestRunwayPos();
@@ -2587,17 +2587,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     setBrakes(enabled) { this.#braking = enabled; }
 
 
-    toggleGear() { this.setGear(this.#gearStatus == "UP"); }
+    toggleGear() { this.setGear(this.#gearStatus == 'UP'); }
 
     setGear(boolDown)
     {
       if (boolDown) {
-        if (this.#gearStatus == "UP")
-          this.#gearStatus = "EXTENDING";
+        if (this.#gearStatus == 'UP')
+          this.#gearStatus = 'EXTENDING';
 
       } else {
-        if (this.#gearStatus == "DOWN")
-          this.#gearStatus = "RETRACTING";
+        if (this.#gearStatus == 'DOWN')
+          this.#gearStatus = 'RETRACTING';
       }
     }
 
@@ -2627,12 +2627,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         return;
       }
 
-      let Xpos = mod(this.phys.pos.x / cellHeight, sim_res_x);
+      let Xpos = mod(this.phys.pos.x / cellHeight - 1., sim_res_x);
       let Ypos = Math.min(this.phys.pos.y / cellHeight + 1.0, sim_res_y - 1);
+
+      let fractX = fract(Xpos);
+      let fractY = fract(Ypos);
+
+      Xpos = Math.floor(Xpos);
+      Ypos = Math.floor(Ypos);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
       gl.readBuffer(gl.COLOR_ATTACHMENT0);                                   // basetexture
-      var baseTextureValues = new Float32Array(4 * 4);
+      var baseTextureValues = new Float32Array(4 * 2 * 2);
       gl.readPixels(Xpos, Ypos, 2, 2, gl.RGBA, gl.FLOAT, baseTextureValues); // order bottem up: x0y0 x1y0 x0y1 x1y1
 
       let temperature = KtoC(potentialToRealT(baseTextureValues[3], Ypos));
@@ -2647,8 +2653,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         return mix(bottem, top, fractY);
       }
 
-      let fractX = fract(Xpos);
-      let fractY = fract(Ypos);
 
       // Linearly interpolatate velocity
       let Vx = bilerp(baseTextureValues, 0, fractX, fractY);
@@ -2662,7 +2666,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         airVel.mult(cellHeight * 3.6); // convert to m/s
       }
 
-
       this.#OAT = temperature;
 
       // gl.readBuffer(gl.COLOR_ATTACHMENT1); // watertexture
@@ -2671,36 +2674,55 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // let dewpoint = KtoC(dewpoint(waterTextureValues[0]));
 
       gl.readBuffer(gl.COLOR_ATTACHMENT2);
-      var wallTextureValues = new Int8Array(4 * 4);
-      gl.readPixels(Xpos - 1, Ypos, 2, 2, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
-      this.#radarAltitude = (bilerp(wallTextureValues, 2, fractX, fractY) - 1) * cellHeight;
+      var wallTextureValues = new Int8Array(4 * 3 * 1);
+      gl.readPixels(Xpos, Ypos, 3, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
 
-      if (this.#gearStatus == "EXTENDING") {
+      // wrap arround the edge of the sim area
+      if (Xpos == sim_res_x - 2) {
+        gl.readPixels(0, Ypos, 1, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues.subarray(2 * 4));
+      } else if (Xpos == sim_res_x - 1) {
+        gl.readPixels(0, Ypos, 2, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues.subarray(1 * 4));
+      }
+
+      let radarAltL = (wallTextureValues[0 * 4 + 2] + fractY - 1.) * cellHeight;
+      let radarAltM = (wallTextureValues[1 * 4 + 2] + fractY - 1.) * cellHeight;
+      let radarAltR = (wallTextureValues[2 * 4 + 2] + fractY - 1.) * cellHeight;
+
+
+      let radarAltFrontGear = mix(radarAltL, radarAltM, Math.min(fractX + 0.14, 1.));
+
+      this.#radarAltitude = Math.min(mix(radarAltL, radarAltM, fractX), mix(radarAltM, radarAltR, fractX));
+
+      // console.log(Xpos, Ypos, radarAltL.toFixed(1), radarAltM.toFixed(1), radarAltR.toFixed(1), fractX);
+
+      if (this.#gearStatus == 'EXTENDING') {
         this.#gearExtPos = Math.max(this.#gearExtPos - 0.01, 0.0);
         if (this.#gearExtPos == 0.0)
-          this.#gearStatus = "DOWN";
-      } else if (this.#gearStatus == "RETRACTING") {
+          this.#gearStatus = 'DOWN';
+      } else if (this.#gearStatus == 'RETRACTING') {
         this.#gearExtPos = Math.min(this.#gearExtPos + 0.01, 7.0);
         if (this.#gearExtPos == 7.0)
-          this.#gearStatus = "UP";
+          this.#gearStatus = 'UP';
       }
 
       let heightAboveGround = this.#radarAltitude;
 
-      let heightAboveObstacles = this.#radarAltitude;
+      let heightAboveObstacles = radarAltM;
 
       let gearTouchAlt = 8.0 - this.#gearExtPos;
 
       let bounceForceMult = 100000.0;
 
 
-      if (wallTextureValues[0] == 1) {                                               // over land
+      if (wallTextureValues[0] == 1) { // over land
 
-        heightAboveObstacles -= map_range_C(wallTextureValues[3], 80, 127, 0., 15.); // trees
+        // if (wallTextureValues[1 * 4 + 2] != 1) {                                               // if not ground to the right
+        heightAboveObstacles -= map_range_C(wallTextureValues[1 * 4 + 3], 80, 127, 0., 15.); // trees
+                                                                                             //   }
 
-      } else if (wallTextureValues[0] == 2) {                                        // over water
+      } else if (wallTextureValues[0] == 2) {                                                // over water
         heightAboveObstacles += 20.;
-        gearTouchAlt = -5.0;                                                         // + (7.0 - this.#gearExtPos) * 0.2;
+        gearTouchAlt = -5.0;                                                                 // + (7.0 - this.#gearExtPos) * 0.2;
         bounceForceMult = 9000.0 + Math.abs(this.phys.vel.x) * 600.0;
 
         let draught = gearTouchAlt - heightAboveGround;
@@ -2717,7 +2739,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         }
 
       } else if (wallTextureValues[0] == 4) { // over urban
-        heightAboveObstacles -= 100.0;
+        heightAboveObstacles -= 80.0;
       }
 
       let mainGearForce = Math.max(gearTouchAlt - heightAboveGround, 0.0) * bounceForceMult * 100.0;
@@ -2731,9 +2753,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       this.phys.applyForce(new Vec2D(0.0, mainGearForce), new Vec2D(1., 0.));
 
-      let frontGearPosX = 20.0; // m
+      let frontGearPosX = 36.0;                                                         // m
 
-      let frontGearAlt = heightAboveGround + Math.sin(this.phys.angle) * frontGearPosX;
+      let frontGearAlt = radarAltFrontGear + Math.sin(this.phys.angle) * frontGearPosX; // front gear altitude is not completely acurate yet
 
       let frontGearForce = Math.max(gearTouchAlt - frontGearAlt, 0.0) * bounceForceMult * 5.0;
 
@@ -2747,15 +2769,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'gearPos'), gearPos);
 
-      // if (wallTextureValues[0] == 2) {     // over water
-
-      // } else {                             // over land
-      if (heightAboveObstacles <= 6.0) { // crash into the surface
+      if (wallTextureValues[0] != 2 && (heightAboveObstacles < 6.0 || radarAltL < 6.0 || (heightAboveObstacles < 10.0 && Math.abs(this.phys.angle) > 0.20))) { // crash into the surface
+        //    console.log(heightAboveObstacles, radarAltL, radarAltR, this.phys.angle);
         guiControls.IterPerFrame = 1;
         guiControls.auto_IterPerFrame = false;
         this.#framesSinceCrash = 0;
       }
-      //}
 
       this.#groundSpeed = this.phys.vel.mag();
 
@@ -2786,15 +2805,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       mainWingForce.rotate(this.#relVelAngle);
       this.phys.applyForce(mainWingForce); // Apply Main wing force at center off mass
 
-      // console.log("this.elevator " + this.elevator);
+      // console.log('this.elevator ' + this.elevator);
 
       let vertStabilAOA = AOA - this.elevator * 15.0 * degToRad; // angled at -15 to 15 degrees relative to main wing
 
-      // console.log("vertStabilAOA ", vertStabilAOA * radToDeg);
+      // console.log('vertStabilAOA ', vertStabilAOA * radToDeg);
 
       let vertStabilPos = new Vec2D(35., 0.); // 35 meters to the right of the center of mass
       vertStabilPos.rotate(this.phys.angle);
-      // console.log("vertStabilPos ", vertStabilPos);
+      // console.log('vertStabilPos ', vertStabilPos);
       let vertStabilForce = new Vec2D(this.Cd(vertStabilAOA) * dynamicPressMult * 40.0, this.Cl(vertStabilAOA) * dynamicPressMult * 40.0);
       vertStabilForce.rotate(this.#relVelAngle);
 
@@ -2807,13 +2826,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                                 // gravity
 
       let normRelVel = new Vec2D(Math.cos(this.#relVelAngle), Math.sin(this.#relVelAngle));
-      let dragMult = (this.#gearStatus == "UP" ? 25.0 : 35.0) + Math.abs(Math.sin(AOA) * 150.0);
+      let dragMult = (this.#gearStatus == 'UP' ? 25.0 : 35.0) + Math.abs(Math.sin(AOA) * 150.0);
       let dragMag = dynamicPressMult * dragMult;
 
       this.phys.applyForce(new Vec2D(normRelVel.x * dragMag, -normRelVel.y * dragMag));
 
       if (this.#gearOnGround) {
-        let gearDragForce = (this.#braking ? 1100000.0 : 110000.0); // braking is 10 x as strong as the wheel friction
+        let gearDragForce = (this.#braking ? 1100000.0 : 50000.0); // braking and wheel friction
 
         this.phys.applyForce(new Vec2D(this.phys.vel.x > 0.0 ? -gearDragForce : gearDragForce, 0.));
       }
@@ -2878,12 +2897,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // console.log(this.phys.angle * radToDeg, this.elevator);
 
       if (upPressed && !this.#autopilotEnabled) {
-        this.throttle += .01;
+        this.throttle += 0.01;
       } else if (downPressed && !this.#autopilotEnabled) {
         this.throttle -= 0.01;
       }
 
-      this.throttle = clamp(this.throttle, 0.0, 1.0);
+      this.throttle = clamp(this.throttle, this.#gearOnGround ? -0.2 : 0.0, 1.0);
     }
 
     display()
@@ -3010,7 +3029,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     datGui = new dat.GUI();
     guiControls = JSON.parse(strGuiControls); // load settings object
 
-    guiControls.tool = "TOOL_NONE";
+    guiControls.tool = 'TOOL_NONE';
 
     cam.wrapHorizontally = guiControls.wrapHorizontally;
     cam.smooth = guiControls.SmoothCam;
@@ -3357,7 +3376,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         else
           horizontalDisplayMult = 1.0;
       })
-      .name("Wrap Horizontally");
+      .name('Wrap Horizontally');
 
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
 
@@ -3456,8 +3475,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     clockEl = document.createElement('div');
     document.body.appendChild(clockEl);
 
-    clockEl.innerHTML = ""
-    clockEl.style.position = "absolute";
+    clockEl.innerHTML = ''
+    clockEl.style.position = 'absolute';
     clockEl.style.fontFamily = 'Monospace';
     clockEl.style.fontSize = '35px';
     clockEl.style.color = 'white';
@@ -3541,8 +3560,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               simYpos = surfaceLevel;
           }
           if (reachedAir && y == simYpos) {
-            // c.fillText("" + Math.round(map_range(y-1, 0, sim_res_y, 0,
-            // guiControls.simHeight)) + " m", 5, scrYpos + 5);
+            // c.fillText('' + Math.round(map_range(y-1, 0, sim_res_y, 0,
+            // guiControls.simHeight)) + ' m', 5, scrYpos + 5);
             c.strokeStyle = '#FFF';
             c.lineWidth = 1.0;
             c.strokeRect(T_to_Xpos(temp, scrYpos), scrYpos, 10,
@@ -3614,7 +3633,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         c.font = '15px Arial';
         c.fillStyle = 'white';
 
-        // c.fillText("Surface: " + y, 10, scrYpos);
+        // c.fillText('Surface: ' + y, 10, scrYpos);
         if (y == simYpos) {
           c.fillText('' + printAltitude(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight)), 5, scrYpos + 5);
 
@@ -4179,7 +4198,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         setupPrecipitationBuffers();
         setupTextures();
         gl.bindVertexArray(fluidVao);
-        // IterNum = 0;
+        // iterNum = 0;
         // frameNum = 0;
       }
     } else if (event.code == 'PageUp') {
@@ -4228,7 +4247,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   await loadingBar.set(9, 'Setting up WebGL');
 
   gl.getExtension('EXT_color_buffer_float');
-  gl.getExtension("EXT_float_blend");
+  gl.getExtension('EXT_float_blend');
   gl.getExtension('OES_texture_float_linear');
   gl.getExtension('OES_texture_half_float_linear');
 
@@ -4585,13 +4604,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < guiControls.brushSize / 2.0 / sim_res_y && water >= 0) { // if droplet is within the brush and active
-        console.log("n:", n);
-        console.log("x:", x);
-        console.log("y:", y);
-        console.log("water:", water);
-        console.log("Ice:", ice);
-        console.log("Density:", density);
-        console.log(" ");
+        console.log('n:', n);
+        console.log('x:', x);
+        console.log('y:', y);
+        console.log('water:', water);
+        console.log('Ice:', ice);
+        console.log('Density:', density);
+        console.log(' ');
         numInBrush++;
 
 
@@ -4613,7 +4632,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         }
       */
     }
-    console.log(NUM_DROPLETS, "total droplets. ", numInBrush, "droplets logged. ", duplicates, " duplicates found");
+    console.log(NUM_DROPLETS, 'total droplets. ', numInBrush, 'droplets logged. ', duplicates, ' duplicates found');
 
 
     // dropletFollowMode = true;
@@ -4638,13 +4657,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // let ice = dropletData[3];
     // let density = dropletData[4];
 
-    // console.log("Droplet ", n);
-    // console.log("x:", x);
-    // console.log("y:", y);
-    // console.log("water:", water);
-    // console.log("Ice:", ice);
-    // console.log("Density:", density);
-    // console.log(" ");
+    // console.log('Droplet ', n);
+    // console.log('x:', x);
+    // console.log('y:', y);
+    // console.log('water:', water);
+    // console.log('Ice:', ice);
+    // console.log('Density:', density);
+    // console.log(' ');
 
     return dropletData;
   }
@@ -4921,15 +4940,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function downloadImageData(imgData)
   {
-    var canvas = document.createElement("canvas");
-    var ctx = canvas.getContext("2d");
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
     canvas.width = imgData.width;
     canvas.height = imgData.height
     ctx.putImageData(imgData, 0, 0);
-    var dataUrl = canvas.toDataURL("image/png");
-    var link = document.createElement("a");
+    var dataUrl = canvas.toDataURL('image/png');
+    var link = document.createElement('a');
     link.href = dataUrl;
-    link.download = "Lightning_image.png";
+    link.download = 'Lightning_image.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -4950,7 +4969,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
   for (let i = 0; i < numLightningTextures; i++) {
-    const lightningGeneratorWorker = new Worker("./lightningGenerator.js");
+    const lightningGeneratorWorker = new Worker('./lightningGenerator.js');
     lightningGeneratorWorker.onmessage = (imgElement) => {
       // downloadImageData(imgElement.data); // for debugging
 
@@ -5225,14 +5244,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
     if (!airplaneMode) {
-      if (leftPressed) {
-        // <
-        cam.changeViewXpos(camPanSpeed / cam.curZoom);
-      }
-      if (rightPressed) {
-        // >
-        cam.changeViewXpos(-camPanSpeed / cam.curZoom);
-      }
       if (upPressed) {
         // ^
         cam.changeViewYpos(-camPanSpeed / cam.curZoom);
@@ -5241,6 +5252,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         // v
         cam.changeViewYpos(camPanSpeed / cam.curZoom);
       }
+    }
+    if (leftPressed) {
+      // <
+      cam.changeViewXpos(camPanSpeed / cam.curZoom);
+    }
+    if (rightPressed) {
+      // >
+      cam.changeViewXpos(-camPanSpeed / cam.curZoom);
     }
     if (plusPressed) {
       // +
@@ -5389,7 +5408,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
             // apply vorticity, boundary conditions and user input
             gl.useProgram(boundaryProgram);
-            gl.uniform1f(uniformLocation_boundaryProgram_iterNum, IterNum);
+            gl.uniform1f(uniformLocation_boundaryProgram_iterNum, iterNum);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
             gl.activeTexture(gl.TEXTURE1);
@@ -5469,7 +5488,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
 
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), IterNum);
+              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), iterNum);
               gl.enable(gl.BLEND);
               gl.blendFunc(gl.ONE, gl.ONE); // add everything together
               gl.activeTexture(gl.TEXTURE0);
@@ -5487,7 +5506,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.endTransformFeedback();
 
               // sample to count number of inactive droplets
-              if (IterNum % 600 == 0) {
+              if (iterNum % 600 == 0) {
                 gl.readBuffer(gl.COLOR_ATTACHMENT0);
                 var sampleValues = new Float32Array(4);
                 // console.time('cnt');
@@ -5506,7 +5525,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
               // Extract lightningLocation from precipitationfeedback
               gl.useProgram(lightningLocationProgram);
-              gl.uniform1f(gl.getUniformLocation(lightningLocationProgram, 'iterNum'), IterNum);
+              gl.uniform1f(gl.getUniformLocation(lightningLocationProgram, 'iterNum'), iterNum);
 
               gl.activeTexture(gl.TEXTURE0);
               gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
@@ -5519,27 +5538,27 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                 gl.readBuffer(gl.COLOR_ATTACHMENT0);
                 var lightningDataValues = new Float32Array(4);
                 gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningDataValues);
-                // console.log('lightningDataValues: ', lightningDataValues[0], lightningDataValues[1], lightningDataValues[2], IterNum, lightningDataValues[3]);
+                // console.log('lightningDataValues: ', lightningDataValues[0], lightningDataValues[1], lightningDataValues[2], iterNum, lightningDataValues[3]);
 
-                if (Math.round(lightningDataValues[2]) == IterNum) {
+                if (Math.round(lightningDataValues[2]) == iterNum) {
                   soundSystem.soundThunder(lightningDataValues[0], lightningDataValues[1], Math.pow(lightningDataValues[3], 2.0));
                 }
               }
             }
 
-            if (displayWeatherStations && IterNum % 208 == 0) { // ~every 60 in game seconds:  0.00008 *3600 * 208 = 59.9
+            if (displayWeatherStations && iterNum % 208 == 0) { // ~every 60 in game seconds:  0.00008 *3600 * 208 = 59.9
               for (i = 0; i < weatherStations.length; i++) {
                 weatherStations[i].measure();
               }
             }
             if (!airplaneMode) {
-              IterNum++;
+              iterNum++;
             }
           }
         }
 
         if (airplaneMode) {
-          IterNum++; // make sure IterNum increases every frame for nice lightning
+          iterNum++; // make sure iterNum increases every frame for nice lightning
           airplane.takeUserInput();
           airplane.move();
         }
@@ -5714,7 +5733,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
       gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
-      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'frameNum'), frameNum);
+      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), iterNum);
 
       gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
 
@@ -5730,7 +5749,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
       gl.uniform4f(gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'Xmult'), horizontalDisplayMult);
-      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'iterNum'), IterNum);
+      gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'iterNum'), iterNum);
 
       // Don't display vectors when zoomed out because you would just see noise
       if (cam.curZoom / sim_res_x > 0.003) {
@@ -5740,7 +5759,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
 
 
-      let lightningTexNum = Math.floor(IterNum / 400) % numLightningTextures;
+      let lightningTexNum = Math.floor(iterNum / 400) % numLightningTextures;
       // console.log(lightningTexNum)
 
       gl.activeTexture(gl.TEXTURE7);
@@ -6008,7 +6027,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   {
     num = num.toString();
     while (num.length < size)
-      num = "0" + num;
+      num = '0' + num;
     return num;
   }
 
@@ -6081,7 +6100,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // Math.pow(Math.max(Math.sin((90.0 - Math.abs(guiControls.sunAngle)) *
     // degToRad) - 0.1, 0.0) * 1.111, 0.4);
     let sunIntensity = guiControls.sunIntensity * Math.pow(Math.max(Math.sin((180.0 - guiControls.sunAngle) * degToRad), 0.0), 0.1) * 1300.0; // max 1300 w/m2 at 12 km
-    // console.log("sunIntensity: ", sunIntensity);
+    // console.log('sunIntensity: ', sunIntensity);
 
     // minShadowLight = clamp(((90 + 10) - Math.abs(solarZenithAngleDeg)) * 0.006, 0.005, 0.040); // decrease until the sun goes 10 deg below the horizon
 
@@ -6101,7 +6120,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     if (guiControls.dayNightCycle)
       clockEl.innerHTML = dateTimeStr(); // update clock
     else
-      clockEl.innerHTML = "";
+      clockEl.innerHTML = '';
   }
 
 

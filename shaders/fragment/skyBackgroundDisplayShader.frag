@@ -18,7 +18,7 @@ uniform sampler2D ambientLightTex;
 
 uniform float minShadowLight;
 
-uniform float frameNum;
+uniform float iterNum;
 
 uniform float simHeight;
 
@@ -27,6 +27,10 @@ uniform float gearPos;
 uniform vec3 planePos;
 
 out vec4 fragmentColor;
+
+float light;
+
+vec3 ambientLight;
 
 const float dryLapse = 0.; // definition needed for common.glsl
 #include "common.glsl"
@@ -74,7 +78,7 @@ vec4 displayA380(vec2 pos, float angle, out vec3 emittedLight, out vec3 onLight)
   emittedLight += vec3(1., 0., 0.) * 5. * max(3. - length(planeFragCoord - vec2(611., 287.)), 0.); // left wing red continuous light
   emittedLight += vec3(1., 1., 1.) * 5. * max(3. - length(planeFragCoord - vec2(861., 286.)), 0.); // Tail white continuous light
 
-  float T = mod(frameNum, 60.) / 60.;
+  float T = mod(iterNum, 60.) / 60.;
 
   emittedLight += vec3(1., 0., 0.) * 20. * max(7. - length(planeFragCoord - vec2(341., 256.)), 0.) * ((T > 0.5 && T < 0.55) ? 1. : 0.);                                 // red beacon light top
 
@@ -84,16 +88,22 @@ vec4 displayA380(vec2 pos, float angle, out vec3 emittedLight, out vec3 onLight)
 
   emittedLight += vec3(1., 1., 1.) * 20. * max(7. - length(planeFragCoord - vec2(861., 286.)), 0.) * ((T > 0.0 && T < 0.05) ? 1. : 0.);                                 // Tail white beacon light
 
-  // logo lights:
-  onLight += vec3(1., 1., 1.) * (1. - smoothstep(0.0, 130.0, length(planeFragCoord - vec2(800., 170.)))); // Tail logo
 
-  // landing lights:
-  if (gearPos < 1.0) {                                                                                     // gear extended
-    emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(170., 350.))), 0.); // Front gear landing light
+  float planeCenterLight = texture(lightTex, pos)[0]; // W/m2
 
-    emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(336., 323.))), 0.); // Wing landing light
+  if (planeCenterLight < 100.0) {                     // if dark
 
-    onLight += vec3(1., 1., 1.) * 0.9 * (1. - smoothstep(0.0, 150.0, length(planeFragCoord - vec2(220., 400.))));
+                                                      // logo lights:
+    onLight += vec3(1., 1., 1.) * (1. - smoothstep(0.0, 130.0, length(planeFragCoord - vec2(800., 170.)))); // Tail logo
+
+    // landing lights:
+    if (gearPos < 2.0) {                                                                                     // gear extended
+      emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(170., 350.))), 0.); // Front gear landing light
+
+      emittedLight += vec3(0.8, 0.9, 1.0) * 30. * max(3. - length((planeFragCoord - vec2(336., 323.))), 0.); // Wing landing light
+
+      onLight += vec3(1., 1., 1.) * 0.9 * (1. - smoothstep(0.0, 150.0, length(planeFragCoord - vec2(220., 400.))));
+    }
   }
 
   if (outputCol.a < 0.5)
@@ -108,7 +118,8 @@ void main()
 {
   vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y + texelSize.y * 0.5, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
 
-  float light = texture(lightTex, lightTexCoord)[0] / standardSunBrightness;
+  light = texture(lightTex, lightTexCoord)[0] / standardSunBrightness;
+  ambientLight = texture(ambientLightTex, texCoord).rgb;
 
   // vec3 topBackgroundCol = vec3(0.0, 0.0, 0.0);      // 0.15 dark blue
   // vec3 bottemBackgroundCol = vec3(0.20, 0.66, 1.0); // vec3(0.35, 0.58, 0.80) milky white blue
@@ -140,7 +151,7 @@ void main()
 
   float airDensityFactor = clamp(1.0 - texCoord.y, 0., 1.);
 
-  finalColor += texture(ambientLightTex, texCoord).rgb * 0.1 * airDensityFactor / standardSunBrightness;
+  finalColor += ambientLight * 0.1 * airDensityFactor / standardSunBrightness;
 
   finalColor += airplaneLights;
 
