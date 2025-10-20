@@ -2123,7 +2123,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async loadImages() { this.#panelImg = await loadImage('resources/img/Panel.png'); }
 
-    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, distToRunway)
+    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, vecToRunway)
     {
       let ctx = this.#instrumentCanvas.getContext('2d');
       let width = this.#instrumentCanvas.width - 50;
@@ -2185,7 +2185,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.lineTo(width / 2 + width * 0.15, targIndY);
       ctx.stroke();
 
-      if (distToRunway < 100000) {
+      if (vecToRunway.x < 150000) {
         ctx.strokeStyle = 'blue';
         ctx.beginPath();
         let runwayIndY = mainHeight / 2 + topBarHeight + (pitchAngle - runwayPointer) * pixPerDeg;
@@ -2194,7 +2194,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         ctx.stroke();
         ctx.fillStyle = 'blue';
         ctx.font = '20px serif';
-        ctx.fillText(printDistance(distToRunway / 1000.0), width / 2 - width * 0.15 - 135, runwayIndY);
+        ctx.fillText(printDistance(vecToRunway.x / 1000.0), width / 2 - width * 0.15 - 70, runwayIndY - 5);
+        ctx.fillText((vecToRunway.y + 7.5).toFixed(0) + ' m', width / 2 + width * 0.15 - 0, runwayIndY - 5);
       }
 
       if (this.#panelImg)
@@ -2769,7 +2770,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'gearPos'), gearPos);
 
-      if (wallTextureValues[0] != 2 && (heightAboveObstacles < 6.0 || radarAltL < 6.0 || (heightAboveObstacles < 10.0 && Math.abs(this.phys.angle) > 0.20))) { // crash into the surface
+      if (wallTextureValues[0] != 2 && (heightAboveObstacles < 6.0 || radarAltL < 6.0 || (heightAboveObstacles < 10.0 && Math.abs(this.phys.angle) > 0.25))) { // crash into the surface
         //    console.log(heightAboveObstacles, radarAltL, radarAltR, this.phys.angle);
         guiControls.IterPerFrame = 1;
         guiControls.auto_IterPerFrame = false;
@@ -2926,7 +2927,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let vecToRunway = this.calcVecToRunway();
 
       this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0,
-                                    this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway.x);
+                                    this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway);
     }
   }
 
