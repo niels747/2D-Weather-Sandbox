@@ -1581,7 +1581,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.curZoom += zoomDif;
       }
 
-      if (guiControls.sound) {
+      if (guiControls.sound && !guiControls.paused) {
         soundSystem.updateAmbientSound(this.curXpos, this.curYpos, this.curZoom);
       }
     }
@@ -1627,10 +1627,105 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cam = new Camera();
 
+  class JetEngineSoundGenerator
+  {
+    constructor(ctx) { this.audioCtx = ctx; }
+
+    createSource(bufferSize)
+    {
+      const bufferSource = this.audioCtx.createBufferSource();
+      bufferSource.buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+      return bufferSource;
+    }
+
+    createLowNoiseSource()
+    {
+      const bufferSize = 20 * this.audioCtx.sampleRate;
+      const bufferSource = this.createSource(bufferSize);
+      const data = bufferSource.buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i += 2)
+        data[i] = Math.random() * 2 - 1;
+      for (let i = 1; i < bufferSize - 1; i += 2)   // Fill in the gaps
+        data[i] = (data[i - 1] + data[i + 1]) / 2.; // average of surrounding samples
+      return bufferSource;
+    }
+
+    start()
+    {
+      // High-pitch turbine whine
+      this.lowWhine = this.audioCtx.createOscillator();
+      this.lowWhine.type = "sine";
+      this.lowWhineGain = this.audioCtx.createGain();
+
+      this.highWhine = this.audioCtx.createOscillator();
+      this.highWhine.type = "sine";
+      this.highWhineGain = this.audioCtx.createGain();
+
+      // low rumble noise
+      this.lowNoiseSource = this.createLowNoiseSource();
+      this.lowNoiseSource.loop = true;
+      this.lowNoiseFilter = this.audioCtx.createBiquadFilter();
+      this.lowNoiseFilter.type = "lowpass";
+      this.lowNoiseFilter.Q.value = 5.5;
+      this.lowNoiseGain = this.audioCtx.createGain();
+
+      // stereo pan
+      this.pan = this.audioCtx.createStereoPanner();
+
+      // Master mix
+      this.mix = this.audioCtx.createGain();
+      this.mix.gain.value = 0.;
+
+      // Connect graph
+      this.lowWhine.connect(this.lowWhineGain).connect(this.mix);
+      this.highWhine.connect(this.highWhineGain).connect(this.mix);
+      this.lowNoiseSource.connect(this.lowNoiseFilter).connect(this.lowNoiseGain).connect(this.mix);
+      this.mix.connect(this.pan).connect(this.audioCtx.destination);
+
+      // Start
+      this.lowWhine.start();
+      this.highWhine.start();
+      this.lowNoiseSource.start();
+    }
+
+    update(N1, dist, horizontalAngle)
+    {
+      const rpm = N1 * 7000;
+      const whineFreq = 100 + rpm * 1.0; // 300 + rpm * 0.8;
+      const noiseFreq = N1 * 600;        // 200 + N1 * 300;
+
+      this.lowWhine.frequency.value = whineFreq / 2.;
+      this.highWhine.frequency.value = whineFreq;
+      this.lowNoiseFilter.frequency.value = noiseFreq;
+
+      const airVol = Math.sqrt(N1) * 3.;
+      const whineVol = Math.sqrt(Math.min(N1, 0.3)) * 0.005;
+
+      this.lowNoiseGain.gain.value = airVol;
+      this.lowWhineGain.gain.value = whineVol;
+      this.highWhineGain.gain.value = whineVol;
+
+      dist += 1.0; // prevent devide by 0
+
+      this.pan.pan.value = -horizontalAngle / 90.;
+      this.mix.gain.value = 170.0 / dist;
+    }
+
+    mute() { this.mix.gain.value = 0.; }
+
+    stop()
+    {
+      this.mix.gain.value = 0;
+      this.lowWhine.stop();
+      this.highWhine.stop();
+      this.lowNoiseSource.stop();
+    }
+  }
 
   class SoundSystem
   {
     audioCtx;
+    jetEngineSound;
 
     thunderCCSounds = [];
     thunderCGSounds = [];
@@ -1645,6 +1740,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     constructor()
     {
       this.audioCtx = new window.AudioContext();
+      this.jetEngineSound = new JetEngineSoundGenerator(this.audioCtx);
       // load sound files asynchronously
       this.loadThunderSounds('cc', 13).then(buffers => { this.thunderCCSounds = buffers; });
       this.loadThunderSounds('cg', 13).then(buffers => { this.thunderCGSounds = buffers; });
@@ -1819,9 +1915,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.setSoundGainAndPan(this.rain_sound, rainVolume);
 
         //    console.log(distVolumeMult, rainVolume, windVolume);
+      }
 
-      } else {
-        this.mute();
+      if (airplaneMode) {
+        let camXnorm = 1. - (cam.curXpos + 1.0) / 2.0;
+        let camYnorm = 1. - (cam.curYpos * sim_aspect + 1.0) / 2.0;
+
+        //    console.log(camXnorm, airplane.phys.pos.x);
+
+        const vecCamToPlaneOnFlatSimArea = airplane.phys.pos.copy().subtract(new Vec2D(camXnorm * cellHeight * sim_res_x, camYnorm * cellHeight * sim_res_y));
+
+        const distCamToPlane = new Vec2D(vecCamToPlaneOnFlatSimArea.mag(), camDistFromSim).mag();
+
+        const horizontalAngleCamToPlane = new Vec2D(camDistFromSim, vecCamToPlaneOnFlatSimArea.x).angle() * radToDeg;
+
+        this.jetEngineSound.update(airplane.getN1(), distCamToPlane, horizontalAngleCamToPlane);
       }
     }
 
@@ -1851,6 +1959,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.setSoundGainAndPan(this.urban_sound, 0);
       this.setSoundGainAndPan(this.rain_sound, 0);
       this.setSoundGainAndPan(this.wind_sound, 0);
+      this.jetEngineSound.mute();
     }
   }
 
@@ -1860,18 +1969,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   {
     #previousValue;
     #previousError;
-    #integral;
-    #useSmoothD;
+    integral;
 
-    constructor(kp, ki, kd, iThreshold, useSmoothD = false)
+    constructor(kp, ki, kd, iThreshold)
     {
       this.kp = kp; // Proportional gain
       this.ki = ki; // Integral gain
       this.kd = kd; // Derivative gain
       this.iThreshold = iThreshold;
-
-      this.#useSmoothD = useSmoothD;
-
       this.resetState();
     }
 
@@ -1879,7 +1984,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     {
       this.#previousValue = 0;
       this.#previousError = 0;
-      this.#integral = 0;
+      this.integral = 0;
     }
 
     update(setpoint, measuredValue)
@@ -1888,22 +1993,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       const derivative = error - this.#previousError;
 
-      let inegralActive = this.iThreshold == null || (Math.abs(error) < this.iThreshold && Math.abs(derivative) < this.iThreshold / 100.); // only adjust integral if already close and stable to target
+      let integralActive =
+        this.iThreshold == null || (Math.abs(error) < this.iThreshold && Math.abs(derivative) < this.iThreshold / 100.); // only adjust integral if already close and stable to target
 
-      if (inegralActive)
-        this.#integral += error;
+      if (integralActive)
+        this.integral += error;
       else
-        this.#integral = 0;
-
-      // console.log(this.#integral);
+        this.integral = 0;
 
       this.#previousError = error;
       this.#previousValue = measuredValue;
 
       let totalOutput = this.kp * error + this.kd * derivative;
 
-      if (inegralActive) {
-        totalOutput += this.ki * this.#integral;
+      if (integralActive) {
+        totalOutput += this.ki * this.integral;
       }
 
       return totalOutput;
@@ -1931,7 +2035,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // PID for pitch to elevator
       this.pitchPID = new PIDController(0.4, 0.001, 20.0, 5.0, true); // 0.5, 0.001, 100.0
 
-      this.speedPID = new PIDController(0.1, 0.0003, 0.0, 5.0);
+      this.speedPID = new PIDController(0.05, 0.00005, 1.0, 10.0);
 
       // PID for glideslope to pitch
       this.glideslopePID = new PIDController(2.0, 0.0015, 5.0, 3.0);
@@ -2002,8 +2106,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
 
 
-      let throttle = clamp(this.speedPID.update(targetIAS, IAS) + 0.40, 0.0, 1.0); // add 40% thrust bias
-
+      let throttle = clamp(this.speedPID.update(targetIAS, IAS) + 0.60, 0.0, 1.0); // add 60% thrust bias
 
       // console.log(this.targetAltitude, altitude, this.targetPitch);
 
@@ -2021,6 +2124,60 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
+  class N1Indicator
+  {
+    container;
+    percentText;
+    fillArc;
+    arcLength;
+
+    constructor(parentElement)
+    {
+      this.container = document.createElement('div');
+      this.container.innerHTML += `
+          <svg class="gauge" viewBox="0 90 320 90" aria-hidden="true">
+            <path class="bg-arc" d="M40 140 A120 120 0 0 1 280 140" />
+            <path id="fillArc" class="fill-arc" d="M40 140 A120 120 0 0 1 280 140" />
+            <text id="percentText" x="160" y="140" class="value">0%</text>
+          </svg>
+      `;
+
+      this.percentText = this.container.querySelector('#percentText');
+      this.fillArc = this.container.querySelector('#fillArc');
+
+      this.arcLength = this.fillArc.getTotalLength();
+      this.fillArc.style.strokeDasharray = this.arcLength + ' ' + this.arcLength;
+      this.fillArc.style.strokeDashoffset = this.arcLength;
+
+      parentElement.appendChild(this.container);
+    }
+
+    getColor(p)
+    {
+      if (p < 80) {
+        const ratio = p / 80;
+        const r = Math.round(0 + ratio * 255);
+        const g = 255;
+        return `rgb(${r},${g},0)`;
+      } else if (p < 100) {
+        const ratio = (p - 90) / 10;
+        const r = 255;
+        const g = Math.round(255 - ratio * 155);
+        return `rgb(${r},${g},0)`;
+      } else {
+        return `rgb(255,0,0)`;
+      }
+    }
+
+    update(N1)
+    {
+      const p = N1 * 100.;
+      this.percentText.textContent = p.toFixed(1) + '%';
+      this.fillArc.style.stroke = this.getColor(p);
+      const offset = this.arcLength * (1 - p / 100);
+      this.fillArc.style.strokeDashoffset = offset;
+    }
+  }
 
   class InstrumentPanel
   {
@@ -2033,6 +2190,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #autoThrottleButton;
     #altHoldButton;
     #panelDiv;
+    #N1Indicator;
 
     // dependencies:
     #autopilot
@@ -2115,6 +2273,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       athrLabel.innerHTML = 'A/THR';
       athrLabel.style = 'position: absolute; left: 200px;';
       container.appendChild(athrLabel);
+
+      this.#N1Indicator = new N1Indicator(container);
 
       const glideSlopeLabel = document.createElement('label');
       glideSlopeLabel.style = 'position: absolute; left: 420px;';
@@ -2215,7 +2375,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     async loadImages() { this.#panelImg = await loadImage('resources/img/Panel.png'); }
 
-    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, vecToRunway, brake)
+    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, N1, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, vecToRunway, brake)
     {
       let ctx = this.#instrumentCanvas.getContext('2d');
       let width = this.#instrumentCanvas.width - 50;
@@ -2448,6 +2608,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       ctx.fillStyle = '#FFFF00';
       ctx.fillText('🎚️ ' + throttle.toFixed() + ' %', 140, 40);
 
+      this.#N1Indicator.update(N1);
+
       let gearStatusIndicator = '';
       if (gearStatus == 'UP') {
         gearStatusIndicator = 'UP';
@@ -2538,22 +2700,69 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    // applyDrag(mult) // applies drag force at center off mass proportional to square of velocity
-    // {
-    //   let mag = this.vel.mag() * mult;
-    //   this.applyForce(new Vec2D(-this.vel.x * mag, -this.vel.y * mag));
-
-    //   this.aVel *= 1. - 0.02 * dt; // angular velocity drag
-    // }
-
     move()
     {
-      // move
       let movementPerFrame = this.vel.copy();
       movementPerFrame.mult(dt);
       this.pos.add(movementPerFrame);
+      this.pos.x = mod(this.pos.x, sim_res_x * cellHeight); // make shure airplane position stays within sim area
+      this.angle += this.aVel * dt;                         // rotate
+    }
+  }
 
-      this.angle += this.aVel * dt; // rotate
+  class JetEngine
+  {
+    N1;     // 0. to 1.
+    thrust; // 0. to 1.
+    starting;
+    started;
+
+    constructor()
+    {
+      this.N1 = 0.186;
+      this.starting = false;
+      this.started = true;
+    }
+
+    toggle()
+    {
+      if (this.started) {
+        this.stop();
+      } else {
+        this.start();
+      }
+    }
+
+    start()
+    {
+      if (!this.started) {
+        this.starting = true;
+      }
+    }
+
+    stop()
+    {
+      this.started = false;
+      this.starting = false;
+    }
+
+    update(throttle)
+    {
+      if (this.starting) {
+        this.N1 += 0.00008;
+        this.N1 *= 1.006;
+        if (this.N1 >= 0.15) {
+          this.starting = false;
+          this.started = true;
+        }
+      } else if (this.started)
+        this.N1 += (Math.abs(throttle) + 0.223) * 0.0042;
+
+      this.N1 *= 0.995; // drag
+
+      this.thrust = Math.pow(this.N1, 2.0);
+
+      return throttle < 0. ? this.thrust * -0.7 : this.thrust;
     }
   }
 
@@ -2580,9 +2789,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // Controls
     elevator;
     throttle;
+    prevThrottle;
 
     #gearStatus; // UP EXTENDING DOWN RETRACTING
     #autopilotEnabled;
+
+    jetEngine;
 
     phys; // physics object, containing all physical properties including position and velocity
 
@@ -2673,6 +2885,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
 
       cam.tarZoom = 100.0;
+
+      this.jetEngine = new JetEngine();
+      soundSystem.jetEngineSound.start();
     }
 
     disableAirplaneMode()
@@ -2685,10 +2900,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.display(); // run display function one more time to update uniforms
       this.#instrumentPanel.remove();
       document.body.style.cursor = 'default';
+      soundSystem.jetEngineSound.stop();
+    }
+
+    getN1() { return this.jetEngine ? this.jetEngine.N1 : 0.0; }
+
+    onUpPressed()
+    {
+      if (this.throttle == 0.) {
+        this.throttle = +0.01;
+      }
+    }
+
+    onDownPressed()
+    {
+      if (this.throttle == 0.) {
+        this.throttle = -0.01;
+      }
     }
 
     setBrakes(enabled) { this.#braking = enabled; }
 
+    toggleEngine() { this.jetEngine.toggle(); }
 
     toggleGear() { this.setGear(this.#gearStatus == 'UP'); }
 
@@ -2828,15 +3061,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         let draught = gearTouchAlt - heightAboveGround;
         if (draught > 0.0) {
-          let waterDragForce = this.phys.vel.x * -30000.0 * draught;
+          let waterDragForce = this.phys.vel.x * -50000.0 * draught;
           // console.log(waterDragForce);
-          if (waterDragForce > 1800000 || this.#gearExtPos < 7.0) { // crash on water
+          if (waterDragForce > 3000000 || this.#gearExtPos < 7.0) { // crash on water
             guiControls.IterPerFrame = 1;
             guiControls.auto_IterPerFrame = false;
             this.#framesSinceCrash = 0;
+            soundSystem.jetEngineSound.stop();
           }
 
           this.phys.applyForce(new Vec2D(waterDragForce, 0.));
+
+          this.jetEngine.stop();
         }
 
       } else if (wallTextureValues[1 * 4 + 0] == 4) { // over urban
@@ -2874,6 +3110,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         guiControls.IterPerFrame = 1;
         guiControls.auto_IterPerFrame = false;
         this.#framesSinceCrash = 0;
+        soundSystem.jetEngineSound.stop();
       }
 
       this.#groundSpeed = this.phys.vel.mag();
@@ -2919,11 +3156,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log((vertStabilAOA * radToDeg).toFixed(2), vertStabilForce.copy().div(10000));
 
+      let thrust = this.jetEngine.update(this.throttle);
+
       let thrustAltMult = 0.5 + relAirDensity * 0.5;
 
-      this.phys.applyForce(vertStabilForce, vertStabilPos);                                               // apply vertical stabiliser force
-      this.phys.applyForce(Vec2D.fromAngle(this.phys.angle, this.throttle * thrustAltMult * 311000 * 4)); // Thrust 4 X 311 kN
-      this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                                 // gravity
+      this.phys.applyForce(vertStabilForce, vertStabilPos);                                        // apply vertical stabiliser force
+      this.phys.applyForce(Vec2D.fromAngle(this.phys.angle, thrust * thrustAltMult * 311000 * 4)); // Thrust 4 X 311 kN
+      this.phys.applyAcceleration(new Vec2D(0.0, -9.81));                                          // gravity
 
       let normRelVel = new Vec2D(Math.cos(this.#relVelAngle), Math.sin(this.#relVelAngle));
       let dragMult = (this.#gearStatus == 'UP' ? 25.0 : 35.0) + Math.abs(Math.sin(AOA) * 150.0);
@@ -2973,6 +3212,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     takeUserInput()
     {
+      this.prevThrottle = this.throttle;
 
       if (upPressed) {
         this.throttle += 0.01;
@@ -3007,8 +3247,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log(this.phys.angle * radToDeg, this.elevator);
 
-
-      this.throttle = clamp(this.throttle, this.#gearOnGround ? -0.2 : 0.0, 1.0);
+      this.throttle = clamp(this.throttle, (this.#gearOnGround && (this.prevThrottle < 0. || this.#autopilot.autoThrottleEnabled)) ? -0.3 : 0.0,
+                            (this.prevThrottle > 0. || this.#autopilot.autoThrottleEnabled) ? 1.0 : 0.0);
     }
 
     display()
@@ -3028,11 +3268,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         cam.tarYpos = -normYpos * 2.0 * (sim_res_y / sim_res_x) + (sim_res_y / sim_res_x);
       }
 
-
       let vecToRunway = this.calcVecToRunway();
 
       this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0,
-                                    this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway, this.#braking);
+                                    this.jetEngine.N1, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway,
+                                    this.#braking);
     }
   }
 
@@ -3560,7 +3800,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     advanced_folder.add(guiControls, 'resetSettings').name('Reset all settings');
 
-    datGui.add(guiControls, 'paused').name('Paused').listen();
+    datGui.add(guiControls, 'paused').onChange(handlePause).name('Paused').listen();
     datGui.add(guiControls, 'download').name('Save Simulation to File');
 
     datGui.width = 400;
@@ -4155,6 +4395,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   var lastBpressTime;
 
+  function handlePause()
+  {
+    if (guiControls.paused) {
+      soundSystem.mute();
+    }
+  }
+
   document.addEventListener('keydown', (event) => {
     if (event.code == 'ControlLeft') {
       ctrlPressed = true;
@@ -4162,9 +4409,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     if (event.code == 'ControlRight') {
       // ctrl or cmd on mac
       rightCtrlPressed = true;
-    } else if (event.code == 'Space') { //
+    } else if (event.code == 'Space') {
       // space bar
       guiControls.paused = !guiControls.paused;
+      handlePause();
     } else if (event.code == 'KeyD') {
       // D
       guiControls.showDrops = !guiControls.showDrops;
@@ -4230,13 +4478,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.code == 'KeyK') {
       guiControls.displayMode = 'DISP_AIRQUALITY';
     } else if (event.key == 'ArrowLeft') {
-      leftPressed = true;  // <
+      leftPressed = true; // <
     } else if (event.key == 'ArrowUp') {
+      if (!upPressed)
+        airplane.onUpPressed();
       upPressed = true;    // ^
     } else if (event.key == 'ArrowRight') {
       rightPressed = true; // >
     } else if (event.key == 'ArrowDown') {
-      downPressed = true;  // v
+      if (!downPressed)
+        airplane.onDownPressed();
+      downPressed = true; // v
     } else if (event.key == '=' || event.key == '+') {
       event.preventDefault();
       plusPressed = true; // +
@@ -4293,8 +4545,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     } else if (event.code == 'Period') {
       airplane.setBrakes(true);
+    } else if (event.code == 'Slash') {
+      airplane.toggleEngine();
     } else if (event.code == 'KeyL') {
-
       if (new Date() - lastSaveTime > 120000) // more than 120 seconds)
         if (!confirm('Are you sure you want to reload without saving?'))
           return;                             // abort

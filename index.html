@@ -224,6 +224,43 @@
             background: #0f0;
             box-shadow: 0 0 8px #0f0;
         }
+
+        :root {
+            --size: 50px
+        }
+
+        .gauge {
+            position: absolute;
+            left: 300px;
+            height: calc(var(--size)/2);
+        }
+
+        svg {
+            display: block;
+            overflow: visible
+        }
+
+        .bg-arc {
+            stroke: #263242;
+            stroke-width: 24;
+            fill: none;
+            stroke-linecap: round
+        }
+
+        .fill-arc {
+            stroke: green;
+            stroke-width: 24;
+            fill: none;
+            stroke-linecap: round;
+            transition: stroke 0.4s linear;
+        }
+
+        .value {
+            font-size: 56px;
+            font-weight: 700;
+            fill: #ffffff;
+            text-anchor: middle
+        }
     </style>
 </head>
 
@@ -439,6 +476,10 @@
                 <tr>
                     <td>.</td>
                     <td>Brakes</td>
+                </tr>
+                <tr>
+                    <td>/</td>
+                    <td>Toggle Engine</td>
                 </tr>
                 <tr>
                     <td>D</td>
