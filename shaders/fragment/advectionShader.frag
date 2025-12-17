@@ -284,9 +284,9 @@ void main()
     } else if (userInputType == 4) {                                                 // drag/move air
 
       if (userInputValues.x < -0.5) {                                                // whole width brush
-        base.x += userInputMove.x * 1.0 * weight * userInputValues[BRUSH_INTENSITY]; // only move horizontally
+        base.x += userInputMove.x * 5.0 * weight * userInputValues[BRUSH_INTENSITY]; // only move horizontally
       } else {
-        base.xy += userInputMove * 1.0 * weight * userInputValues[BRUSH_INTENSITY];
+        base.xy += userInputMove * 5.0 * weight * userInputValues[BRUSH_INTENSITY];
       }
     } else if (userInputType >= 10) {               // wall
       if (userInputValues[BRUSH_INTENSITY] > 0.0) { // build wall if positive value else remove wall

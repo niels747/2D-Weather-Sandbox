@@ -2201,15 +2201,27 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#panelDiv = document.createElement('div');
       this.#instrumentCanvas = document.createElement('canvas');
       this.#instrumentCanvas.width = 800;
-      this.#instrumentCanvas.height = 660; // 660
+      this.#instrumentCanvas.height = 660;
       this.#panelDiv.style.opacity = 0.7;
       this.#panelDiv.style.position = 'absolute';
       this.#panelDiv.style.bottom = 0;
       this.#panelDiv.style.right = 0;
+      this.#panelDiv.style.left = 'auto';
       this.loadImages();
       this.genAutopilotBar(this.#panelDiv);
       this.#panelDiv.appendChild(this.#instrumentCanvas);
       body.appendChild(this.#panelDiv);
+    }
+
+    setDisplaySideRight(right)
+    {
+      if (right) {
+        this.#panelDiv.style.right = 0;
+        this.#panelDiv.style.left = 'auto';
+      } else { // left
+        this.#panelDiv.style.right = 'auto';
+        this.#panelDiv.style.left = 0;
+      }
     }
 
     setMode_AUTOLAND(on)
@@ -2700,12 +2712,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    move()
+    move(directionIsLeft)
     {
       let movementPerFrame = this.vel.copy();
       movementPerFrame.mult(dt);
+      if (!directionIsLeft)
+        movementPerFrame.x = -movementPerFrame.x;
       this.pos.add(movementPerFrame);
-      this.pos.x = mod(this.pos.x, sim_res_x * cellHeight); // make shure airplane position stays within sim area
+      this.pos.x = mod(this.pos.x, sim_res_x * cellHeight); // make sure airplane position stays within sim area
       this.angle += this.aVel * dt;                         // rotate
     }
   }
@@ -2771,17 +2785,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #instrumentPanel;
     #autopilot;
 
-    #relVelAngle;   // angle of velocity relative to air
-    #airspeed;      // true airspeed, m/s
-    #groundSpeed;
-    #IAS;           // indicated airspeed, m/s
-    #camFollow;
-    #OAT;           // outdoor air temperature
+    directionIsLeft; // false means right
 
-    #radarAltitude; // meters above ground
+    #relVelAngle;    // angle of velocity relative to air
+    #airspeed;       // true airspeed, m/s
+    #groundSpeed;
+    #IAS;            // indicated airspeed, m/s
+    #camFollow;
+    #OAT;            // outdoor air temperature
+
+    #radarAltitude;  // meters above ground
     #framesSinceCrash;
-    #gearExtPos;    // down: 0.0  up: 7.0
-    #gearOnGround;  // if the wheels are touching the ground
+    #gearExtPos;     // down: 0.0  up: 7.0
+    #gearOnGround;   // if the wheels are touching the ground
     #braking;
 
     #runwayThresholdPos;
@@ -2812,16 +2828,30 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       var wallTextureValues = new Int8Array(sim_res_x * 4);
       gl.readPixels(0, Ypos, sim_res_x, 1, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
 
-      let x = Xpos - 1;
-      while (x != Xpos) {
-        if (x < 0)
-          x = sim_res_x - 1;
+      if (this.directionIsLeft) {
+        let x = Xpos - 1;
+        while (x != Xpos) {
+          if (x < 0)
+            x = sim_res_x - 1;
 
-        if (wallTextureValues[x * 4 + 0] == 5) // found runway
-        {
-          return new Vec2D(x * cellHeight, (Ypos - wallTextureValues[x * 4 + 2]) * cellHeight + 15);
+          if (wallTextureValues[x * 4 + 0] == 5) // found runway
+          {
+            return new Vec2D(x * cellHeight, (Ypos - wallTextureValues[x * 4 + 2]) * cellHeight + 15);
+          }
+          x--;
         }
-        x--;
+      } else { // direction is right
+        let x = Xpos + 1;
+        while (x != Xpos) {
+          if (x > sim_res_x - 1)
+            x = 0;
+
+          if (wallTextureValues[x * 4 + 0] == 5) // found runway
+          {
+            return new Vec2D(x * cellHeight, (Ypos - wallTextureValues[x * 4 + 2]) * cellHeight + 15);
+          }
+          x++;
+        }
       }
       return new Vec2D(0, 0);
     }
@@ -2855,10 +2885,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#instrumentPanel = new InstrumentPanel(this.#autopilot);
       this.#autopilot.bindInstrumentPanel(this.#instrumentPanel);
       airplaneMode = true;
+      this.directionIsLeft = true; // left
       this.#camFollow = true;
-      let M = 400 * 1000;         // mass: 400 tons
-      let L = 50.0;               // effective length in meters
-      let I = 1 / 12 * M * L * L; // moment of inertia
+      let M = 400 * 1000;          // mass: 400 tons
+      let L = 50.0;                // effective length in meters
+      let I = 1 / 12 * M * L * L;  // moment of inertia
 
       let simXpos = Math.floor(mouseXinSim * sim_res_x);
       let simYpos = findSimYposAboveSurfaceAtMouseX();
@@ -2888,6 +2919,20 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       this.jetEngine = new JetEngine();
       soundSystem.jetEngineSound.start();
+    }
+
+    changeDirection()
+    {
+      if (this.directionIsLeft) {
+        if (!confirm('Do you want to change the flight direction to Right?'))
+          return;
+      } else {
+        if (!confirm('Do you want to change the flight direction to Left?'))
+          return;
+      }
+      this.directionIsLeft = !this.directionIsLeft;
+      this.#instrumentPanel.setDisplaySideRight(this.directionIsLeft);
+      this.#runwayThresholdPos = this.getClosestRunwayPos();
     }
 
     disableAirplaneMode()
@@ -2994,7 +3039,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let Vx = bilerp(baseTextureValues, 0, fractX, fractY);
       let Vy = bilerp(baseTextureValues, 1, fractX, fractY);
 
-      let airVel = new Vec2D(Vx, Vy);
+      let airVel = new Vec2D(this.directionIsLeft ? Vx : -Vx, Vy);
 
       if (this.phys.pos.y > guiControls.simHeight) {
         airVel.mult(0.0);              // still air above sim area
@@ -3025,7 +3070,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let radarAltR = (wallTextureValues[2 * 4 + 2] + fractY - 1.) * cellHeight;
 
 
-      let radarAltFrontGear = mix(radarAltL, radarAltM, Math.min(fractX + 0.14, 1.));
+      let radarAltFrontGear = this.directionIsLeft ? mix(radarAltL, radarAltM, Math.min(fractX + 0.14, 1.)) : mix(radarAltM, radarAltR, Math.min(fractX, 1.));
 
       this.#radarAltitude = Math.min(mix(radarAltL, radarAltM, fractX), mix(radarAltM, radarAltR, fractX));
 
@@ -3104,7 +3149,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let gearPos = clamp(-(heightAboveGround - gearTouchAlt), 0.0, 5.0) + this.#gearExtPos; // 0 is all the way down, positive is up into the airplane
 
       gl.useProgram(skyBackgroundDisplayProgram);
-      gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'gearPos'), gearPos);
+      gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planeDirectionAndGearPos'), this.directionIsLeft, gearPos);
 
       if (wallTextureValues[0] != 2 && (heightAboveObstacles < 6.0 || radarAltL < 6.0 || (heightAboveObstacles < 10.0 && Math.abs(this.phys.angle) > 0.25))) { // crash into the surface
         guiControls.IterPerFrame = 1;
@@ -3144,7 +3189,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log('this.elevator ' + this.elevator);
 
-      let vertStabilAOA = AOA - this.elevator * 15.0 * degToRad; // angled at -15 to 15 degrees relative to main wing
+      let vertStabilAOA = AOA - (this.elevator * 15.0 + 3.0) * degToRad; // angled at -12 to 18 degrees relative to main wing with 3 deg center position
 
       // console.log('vertStabilAOA ', vertStabilAOA * radToDeg);
 
@@ -3178,7 +3223,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       this.phys.aVel *= 1. - 0.15 * dt; // angular velocity drag
 
-      this.phys.move();
+      this.phys.move(this.directionIsLeft);
     }
 
     hasCrashed() { return this.#framesSinceCrash >= 0; }
@@ -3197,17 +3242,31 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     calcVecToRunway()
     {
-      let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
-      let distToRunwayX = 0;
-      if (this.phys.pos.x > this.#runwayThresholdPos.x) {               // to the right of runway
-        distToRunwayX = this.phys.pos.x - this.#runwayThresholdPos.x;
-      } else if (this.phys.pos.x > this.#runwayThresholdPos.x - 3000) { // above runway
-        distToRunwayX = 0;
-      } else {                                                          // to the left of runway, wrap around map
-        distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
+      if (this.directionIsLeft) {
+        let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
+        let distToRunwayX = 0;
+        if (this.phys.pos.x > this.#runwayThresholdPos.x) {               // to the right of runway
+          distToRunwayX = this.phys.pos.x - this.#runwayThresholdPos.x;
+        } else if (this.phys.pos.x > this.#runwayThresholdPos.x - 3000) { // above runway
+          distToRunwayX = 0;
+        } else {                                                          // to the left of runway, wrap around map
+          distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
+        }
+        let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
+        return vecToRunway;
+      } else {
+        let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
+        let distToRunwayX = 0;
+        if (this.phys.pos.x < this.#runwayThresholdPos.x) {               // to the left of runway
+          distToRunwayX = this.#runwayThresholdPos.x - this.phys.pos.x;
+        } else if (this.phys.pos.x < this.#runwayThresholdPos.x + 3000) { // above runway
+          distToRunwayX = 0;
+        } else {                                                          // to the left of runway, wrap around map
+          distToRunwayX = sim_res_x * cellHeight + (this.phys.pos.x - this.#runwayThresholdPos.x);
+        }
+        let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
+        return vecToRunway;
       }
-      let vecToRunway = new Vec2D(distToRunwayX, distToRunwayY);
-      return vecToRunway;
     }
 
     takeUserInput()
@@ -3233,10 +3292,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           this.#braking = true;
       }
 
+      const gp = navigator.getGamepads()[0];
+
       if (this.#autopilotEnabled) {
 
         this.elevator = autopilotElevator;
-
+      } else if (gp) {
+        this.elevator = -gp.axes[1];
       } else {                                                              // manual elevator control
         this.elevator = (mouseY - canvas.height / 2) / canvas.height * 2.0; // pitch input -1.0 to +1.0
       }
@@ -3247,8 +3309,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log(this.phys.angle * radToDeg, this.elevator);
 
-      this.throttle = clamp(this.throttle, (this.#gearOnGround && (this.prevThrottle < 0. || this.#autopilot.autoThrottleEnabled)) ? -0.3 : 0.0,
-                            (this.prevThrottle > 0. || this.#autopilot.autoThrottleEnabled) ? 1.0 : 0.0);
+      if (gp) {
+        if (!this.#autopilot.autoThrottleEnabled) {
+          this.throttle = (gp.axes[2] + 1.) / 2.;
+          this.throttle *= -gp.axes[4]; // reverse thrust
+        }
+        this.#braking = gp.buttons[0].pressed;
+
+        this.setGear(gp.axes[7] > 0.)
+      }
+
+      this.throttle = clamp(this.throttle, (this.#gearOnGround && (this.prevThrottle < 0. || this.#autopilot.autoThrottleEnabled || gp)) ? -0.3 : 0.0,
+                            (this.prevThrottle > 0. || this.#autopilot.autoThrottleEnabled || gp) ? 1.0 : 0.0);
     }
 
     display()
@@ -3258,7 +3330,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // console.log(normXpos, normYpos);
       gl.useProgram(skyBackgroundDisplayProgram);
-      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planePos'), normXpos, normYpos, this.phys.angle);
+      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'planePos'), normXpos, normYpos, this.directionIsLeft ? this.phys.angle : -this.phys.angle);
       gl.useProgram(advectionProgram);
       gl.uniform4f(gl.getUniformLocation(advectionProgram, 'airplaneValues'), normXpos, normYpos, this.throttle, this.#framesSinceCrash > 0 ? 1.0 : (zPressed ? -1.0 : 0.0));
       gl.useProgram(skyBackgroundDisplayProgram);
@@ -4446,9 +4518,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // Sample droplets around mouse location
       logDropletsAndToggleFollow();
     } else if (event.code == 'KeyA') {
-      if (airplaneMode)
-        airplane.disableAirplaneMode();
-      else if (!SETUP_MODE)
+      if (airplaneMode) {
+        airplane.changeDirection();
+      } else if (!SETUP_MODE)
         airplane.enableAirplaneMode(event.getModifierState('CapsLock'));
     } else if (event.code == 'CapsLock') {
       if (airplaneMode)
@@ -4495,10 +4567,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     } else if (event.key == '-') {
       event.preventDefault();
       minusPressed = true; // -
-    } else if (event.code == 'Backquote' || event.code == 'Escape') {
-      // event.preventDefault();         // tried to prevent anoying ` apearing when typing after, doesn't work
-      guiControls.tool = 'TOOL_NONE';
-      guiControls.wholeWidth = false; // flashlight can't be whole width
+    } else if (event.code == 'Escape') {
+      if (guiControls.tool == 'TOOL_NONE' && airplaneMode && confirm('Exit airplane mode?')) {
+        airplane.disableAirplaneMode();
+      } else {
+        guiControls.tool = 'TOOL_NONE';
+        guiControls.wholeWidth = false; // flashlight can't be whole width
+      }
     } else if (event.code == 'KeyQ') {
       guiControls.tool = 'TOOL_TEMPERATURE';
     } else if (event.code == 'KeyW') {
@@ -4507,10 +4582,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WALL_LAND';
     } else if (event.code == 'KeyR') {
       guiControls.tool = 'TOOL_WALL_SEA';
-    } /*else if (event.code == 'Key?') {
-      guiControls.tool = 'TOOL_WALL_URBAN';
-    }*/
-    else if (event.code == 'KeyT') {
+    } else if (event.code == 'KeyT') {
       guiControls.tool = 'TOOL_WALL_FIRE';
     } else if (event.code == 'KeyY') {
       guiControls.tool = 'TOOL_SMOKE';
@@ -4522,6 +4594,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.tool = 'TOOL_WALL_SNOW';
     } else if (event.code == 'KeyP') {
       guiControls.tool = 'TOOL_WIND';
+    } else if (event.code == 'BracketLeft') {
+      guiControls.tool = 'TOOL_WALL_URBAN';
+    } else if (event.code == 'BracketRight') {
+      guiControls.tool = 'TOOL_WALL_RUNWAY';
+    } else if (event.code == 'Backslash') {
+      guiControls.tool = 'TOOL_WALL_INDUSTRIAL';
     } else if (event.code == 'KeyN') {
       if (displayWeatherStations) {
         displayWeatherStations = false;
@@ -5087,6 +5165,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // Static texures:
   const noiseTexture = gl.createTexture();
   const A380Texture = gl.createTexture();
+  const A380_R_Texture = gl.createTexture();
   const A380GearTexture = gl.createTexture();
   const surfaceTextureMap = gl.createTexture();
   const colorScalesTexture = gl.createTexture();
@@ -5263,7 +5342,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
-  // NEAREST_MIPMAP_LINEAR create weird effects
+                                                                                   // NEAREST_MIPMAP_LINEAR create weird effects
+
+  imgElement = await loadImage('resources/img/A380_R.png');
+
+  gl.bindTexture(gl.TEXTURE_2D, A380_R_Texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
 
   imgElement = await loadImage('resources/img/A380_gear.png');
 
@@ -6082,7 +6171,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       // draw background
       gl.activeTexture(gl.TEXTURE8);
-      gl.bindTexture(gl.TEXTURE_2D, A380Texture);
+      gl.bindTexture(gl.TEXTURE_2D, airplane.directionIsLeft ? A380Texture : A380_R_Texture); // A380Texture
       gl.activeTexture(gl.TEXTURE9);
       gl.bindTexture(gl.TEXTURE_2D, ambientLightFBOs[0].texture);
       gl.activeTexture(gl.TEXTURE10);
