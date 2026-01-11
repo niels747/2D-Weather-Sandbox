@@ -374,8 +374,8 @@ const guiControls_default = {
   meltingRate : 0.01,
   evapRate : 0.0008, // 0.0005
   displayMode : 'DISP_REAL',
-  wrapHorizontally : true,
-  SmoothCam : true,
+  wrapHorizontally : false,
+  SmoothCam : false,
   camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
@@ -393,7 +393,7 @@ const guiControls_default = {
   showGraph : false,
   realDewPoint : false, // show real dew point in graph, instead of dew point with cloud water included
   enablePrecipitation : true,
-  showDrops : false,
+  showDrops : true,
   paused : false,
   IterPerFrame : 10,
   auto_IterPerFrame : true,
@@ -449,7 +449,7 @@ var dryLapse;
 const timePerIteration = 0.00008; // in hours (0.00008 = 0.288 sec, at 40m cell size that means the speed of light & sound = 138.88 m/s = 500 km/h)
 
 var NUM_DROPLETS;
-const NUM_DROPLETS_DEVIDER = 25; // 25
+const NUM_DROPLETS_DEVIDER = 5; // 25
 
 let hdrFBO;
 
