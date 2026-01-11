@@ -50,7 +50,7 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform vec4 initial_Tv[126];
+uniform vec4 initial_Tv[125];
 uniform vec4 realWorldSounding_Tv[60];
 uniform vec4 realWorldSounding_Wv[40];
 uniform vec4 realWorldSounding_Velv[30];
