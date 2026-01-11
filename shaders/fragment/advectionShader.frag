@@ -50,10 +50,10 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform vec4 initial_Tv[126];
-uniform vec4 realWorldSounding_Tv[126];
-uniform vec4 realWorldSounding_Wv[126];
-uniform vec4 realWorldSounding_Velv[126];
+uniform vec4 initial_Tv[62];
+uniform vec4 realWorldSounding_Tv[48];
+uniform vec4 realWorldSounding_Wv[30];
+uniform vec4 realWorldSounding_Velv[30];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 float getRealWorldSounding_T(int y) { return (realWorldSounding_Tv[y / 4][y % 4] + realWorldSounding_Tv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
