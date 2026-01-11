@@ -127,7 +127,7 @@ void main()
 
           float lightningSpawnChance = max((cloudPlusPrecipDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
 
-          const float minIterationsSinceLastLightningBolt = 30.;                                                                                                                       // 50.
+          const float minIterationsSinceLastLightningBolt = 5;                                                                                                                       // 50.
 
           if (lightningData[START_ITERNUM] < iterNum - minIterationsSinceLastLightningBolt && random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
             lightningSpawned = true;
