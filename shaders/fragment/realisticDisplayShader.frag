@@ -50,6 +50,7 @@ uniform vec4 cursor; // Xpos   Ypos  Size   type
 uniform float displayVectorField;
 
 uniform float iterNum;
+uniform bool golpeFinal;
 
 out vec4 fragmentColor;
 
@@ -345,12 +346,16 @@ void main()
 
       // horizontally interpolate depth value
       float interpDepth = mix(mix(float(-wallXmY0[VERT_DISTANCE]), float(-wall[VERT_DISTANCE]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[VERT_DISTANCE]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
-      float depth = interpDepth - fract(fragCoord.y); // - 1.0 ?
-
+      float depth = interpDepth - fract(fragCoord.y);
       color = getWallColor(depth);
 
       break;
     case WALLTYPE_WATER:
+      if (golpeFinal) {
+        color = vec3(0.12, 0.42, 0.85); // Flat simple blue water for Golpe Final HD 4000 mode
+        shadowLight = 1.0;
+        break;
+      }
 
       // Precomputed values (tweak to taste)
       // Frequencies
