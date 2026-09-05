@@ -354,8 +354,8 @@ const guiControls_default = {
   sunIntensity : 1.0,
   waterTemperature : 25.0, // °C
   dynamicWaterTemperature : true,
-  landEvaporation : 0.00005,
-  waterEvaporation : 0.0001,
+  landEvaporation : 0.0005,
+  waterEvaporation : 0.001,
   evapHeat : 2.90,          //  Real: 2260 J/g
   meltingHeat : 0.43,       //  Real:  334 J/g
   condensationRate : 0.0050,
@@ -374,6 +374,7 @@ const guiControls_default = {
   displayMode : 'DISP_REAL',
   wrapHorizontally : true,
   SmoothCam : true,
+  cameraShake : true,
   camSpeed : 0.01,
   exposure : 1.0,
   timeOfDay : 9.9,
@@ -551,24 +552,31 @@ function IR_temp(IR)
 }
 
 ////////////// Water Functions ///////////////
+// These have to stay in sync with shaders/common.glsl, where the same limits keep the simulation
+// itself from blowing up: the saturation curve rises with the power of 17, so without a physical
+// temperature range and a cap, one corrupt cell asks for gigagrams of water.
 const wf_devider = 250.0;
 const wf_pow = 17.0;
+const minPhysTemp = 173.15; // -100 °C
+const maxPhysTemp = 333.15; // +60 °C
+const maxWaterCap = 200.0;  // g/m³
 
 function maxWater(Td)
 {
-  return Math.pow(Td / wf_devider,
-                  wf_pow); // w = ((Td)/(250))^(18) // Td in Kelvin, w in grams per m^3
+  if (!Number.isFinite(Td))
+    return 0.0;
+  const T = Math.min(Math.max(Td, minPhysTemp), maxPhysTemp);
+  return Math.min(Math.pow(T / wf_devider, wf_pow), maxWaterCap); // w = ((Td)/(250))^(17) // Td in Kelvin, w in grams per m^3
 }
 
 function dewpoint(W)
 {
-  //  if (W < 0.00001) // can't remember why this was here...
-  //    return 0.0;
-  //  else
-  return wf_devider * Math.pow(W, 1.0 / wf_pow);
+  if (!Number.isFinite(W) || W < 0.00001)
+    return 0.0;
+  return Math.min(wf_devider * Math.pow(Math.min(W, maxWaterCap), 1.0 / wf_pow), maxPhysTemp);
 }
 
-function relativeHumd(T, W) { return (W / maxWater(T)) * 100.0; }
+function relativeHumd(T, W) { return (Math.max(W, 0.0) / Math.max(maxWater(T), 0.0001)) * 100.0; }
 
 // Print funtions:
 
@@ -1253,6 +1261,209 @@ class Weatherstation
 let weatherStations = []; // array holding all weather stations
 
 
+// Replace NaN, infinite and out of range values in the simulation state loaded from a save file with safe values, and returns how many values were replaced.
+// Even a single NaN value will spread trough the entire fluid simulation within a few iterations, making the simulation explode right after loading.
+// Save files can contain NaN values when the simulation had already exploded before it was saved, or when the file is corrupted.
+// Finite but impossible values are limited as well: that is what the state of an already exploded
+// simulation looks like when it is saved without having produced a NaN yet, and a single cell with
+// 1e15 g/m³ of vapor starts the explosion again in the first iteration, because both evaporation
+// and latent heat scale with the maximum water content of the air.
+function sanitizeLoadedState(baseTexF32, waterTexF32, wallTexI8, precipArray)
+{
+  // texture channel indices, matching the defines in shaders/common.glsl
+  const BASE_PRESSURE = 2;
+  const BASE_TEMPERATURE = 3;
+
+  const WATER_TOTAL = 0;
+  const WATER_CLOUD = 1;
+  const WATER_PRECIP_OR_SOIL = 2;
+
+  const WALL_TYPE = 0;
+  const WALL_DISTANCE = 1; // 0 means the cell is a wall
+  const WALLTYPE_WATER = 2;
+
+  const maxVel = 1.0;      // cells per iteration, far above any real wind speed
+  const maxPressure = 0.5; // pressure is added to the velocities every iteration, so it has to stay small
+  const maxSurfaceWater = 100.0; // smoke or precipitation in the air
+
+  const numCells = sim_res_x * sim_res_y;
+  let numReplaced = 0;
+
+  // The temperature in the base texture is potential temperature, which is nearly uniform within a horizontal row of cells,
+  // so the first valid temperature found in a row is a good replacement for invalid ones in that same row.
+  let rowReferenceTemp = new Float32Array(sim_res_y);
+
+  for (var y = 0; y < sim_res_y; y++) {
+    rowReferenceTemp[y] = NaN;
+    for (var x = 0; x < sim_res_x; x++) {
+      let i = (x + y * sim_res_x) * 4;
+      if (wallTexI8[i + WALL_DISTANCE] != 0 && Number.isFinite(baseTexF32[i + BASE_TEMPERATURE])) { // valid temperature in a non wall cell
+        rowReferenceTemp[y] = baseTexF32[i + BASE_TEMPERATURE];
+        break;
+      }
+    }
+  }
+
+  // Rows without a single valid temperature take the temperature of the nearest valid row below them.
+  // If there is no valid row below, fall back to a neutral temperature of about 15 degrees C.
+  let nearestValidTemp = CtoK(15.0);
+  for (var y = 0; y < sim_res_y; y++) {
+    if (Number.isFinite(rowReferenceTemp[y]))
+      nearestValidTemp = rowReferenceTemp[y];
+    else
+      rowReferenceTemp[y] = nearestValidTemp;
+  }
+
+  // Potential temperature contains the lapse rate of the whole column, so the limit for an air cell
+  // moves up with its height. This has to match cleanTempK() in shaders/common.glsl.
+  let lapseTotal = 120.0; // 12 km with a normal lapse rate, used when the settings are not known yet
+  if (typeof dryLapse == 'number' && Number.isFinite(dryLapse))
+    lapseTotal = dryLapse;
+  else if (typeof guiControls == 'object' && guiControls)
+    lapseTotal = (Number(guiControls.simHeight) * Number(guiControls.dryLapseRate)) / 1000.0;
+  if (!Number.isFinite(lapseTotal) || lapseTotal <= 0.0)
+    lapseTotal = 120.0;
+
+  for (var cell = 0; cell < numCells; cell++) {
+    let i = cell * 4;
+    let y = Math.floor(cell / sim_res_x);
+
+    let isWall = wallTexI8[i + WALL_DISTANCE] == 0;
+    let isWaterWall = isWall && wallTexI8[i + WALL_TYPE] == WALLTYPE_WATER;
+
+    // base texture: horizontal & vertical velocity, pressure, temperature
+    for (var c = 0; c < 4; c++) {
+      let v = baseTexF32[i + c];
+      let fixed = v;
+
+      if (c == BASE_TEMPERATURE) {
+        if (isWaterWall)
+          fixed = clamp(Number.isFinite(v) ? v : CtoK(25.0), CtoK(0.0), CtoK(40.0)); // water temperature is absolute and limited, just like in the shaders
+        else if (isWall)
+          fixed = Number.isFinite(v) ? v : 1000.0; // wall indicator value, just like the shaders use
+        else {
+          let lapse = (y / sim_res_y) * lapseTotal;
+          fixed = Number.isFinite(v) ? clamp(v, minPhysTemp + lapse, maxPhysTemp + lapse) : rowReferenceTemp[y];
+        }
+      } else if (!Number.isFinite(v)) {
+        fixed = 0.0; // velocities and pressure
+      } else if (c == BASE_PRESSURE) {
+        fixed = clamp(v, -maxPressure, maxPressure);
+      } else {
+        fixed = clamp(v, -maxVel, maxVel);
+      }
+
+      if (fixed !== v) {
+        baseTexF32[i + c] = fixed;
+        numReplaced++;
+      }
+    }
+
+    // water texture: total water, cloud water, precipitation / soil moisture, smoke / snow
+    for (var c = 0; c < 4; c++) {
+      let v = waterTexF32[i + c];
+      let fixed = v;
+
+      if (c == WATER_TOTAL && isWall) {
+        fixed = Number.isFinite(v) && v > 1000.0 ? v : (isWaterWall ? 1002.0 : 1001.0); // wall indicator values, just like the shaders use
+        fixed = Math.max(fixed, 0.0);
+      } else if (c == WATER_TOTAL) {
+        fixed = Number.isFinite(v) ? clamp(v, 0.0, maxWaterCap) : 0.0;
+      } else if (c == WATER_CLOUD) {
+        fixed = Number.isFinite(v) && v >= 0.0 ? Math.min(v, Number.isFinite(waterTexF32[i + WATER_TOTAL]) ? waterTexF32[i + WATER_TOTAL] : 0.0) : 0.0; // cloud water is part of the total water
+        if (isWall)
+          fixed = 0.0; // walls never contain cloud water
+      } else if (!Number.isFinite(v)) {
+        fixed = 0.0;
+      } else if (isWall) {
+        fixed = c == WATER_PRECIP_OR_SOIL ? clamp(v, 0.0, 1000.0) : clamp(v, 0.0, 4000.0); // soil moisture in mm, snow cover in cm
+      } else {
+        fixed = clamp(v, 0.0, maxSurfaceWater); // precipitation and smoke in the air
+      }
+
+      if (fixed !== v) {
+        waterTexF32[i + c] = fixed;
+        numReplaced++;
+      }
+    }
+  }
+
+  // precipitation droplets: any droplet carrying a NaN position or mass would inject NaN values into the fluid via the precipitation feedback texture
+  for (var d = 0; d < NUM_DROPLETS; d++) {
+    let i = d * 5;
+
+    let broken = false;
+    for (var c = 0; c < 5; c++) {
+      if (!Number.isFinite(precipArray[i + c]))
+        broken = true;
+    }
+    if (precipArray[i + 2] > 50.0 || precipArray[i + 3] > 50.0) // a droplet that carries an impossible amount of water comes from an exploded simulation
+      broken = true;
+    if (precipArray[i + 2] >= 0.0 && (Math.abs(precipArray[i + 0]) > 1.0 || Math.abs(precipArray[i + 1]) > 1.0)) // active, but outside the simulation area: it would never come back
+      broken = true;
+
+    if (!broken)
+      continue;
+
+    // reset to a randomly seeded inactive droplet, just like initRainDrops() generates
+    precipArray[i + 0] = Math.random();         // X, seed for random spawn position
+    precipArray[i + 1] = Math.random();         // Y
+    precipArray[i + 2] = -10.0 + Math.random(); // negative water mass disables the droplet
+    precipArray[i + 3] = Math.random();         // ice, seed for random spawn position
+    precipArray[i + 4] = Math.random();         // density
+    numReplaced++;
+  }
+
+  return numReplaced;
+}
+
+
+// Replace settings that could not be loaded from the savefile with their defaults.
+// NaN and infinite values are turned into null when a save file is written (JSON), and settings may be missing entirely in save files from older versions.
+// Loading such values into the simulation would put NaN values into the shaders, making the simulation explode.
+function sanitizeGuiControls(controlsObject)
+{
+  for (const [key, value] of Object.entries(controlsObject)) {
+    if (value === -1)                                 // -1 indicates a value that could not be loaded from the savefile
+      controlsObject[key] = guiControls_default[key];
+  }
+
+  for (const [key, defaultValue] of Object.entries(guiControls_default)) {
+    if (typeof defaultValue === 'number' && !Number.isFinite(controlsObject[key])) // null, NaN and undefined(missing) are not valid numerical settings
+      controlsObject[key] = defaultValue;
+  }
+
+  // A save file can contain any number, also ones far outside what the sliders allow. The rates
+  // below all scale how fast water is added to the air or how much heat a phase change releases,
+  // so an absurd value makes the vapor cycle run away before the limits in the shaders can damp it.
+  for (const [key, range] of Object.entries(guiControls_range)) {
+    let v = Number(controlsObject[key]);
+    if (!Number.isFinite(v))
+      v = guiControls_default[key];
+    controlsObject[key] = clamp(v, range[0], range[1]);
+  }
+}
+
+// Same limits as the dat.gui sliders, see setupDatGui().
+const guiControls_range = {
+  landEvaporation : [ 0.0, 0.01 ],
+  waterEvaporation : [ 0.0, 0.02 ],
+  evapHeat : [ 0.0, 5.0 ],
+  meltingHeat : [ 0.0, 5.0 ],
+  condensationRate : [ 0.001, 0.020 ],
+  globalDrying : [ 0.0, 0.0001 ],
+  globalHeating : [ -0.001, 0.001 ],
+  greenhouseGases : [ 0.0, 0.01 ],
+  waterGreenHouseEffect : [ 0.0, 0.01 ],
+  IR_rate : [ 0.0, 10.0 ],
+  evapRate : [ 0.0001, 0.005 ],
+  growthRate0C : [ 0.0001, 0.005 ],
+  growthRate_30C : [ 0.0001, 0.005 ],
+  waterTemperature : [ 0.0, 40.0 ],
+  brushIntensity : [ 0.005, 0.05 ],
+};
+
+
 async function loadData()
 {
   let file = document.getElementById('fileInput').files[0];
@@ -1317,6 +1528,14 @@ async function loadData()
       let precipArrayBuf = await precipArrayBlob.arrayBuffer();
       let precipArray = new Float32Array(precipArrayBuf);
 
+      // replace any NaN or infinite values in the loaded state to prevent NaN values from making the simulation explode when loading
+      let numReplaced = sanitizeLoadedState(baseTexF32, waterTexF32, wallTexI8, precipArray);
+
+      if (numReplaced > 0) {
+        console.warn('Replaced ' + numReplaced + ' NaN or infinite values in save file');
+        alert('This save file contained ' + numReplaced + ' NaN or infinite values, which would have made the simulation explode.\nThey were replaced with safe values.');
+      }
+
       if (version == saveFileVersionID) {             // only load settings and weather stations from save file if it's the newest version with all the settings included
         sliceStart = sliceEnd;
         sliceEnd += 1 * Int16Array.BYTES_PER_ELEMENT; // one 16 bit int indicates number of weather stations
@@ -1377,49 +1596,45 @@ function loadImage(url)
 
 class LoadingBar
 {
-  #loadingBar;
-  #bar;
-  #underBar;
-  #percent;
-  #description;
+  #overlay;
+  #fill;
+  #percentText;
+  #statusText;
+  #stepText;
+  percent;
+  description;
 
   constructor(percentIn)
   {
-    if (percentIn == null)
-      this.percent = 0;
-    else
-      this.percent = percentIn;
+    this.percent = percentIn == null ? 0 : percentIn;
+    this.description = 'INITIALIZING';
 
-    // create html
-    this.loadingBar = document.createElement('div');
-    this.bar = document.createElement('div');
-    this.loadingBar.appendChild(this.bar);
+    // reworked loading screen: themed boot-sequence overlay (styled in index.html)
+    this.#overlay = document.createElement('div');
+    this.#overlay.className = 'ls-overlay';
+    this.#overlay.innerHTML = `
+        <div class="ls-box">
+            <div class="ls-head">
+                <div class="ls-glyph"></div>
+                <div class="ls-titles">
+                    <div class="ls-title">2D WEATHER SANDBOX</div>
+                    <div class="ls-sub">ATMOS-KERNEL // BOOT SEQUENCE</div>
+                </div>
+                <div class="ls-led"></div>
+            </div>
+            <div class="ls-status">INITIALIZING</div>
+            <div class="ls-track"><div class="ls-fill"></div></div>
+            <div class="ls-meta"><span class="ls-percent">0%</span><span class="ls-step">SYS 00</span></div>
+        </div>`;
 
-    this.underBar = document.createElement('div');
-    this.loadingBar.appendChild(this.underBar);
-
-    this.loadingBar.style.width = '100%';
-    this.loadingBar.style.height = '100px';
-    this.loadingBar.style.color = 'white';
-    this.loadingBar.style.textAlign = 'center';
-    this.loadingBar.style.lineHeight = '50px';
-    this.loadingBar.style.backgroundColor = 'gray';
-    this.loadingBar.style.marginTop = '400px';
-    this.loadingBar.style.position = 'absolute';
-    this.loadingBar.style.zIndex = '2';
-
-    this.underBar.style.width = '100%';
-    this.underBar.style.height = '50px';
-    this.underBar.style.backgroundColor = 'black';
-
-    this.bar.style.height = '50px';
-
-    this.bar.style.backgroundColor = 'green';
-    this.bar.style.fontSize = '20px';
+    this.#fill = this.#overlay.querySelector('.ls-fill');
+    this.#percentText = this.#overlay.querySelector('.ls-percent');
+    this.#statusText = this.#overlay.querySelector('.ls-status');
+    this.#stepText = this.#overlay.querySelector('.ls-step');
 
     this.#update();
 
-    document.body.appendChild(this.loadingBar);
+    document.body.appendChild(this.#overlay);
   }
 
   async add(num, text)
@@ -1438,7 +1653,7 @@ class LoadingBar
 
   async showError(error)
   {
-    this.bar.style.backgroundColor = 'red';
+    this.#overlay.classList.add('ls-error');
     this.description = error;
     await this.#update();
   }
@@ -1446,19 +1661,24 @@ class LoadingBar
   #update()
   {
     return new Promise((resolve) => {
-      this.bar.style.width = this.percent + '%';
-      this.bar.innerHTML = this.percent + ' %';
-      this.underBar.innerHTML = this.description;
-      let timeout;
-      if (this.percent == 100)
-        timeout = 5;
-      else
-        timeout = 5; // 50 for nicer feel
-      setTimeout(() => { resolve(); }, timeout);
+      const pct = Math.min(100, Math.max(0, Math.round(this.percent)));
+      this.#fill.style.width = pct + '%';
+      this.#percentText.textContent = pct + '%';
+      this.#statusText.textContent = this.description;
+      this.#stepText.textContent = 'SYS ' + String(pct).padStart(2, '0');
+      setTimeout(() => { resolve(); }, 5);
     });
   }
 
-  remove() { this.loadingBar.parentNode.removeChild(this.loadingBar); }
+  remove()
+  {
+    const overlay = this.#overlay;
+    overlay.classList.add('ls-done'); // fade out (CSS transition)
+    setTimeout(() => {
+      if (overlay.parentNode)
+        overlay.parentNode.removeChild(overlay);
+    }, 500);
+  }
 }
 
 
@@ -1516,6 +1736,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #Xvel;
     #Yvel;
     #Zvel;
+
+    // ── reworked camera shake: high frequency random offset shaking ──
+    #shakeStart = -1e12;   // ms timestamp when the shake was triggered
+    #shakeDuration = 1000; // ms (default: 1 second)
+    #shakeIntensity = 0;   // peak offset in screen pixels
+    shakeOffsetX = 0;      // view offset (world units) applied during rendering this frame
+    shakeOffsetY = 0;
 
     constructor()
     {
@@ -1623,6 +1850,74 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.changeViewYpos(mousePositionZoomCorrectionY);
       }
     }
+
+    // ── reworked camera shake ──
+    // intensityPx: peak random offset in screen pixels. duration: 1 second by default.
+    startShake(intensityPx, durationMs = 1000)
+    {
+      if (intensityPx < 0.5)
+        return;
+      const now = performance.now();
+      // never let a weaker strike cut short a stronger ongoing shake
+      this.#shakeIntensity = Math.max(intensityPx, this.#shakeAmplitudePx(now));
+      this.#shakeStart = now;
+      this.#shakeDuration = durationMs;
+    }
+
+    // shake intensity falls off with how close the lightning strike was
+    shakeFromLightning(strikeX, strikeIntensity)
+    {
+      let camXnorm = 1. - (this.curXpos + 1.0) / 2.0;
+
+      let camDistFromSim = cellHeight * sim_res_x * 0.5 / this.curZoom; // asuming 90° HFOV
+
+      let camHorDistFromStrike = (strikeX - camXnorm) * cellHeight * sim_res_x;
+
+      let distance = Math.hypot(camDistFromSim, camHorDistFromStrike);
+
+      const maxShakeDistance = 20000; // meters; further away nothing is felt
+      let proximity = clamp(1.0 - distance / maxShakeDistance, 0.0, 1.0);
+
+      let intensityPx = 24.0 * proximity * proximity * clamp(strikeIntensity, 0.5, 2.5);
+
+      this.startShake(intensityPx, 1000); // duration: 1 second
+    }
+
+    #shakeAmplitudePx(now)
+    {
+      const elapsed = now - this.#shakeStart;
+      if (elapsed >= this.#shakeDuration)
+        return 0;
+      return this.#shakeIntensity * (1.0 - elapsed / this.#shakeDuration); // linear decay
+    }
+
+    // pick a fresh random offset every frame -> high frequency shaking
+    updateShake()
+    {
+      const ampPx = this.#shakeAmplitudePx(performance.now());
+      if (ampPx <= 0) {
+        this.shakeOffsetX = 0;
+        this.shakeOffsetY = 0;
+        return;
+      }
+      const px = (Math.random() * 2.0 - 1.0) * ampPx;
+      const py = (Math.random() * 2.0 - 1.0) * ampPx;
+      // convert screen pixels to view (world) units
+      this.shakeOffsetX = (px * 2.0) / (canvas.width * this.curZoom);
+      this.shakeOffsetY = (py * 2.0) / (canvas.height * this.curZoom * canvas_aspect);
+    }
+
+    stopShake()
+    {
+      this.#shakeStart = -1e12;
+      this.#shakeIntensity = 0;
+      this.shakeOffsetX = 0;
+      this.shakeOffsetY = 0;
+    }
+
+    // camera position including the shake offset, for the rendering 'view' uniforms
+    get viewX() { return this.curXpos + this.shakeOffsetX; }
+    get viewY() { return this.curYpos + this.shakeOffsetY; }
   }
 
   cam = new Camera();
@@ -3394,13 +3689,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
   } else {
-    setupDatGui(guiControlsFromSaveFile);                     // use settings from save file
+    setupDatGui(guiControlsFromSaveFile); // use settings from save file
 
-    for (const [key, value] of Object.entries(guiControls)) { // set numerical values that could not be loaded from the savefile to their defaults.
-      if (value === -1) {
-        guiControls[key] = guiControls_default[key];
-      }
-    }
+    sanitizeGuiControls(guiControls);     // set values that could not be loaded from the savefile to their defaults
   }
 
   function setGuiUniforms()
@@ -3412,6 +3703,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'evapHeat'), guiControls.evapHeat);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterWeight'), guiControls.waterWeight);
+    // water cells without a stored temperature (older save files, flooded land) fall back to this one
+    gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
     gl.useProgram(velocityProgram);
     gl.uniform1f(gl.getUniformLocation(velocityProgram, 'dragMultiplier'), guiControls.dragMultiplier);
     gl.uniform1f(gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
@@ -3443,6 +3736,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
+    gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), NUM_DROPLETS);
     gl.useProgram(postProcessingProgram);
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
@@ -3636,6 +3930,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
         gl.useProgram(lightingProgram);
         gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
+        gl.useProgram(boundaryProgram);
+        gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
       })
       .name('Lake / Sea Temperature (°C)');
 
@@ -3644,13 +3940,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
     });
 
-    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
+    water_folder.add(guiControls, 'landEvaporation', 0.0, 0.01, 0.0005)
       .onChange(function() {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
       })
       .name('Land Evaporation');
-    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0004, 0.00001)
+    water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.02, 0.001)
       .onChange(function() {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
@@ -3813,6 +4109,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
 
+    display_folder.add(guiControls, 'cameraShake').name('Camera Shake');
+
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
@@ -3867,6 +4165,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         initRainDrops();
         setupPrecipitationBuffers();
         guiControls.inactiveDroplets = NUM_DROPLETS;
+        gl.useProgram(precipitationProgram);
+        gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), NUM_DROPLETS);
       })
       .name('Enable Precipitation');
 
@@ -4926,21 +5226,55 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const precipVertexBuffer_1 = gl.createBuffer();
   const precipitationTF_1 = gl.createTransformFeedback();
 
+  const precipDisplayVao_0 = gl.createVertexArray();
+  const precipDisplayVao_1 = gl.createVertexArray();
+  const precipSpriteQuadBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, precipSpriteQuadBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1.0, -1.0, // triangle strip quad in sprite-local space
+    1.0, -1.0, -1.0, 1.0, 1.0, 1.0
+  ]),
+                gl.STATIC_DRAW);
+
+  var destDisplayVAO = precipDisplayVao_0;
+
 
   var rainDrops;
 
   function initRainDrops()
   {
-    rainDrops = [];
+    rainDrops = new Float32Array(NUM_DROPLETS * 5);
     // generate inactive droplets with random values to be used as seeds for random spawning
     for (var i = 0; i < NUM_DROPLETS; i++) {
-      // seperate push for each element is fastest
-      rainDrops.push(Math.random());         // X
-      rainDrops.push(Math.random());         // Y
-      rainDrops.push(-10.0 + Math.random()); // water negative to disable
-      rainDrops.push(Math.random());         // ice
-      rainDrops.push(Math.random());         // density
+      let j = i * 5;
+      rainDrops[j + 0] = Math.random();         // X
+      rainDrops[j + 1] = Math.random();         // Y
+      rainDrops[j + 2] = -10.0 + Math.random(); // water negative to disable
+      rainDrops[j + 3] = Math.random();         // ice
+      rainDrops[j + 4] = Math.random();         // density
     }
+  }
+
+  function bindPrecipDisplayVao(vao, particleBuffer)
+  {
+    const stride = 5 * Float32Array.BYTES_PER_ELEMENT;
+    gl.bindVertexArray(vao);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, precipSpriteQuadBuffer);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 0, 0);
+    gl.vertexAttribDivisor(0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, particleBuffer);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, stride, 0);
+    gl.vertexAttribDivisor(1, 1);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 2, gl.FLOAT, gl.FALSE, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribDivisor(2, 1);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribDivisor(3, 1);
   }
 
   function setupPrecipitationBuffers()
@@ -4948,7 +5282,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.bindVertexArray(precipitationVao_0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rainDrops), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, rainDrops, gl.DYNAMIC_COPY);
     gl.enableVertexAttribArray(positionAttribLocation);
     gl.enableVertexAttribArray(massAttribLocation);
     gl.enableVertexAttribArray(densityAttribLocation);
@@ -5027,6 +5361,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // TRANSFORM_FEEBACK buffer
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+
+    bindPrecipDisplayVao(precipDisplayVao_0, precipVertexBuffer_0);
+    bindPrecipDisplayVao(precipDisplayVao_1, precipVertexBuffer_1);
+    destDisplayVAO = precipDisplayVao_0;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null); // buffers are bound via VAO's
     gl.bindVertexArray(fluidVao);         // set screenfilling rect again
@@ -5202,7 +5540,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const colorScalesTexture = gl.createTexture();
 
   const lightningTextures = [];
-  const numLightningTextures = 10;
+  const numLightningTextures = 5;
+  const lightningTextureWidth = 512;
+  const lightningTextureHeight = 1024;
 
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
@@ -5351,7 +5691,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/noise_texture.jpg');
 
   gl.bindTexture(gl.TEXTURE_2D, noiseTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
 
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
@@ -5367,7 +5707,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/A380.png');
 
   gl.bindTexture(gl.TEXTURE_2D, A380Texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5378,7 +5718,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/A380_R.png');
 
   gl.bindTexture(gl.TEXTURE_2D, A380_R_Texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5388,7 +5728,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/A380_gear.png');
 
   gl.bindTexture(gl.TEXTURE_2D, A380GearTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // LINEAR_MIPMAP_LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5398,7 +5738,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/surfaceTextureMap.png');
 
   gl.bindTexture(gl.TEXTURE_2D, surfaceTextureMap);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5409,7 +5749,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   imgElement = await loadImage('resources/img/ColorScales.png');
 
   gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
   // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5436,9 +5776,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function generateLightningTexture(i, imgData)
   {
-    lightningTextures[i] = gl.createTexture();
+    if (!lightningTextures[i])
+      lightningTextures[i] = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, lightningTextures[i]);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, imgData.width, imgData.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, imgData);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgData);
     // gl.generateMipmap(gl.TEXTURE_2D);                                                // optional
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR_MIPMAP_LINEAR
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -5446,17 +5787,115 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   }
 
-
   for (let i = 0; i < numLightningTextures; i++) {
-    const lightningGeneratorWorker = new Worker('./lightningGenerator.js');
-    lightningGeneratorWorker.onmessage = (imgElement) => {
-      // downloadImageData(imgElement.data); // for debugging
-
-      generateLightningTexture(i, imgElement.data);
-    };
-
-    lightningGeneratorWorker.postMessage({width : 2500, height : 5000}); // 10000 5000
+    lightningTextures[i] = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, lightningTextures[i]);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([ 0, 0, 0, 255 ]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   }
+
+  function generateFastLightningTexture(i)
+  {
+    const width = 720;
+    const height = 1440;
+    const data = new Uint8ClampedArray(width * height * 4);
+
+    function setPixel(x, y, brightness)
+    {
+      if (x < 0 || x >= width || y < 0 || y >= height)
+        return;
+      const index = (Math.floor(y) * width + Math.floor(x)) * 4;
+      const value = Math.max(data[index], brightness);
+      data[index] = value;
+      data[index + 1] = value;
+      data[index + 2] = value;
+      data[index + 3] = 255;
+    }
+
+    function drawBolt(startX, startY, angle, lineWidth, maxLength)
+    {
+      let x = startX;
+      let y = startY;
+      for (let step = 0; step < maxLength && y < height; step++) {
+        x += Math.sin(angle) * 1.8;
+        y += Math.cos(angle) * 1.8;
+        angle += (Math.random() - 0.55) * 0.55;
+        angle -= angle * 0.08;
+
+        const radius = Math.max(1, Math.round(lineWidth));
+        for (let yy = -radius; yy <= radius; yy++) {
+          for (let xx = -radius; xx <= radius; xx++) {
+            if (xx * xx + yy * yy <= radius * radius)
+              setPixel(x + xx, y + yy, 255);
+          }
+        }
+
+        if (lineWidth > 0.6 && Math.random() < 0.008 * (1.0 - y / height))
+          drawBolt(x, y, angle + (Math.random() - 0.5) * 1.8, lineWidth * 0.42, Math.floor(maxLength * 0.96)); // branch length
+      }
+    }
+
+    drawBolt(width / 2, 0, Math.PI / 12, 2.5, height);
+    generateLightningTexture(i, new ImageData(data, width, height));
+  }
+
+  function generateLightningTextureAsync(i)
+  {
+    return new Promise((resolve) => {
+      let lightningGeneratorWorker;
+      let finished = false;
+      let timeoutId = null;
+      const finish = () => {
+        if (finished)
+          return false;
+        finished = true;
+        clearTimeout(timeoutId);
+        if (lightningGeneratorWorker)
+          lightningGeneratorWorker.terminate();
+        resolve();
+        return true;
+      };
+      try {
+        lightningGeneratorWorker = new Worker('./lightningGenerator.js');
+      } catch (error) {
+        console.warn('Falling back to fast lightning texture generation:', error);
+        generateFastLightningTexture(i);
+        finish();
+        return;
+      }
+      timeoutId = setTimeout(() => {
+        if (!finish())
+          return;
+        console.warn('Falling back to fast lightning texture generation: worker timed out.');
+        generateFastLightningTexture(i);
+      }, 5000);
+      lightningGeneratorWorker.onmessage = (imgElement) => {
+        // downloadImageData(imgElement.data); // for debugging
+
+        if (!finish())
+          return;
+        if (imgElement.data) {
+          generateLightningTexture(i, imgElement.data);
+        } else {
+          console.warn('Falling back to fast lightning texture generation: worker returned no image data.');
+          generateFastLightningTexture(i);
+        }
+      };
+      lightningGeneratorWorker.onerror = (error) => {
+        if (!finish())
+          return;
+        console.warn('Falling back to fast lightning texture generation:', error);
+        generateFastLightningTexture(i);
+      };
+
+      lightningGeneratorWorker.postMessage({width : lightningTextureWidth, height : lightningTextureHeight}); // Keep the same 1:2 aspect ratio with much lower memory use.
+    });
+  }
+
+  await Promise.all(Array.from({length : numLightningTextures}, (_, i) => generateLightningTextureAsync(i)));
 
   await loadingBar.set(90, 'Setting up FBO`s');
 
@@ -5469,6 +5908,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
 
+
+  // generate Initial temperature profile
+
+  var initial_T = new Float32Array(504); // sim_res_y + 1
+  var initial_W = new Float32Array(504); // the matching water vapor profile, see setupShader.frag
+
+  for (var y = 0; y < sim_res_y + 1; y++) {
+    let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
+    var realTemp = Math.max(map_range(altitude, 0, 12000, 15.0, -70.0), -60);
+
+    initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
+    initial_W[y] = maxWater(CtoK(realTemp) - (y < sim_res_y * 0.2 ? 2.0 : 20.0)); // near the dew point of the initial profile, like setupShader.frag does
+  }
 
   // generate sounding data for forcing in sim
 
@@ -5483,7 +5935,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let soundingSample = soundingForSim[y];
 
       realWorldSounding_T[y] = realToPotentialT(CtoK(soundingSample.t), y); // initial temperature profile
-      realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td), y);        // initial temperature profile
+      realWorldSounding_W[y] = maxWater(CtoK(soundingSample.td));          // saturation at the dew point
       realWorldSounding_Vel[y] = soundingSample.vel;
     }
     // console.log(realWorldSounding_T);
@@ -5493,16 +5945,50 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     console.log('No valid sounding loaded!');
   }
 
-  // generate Initial temperature profile
-
-  var initial_T = new Float32Array(504); // sim_res_y + 1
-
-  for (var y = 0; y < sim_res_y + 1; y++) {
-    let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
-    var realTemp = Math.max(map_range(altitude, 0, 12000, 15.0, -70.0), -60);
-
-    initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
+  // The profiles are uploaded to the shaders and used as the target of the sounding forcing, so
+  // they must not contain NaN or values outside the physical range: one NaN row forces the vapor
+  // and temperature of every single cell in that row, which is a vapor explosion. When no sounding
+  // could be loaded, the initial state of the simulation is used as the target instead, so that
+  // forcing does nothing instead of pulling the atmosphere towards zero.
+  function repairProfile(profile, fallback, lo, hi)
+  {
+    for (var i = 0; i < profile.length; i++) {
+      let last = Math.min(i, sim_res_y); // rows above the simulation repeat the top row, they must never be read as zero
+      let v = i <= sim_res_y ? profile[i] : fallback[last];
+      if (!Number.isFinite(v))
+        v = fallback[last];
+      profile[i] = clamp(Number.isFinite(v) ? v : lo, lo, hi);
+    }
+    return profile;
   }
+
+  repairProfile(initial_T, initial_T, minPhysTemp, maxPhysTemp + dryLapse);
+  repairProfile(initial_W, initial_W, 0.0, maxWaterCap);
+  repairProfile(realWorldSounding_T, initial_T, minPhysTemp, maxPhysTemp + dryLapse);
+  repairProfile(realWorldSounding_W, initial_W, 0.0, maxWaterCap);
+  repairProfile(realWorldSounding_Vel, new Float32Array(504), -1.0, 1.0);
+
+  function createProfileTexture(profile)
+  {
+    const width = Math.ceil(profile.length / 4);
+    const packedProfile = new Float32Array(width * 4);
+    packedProfile.set(profile);
+
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, 1, 0, gl.RGBA, gl.FLOAT, packedProfile);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    return texture;
+  }
+
+  const initialProfileTexture = createProfileTexture(initial_T);
+  const realWorldSoundingTextureT = createProfileTexture(realWorldSounding_T);
+  const realWorldSoundingTextureW = createProfileTexture(realWorldSounding_W);
+  const realWorldSoundingTextureVel = createProfileTexture(realWorldSounding_Vel);
 
   cellHeight = guiControls.simHeight / sim_res_y; // in meters
 
@@ -5519,18 +6005,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(advectionProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'initialProfileTex'), 3);
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'realWorldSoundingTexT'), 4);
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'realWorldSoundingTexW'), 5);
+  gl.uniform1i(gl.getUniformLocation(advectionProgram, 'realWorldSoundingTexVel'), 6);
   gl.uniform2f(gl.getUniformLocation(advectionProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(advectionProgram, 'resolution'), sim_res_x, sim_res_y);
-  // gl.uniform1fv(
-  // gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
                CtoK(guiControls.waterTemperature)); // can be changed by GUI input
-
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
-  gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Velv'), realWorldSounding_Vel);
 
   gl.useProgram(pressureProgram);
   gl.uniform1i(gl.getUniformLocation(pressureProgram, 'baseTex'), 0);
@@ -5610,10 +6093,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(gl.getUniformLocation(humidityDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(precipDisplayProgram);
-  gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
-  gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
-  gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'waterTex'), 0);
-  gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(precipDisplayProgram, 'baseTex'), 0);
+  gl.uniform1f(gl.getUniformLocation(precipDisplayProgram, 'wrapShift'), 0.0);
 
   gl.useProgram(skyBackgroundDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -5656,6 +6137,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
+  gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), NUM_DROPLETS);
+  gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'numDroplets'), NUM_DROPLETS);
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -5715,6 +6198,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // preload uniform locations for tiny performance gain
   var uniformLocation_boundaryProgram_iterNum = gl.getUniformLocation(boundaryProgram, 'iterNum');
+  var uniformLocation_precipitationProgram_iterNum = gl.getUniformLocation(precipitationProgram, 'iterNum');
+  var uniformLocation_precipitationProgram_inactiveDroplets = gl.getUniformLocation(precipitationProgram, 'inactiveDroplets');
+  var uniformLocation_lightningLocationProgram_iterNum = gl.getUniformLocation(lightningLocationProgram, 'iterNum');
+  var uniformLocation_precipDisplay_aspectRatios = gl.getUniformLocation(precipDisplayProgram, 'aspectRatios');
+  var uniformLocation_precipDisplay_view = gl.getUniformLocation(precipDisplayProgram, 'view');
+  var uniformLocation_precipDisplay_canvasSize = gl.getUniformLocation(precipDisplayProgram, 'canvasSize');
+  var uniformLocation_precipDisplay_wrapShift = gl.getUniformLocation(precipDisplayProgram, 'wrapShift');
 
 
   for (i = 0; i < weatherStations.length; i++) { // initial measurement at weather stations
@@ -5760,6 +6250,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
     cam.move();
+    cam.updateShake();
 
     prevMouseXinSim = mouseXinSim;
     prevMouseYinSim = mouseYinSim;
@@ -5932,6 +6423,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, initialProfileTexture);
+            gl.activeTexture(gl.TEXTURE4);
+            gl.bindTexture(gl.TEXTURE_2D, realWorldSoundingTextureT);
+            gl.activeTexture(gl.TEXTURE5);
+            gl.bindTexture(gl.TEXTURE_2D, realWorldSoundingTextureW);
+            gl.activeTexture(gl.TEXTURE6);
+            gl.bindTexture(gl.TEXTURE_2D, realWorldSoundingTextureVel);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
             gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -5963,6 +6462,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               srcVAO = precipitationVao_0;
               destTF = precipitationTF_1;
               destVAO = precipitationVao_1;
+              destDisplayVAO = precipDisplayVao_1;
             } else {
               gl.bindTexture(gl.TEXTURE_2D, lightTexture_1);
               gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
@@ -5970,6 +6470,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               srcVAO = precipitationVao_1;
               destTF = precipitationTF_0;
               destVAO = precipitationVao_0;
+              destDisplayVAO = precipDisplayVao_0;
             }
             even = !even;
 
@@ -5980,10 +6481,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
             gl.clear(gl.COLOR_BUFFER_BIT);         // clear precipitation feedback
 
-            if (guiControls.enablePrecipitation) { // move precipitation, HUGE PERFORMANCE BOTTLENECK!
+            if (guiControls.enablePrecipitation) { // move precipitation (spawn path is budgeted to keep this cheap)
 
               gl.useProgram(precipitationProgram);
-              gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'iterNum'), iterNum);
+              gl.uniform1f(uniformLocation_precipitationProgram_iterNum, iterNum);
               gl.enable(gl.BLEND);
               gl.blendFunc(gl.ONE, gl.ONE); // add everything together
               gl.activeTexture(gl.TEXTURE0);
@@ -6010,7 +6511,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
                 // console.log(sampleValues[0]);  // number of inactive droplets
                 guiControls.inactiveDroplets = sampleValues[0];
                 // gl.useProgram(precipitationProgram); // already set
-                gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'inactiveDroplets'), sampleValues[0]);
+                gl.uniform1f(uniformLocation_precipitationProgram_inactiveDroplets, sampleValues[0]);
               }
 
               gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
@@ -6020,7 +6521,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
               // Extract lightningLocation from precipitationfeedback
               gl.useProgram(lightningLocationProgram);
-              gl.uniform1f(gl.getUniformLocation(lightningLocationProgram, 'iterNum'), iterNum);
+              gl.uniform1f(uniformLocation_lightningLocationProgram_iterNum, iterNum);
 
               gl.activeTexture(gl.TEXTURE0);
               gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
@@ -6029,14 +6530,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-              if (guiControls.sound) {
+              if (guiControls.sound || guiControls.cameraShake) {
                 gl.readBuffer(gl.COLOR_ATTACHMENT0);
                 var lightningDataValues = new Float32Array(4);
                 gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, lightningDataValues);
                 // console.log('lightningDataValues: ', lightningDataValues[0], lightningDataValues[1], lightningDataValues[2], iterNum, lightningDataValues[3]);
 
                 if (Math.round(lightningDataValues[2]) == iterNum) {
-                  soundSystem.soundThunder(lightningDataValues[0], lightningDataValues[1], Math.pow(lightningDataValues[3], 2.0));
+                  if (guiControls.sound)
+                    soundSystem.soundThunder(lightningDataValues[0], lightningDataValues[1], Math.pow(lightningDataValues[3], 2.0));
+                  if (guiControls.cameraShake)
+                    cam.shakeFromLightning(lightningDataValues[0], Math.pow(lightningDataValues[3], 2.0));
                 }
               }
             }
@@ -6223,7 +6727,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       gl.useProgram(skyBackgroundDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+      gl.uniform3f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), iterNum);
 
@@ -6238,7 +6742,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       // draw clouds and terrain
       gl.useProgram(realisticDisplayProgram);
       gl.uniform2f(gl.getUniformLocation(realisticDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-      gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+      gl.uniform3f(gl.getUniformLocation(realisticDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
       gl.uniform4f(gl.getUniformLocation(realisticDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'iterNum'), iterNum);
@@ -6359,13 +6863,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (guiControls.showDrops) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        // draw drops over clouds
-        // draw precipitation
+        // draw drops over clouds as instanced quads (works on mobile; gl_PointSize does not)
         gl.useProgram(precipDisplayProgram);
-        gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(precipDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
-        gl.bindVertexArray(destVAO);
-        gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
+        gl.uniform2f(uniformLocation_precipDisplay_aspectRatios, sim_aspect, canvas_aspect);
+        gl.uniform3f(uniformLocation_precipDisplay_view, cam.viewX, cam.viewY, cam.curZoom);
+        gl.uniform2f(uniformLocation_precipDisplay_canvasSize, canvas.width, canvas.height);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+        gl.bindVertexArray(destDisplayVAO);
+
+        const wrapCopies = guiControls.wrapHorizontally ? 3 : 1;
+        for (let w = 0; w < wrapCopies; w++) {
+          gl.uniform1f(uniformLocation_precipDisplay_wrapShift, guiControls.wrapHorizontally ? (w - 1) * 2.0 : 0.0);
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, NUM_DROPLETS);
+        }
+
         gl.bindVertexArray(fluidVao); // set screenfilling rect again
         gl.disable(gl.BLEND);
       }
@@ -6384,7 +6896,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       if (guiControls.displayMode == 'DISP_TEMPERATURE') {
         gl.useProgram(temperatureDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(temperatureDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(temperatureDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(temperatureDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
@@ -6400,21 +6912,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       } else if (guiControls.displayMode == 'DISP_AIRQUALITY') {
         gl.useProgram(airQualityDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(airQualityDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(airQualityDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(airQualityDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
       } else if (guiControls.displayMode == 'DISP_HUMD') {
         gl.useProgram(humidityDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(humidityDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(humidityDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(humidityDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(humidityDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(humidityDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
       } else if (guiControls.displayMode == 'DISP_IRDOWNTEMP') {
         gl.useProgram(IRtempDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 0);
         gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
@@ -6424,7 +6936,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       } else if (guiControls.displayMode == 'DISP_IRUPTEMP') {
         gl.useProgram(IRtempDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(IRtempDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(IRtempDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'upOrDown'), 1);
         gl.uniform1f(gl.getUniformLocation(IRtempDisplayProgram, 'Xmult'), horizontalDisplayMult);
@@ -6434,7 +6946,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       } else {
         gl.useProgram(universalDisplayProgram);
         gl.uniform2f(gl.getUniformLocation(universalDisplayProgram, 'aspectRatios'), sim_aspect, canvas_aspect);
-        gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view'), cam.curXpos, cam.curYpos, cam.curZoom);
+        gl.uniform3f(gl.getUniformLocation(universalDisplayProgram, 'view'), cam.viewX, cam.viewY, cam.curZoom);
         gl.uniform4f(gl.getUniformLocation(universalDisplayProgram, 'cursor'), mouseXinSim, mouseYinSim, guiControls.brushSize * 0.5, cursorType);
         gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
@@ -6649,9 +7161,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         let wallTextureValues = new Int8Array(4 * sim_res_x * sim_res_y);
         gl.readPixels(0, 0, sim_res_x, sim_res_y, gl.RGBA_INTEGER, gl.BYTE, wallTextureValues);
 
-        let precipBufferValues = new ArrayBuffer(rainDrops.length * Float32Array.BYTES_PER_ELEMENT);
+        let precipBufferValues = new ArrayBuffer(NUM_DROPLETS * valsPerDroplet * Float32Array.BYTES_PER_ELEMENT);
+        let precipBufferArray = new Float32Array(precipBufferValues);
         gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
-        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(precipBufferValues));
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, precipBufferArray);
         gl.bindBuffer(gl.ARRAY_BUFFER, null); // unbind again
 
 

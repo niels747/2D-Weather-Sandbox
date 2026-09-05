@@ -1,287 +1,278 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2D Weather Sandbox</title>
     <script type="text/javascript" src="libraries/dat.gui.min.js"></script>
     <script type="text/javascript" src="libraries/pako.min.js"></script>
     <script type="text/javascript" src="libraries/chart.js"></script>
     <script type="text/javascript" src="libraries/chartjs-adapter-date-fns.js"></script>
     <script type="text/javascript" src="app.js"></script>
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="296027059_1784035083155840.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Chakra+Petch:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
-            --text-color: #ffffff;
-            --accent-color: #4a90e2;
-            --hover-color: #007bff;
-            --border-radius: 12px;
-            --transition-speed: 0.3s;
-            --shadow: 0 4px 6px rgba(15, 5, 5, 0.1);
-            --soft-gradient: linear-gradient(135deg, rgba(74, 144, 226, 0.1), rgba(0, 123, 255, 0.1));
+            --bg0:#030a10; --bg1:#071722;
+            --panel:#0a1b26; --panel2:#0e2331;
+            --line:#16405a; --line-hi:#2f7ba3;
+            --cyan:#4fe3ff; --cyan-soft:rgba(79,227,255,.13);
+            --amber:#ffb454; --green:#5df5a4; --red:#ff5470;
+            --txt:#c9dde8; --dim:#5e7f90;
+            --disp:'Orbitron',sans-serif; --body:'Chakra Petch',sans-serif; --mono:'Share Tech Mono',monospace;
+            /* preserved tokens */
+            --text-color:#c9dde8; --accent-color:#4fe3ff; --hover-color:#4fe3ff;
+            --border-radius:0px; --transition-speed:0.3s; --shadow:0 0 18px rgba(79,227,255,.10);
+            --soft-gradient:linear-gradient(180deg,var(--panel2),var(--panel));
+            --size:50px;
         }
-
-        body {
-            margin: 0;
-            font-family: 'Arial', sans-serif;
-            background: url('resources/img/background.png') bottom left no-repeat;
-            background-size: cover;
-            background-attachment: fixed;
-            color: var(--text-color);
-            line-height: 1.6;
-            overflow-x: hidden;
+        * { box-sizing:border-box }
+        html { scroll-behavior:smooth }
+        /* PERF: solid base; decorative layers on a static fixed ::before (no background-attachment:fixed) */
+        body { margin:0; font-family:var(--body); color:var(--txt); line-height:1.6; overflow-x:hidden; background:#030a10; }
+        body::before{
+            content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+            background:
+                radial-gradient(1100px 640px at 80% -8%, rgba(31,86,120,.30), transparent 60%),
+                radial-gradient(900px 620px at 4% 108%, rgba(20,70,90,.26), transparent 60%),
+                repeating-linear-gradient(0deg, rgba(79,227,255,.026) 0 1px, transparent 1px 46px),
+                repeating-linear-gradient(90deg, rgba(79,227,255,.026) 0 1px, transparent 1px 46px),
+                linear-gradient(rgba(3,10,16,.90), rgba(3,10,16,.94)),
+                url('resources/img/Screenshot_2025-09-09-20-04-46-81_519dd438856772e7f7134c9b52cd9f52.jpg') center/cover;
         }
+        /* ── kill all setup chrome the moment the simulation takes over ── */
+        body.sim-active .main-nav,
+        body.sim-active #IntroScreen { display:none !important; }
+        body.sim-active::before { display:none; }
+        body.sim-active { background:#000; }
 
+        ::selection{background:var(--cyan);color:#03222e}
+        ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#071219}
+        ::-webkit-scrollbar-thumb{background:var(--line)}::-webkit-scrollbar-thumb:hover{background:var(--line-hi)}
+        @keyframes blink{50%{opacity:.3}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+        /* PERF: skip rendering offscreen lower sections */
+        .lazy{content-visibility:auto;contain-intrinsic-size:640px}
 
-        .main-nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0rem 2rem 0rem 2rem;
-            background: rgba(0, 0, 0, 0.13);
-            backdrop-filter: blur(10px);
-            z-index: 0;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
+        /* ===== NAV ===== */
+        .main-nav{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+            padding:10px 24px;background:linear-gradient(180deg,rgba(12,33,48,.96),rgba(8,23,34,.96));
+            backdrop-filter:blur(10px);z-index:50;border-bottom:1px solid var(--line);box-shadow:0 2px 20px rgba(0,0,0,.5)}
+        .main-nav::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+            background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.6}
+        .nav-title{display:flex;align-items:center;gap:14px}
+        .glyph{width:32px;height:32px;position:relative;flex:0 0 auto}
+        .glyph::before,.glyph::after{content:'';position:absolute;inset:0;border:2px solid var(--cyan);
+            clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:spin 9s linear infinite}
+        .glyph::after{inset:7px;border-color:var(--amber);animation-direction:reverse;animation-duration:6s}
+        .nav-title h1{margin:0;font-family:var(--disp);font-weight:900;font-size:1.25rem;letter-spacing:.16em;color:#eef8ff;
+            text-shadow:0 0 16px rgba(79,227,255,.45)}
+        .nav-title h1 small{display:block;font-family:var(--mono);font-weight:400;font-size:.5rem;letter-spacing:.4em;color:var(--amber);margin-top:3px}
+        .nav-icons{display:flex;padding-top:0;gap:1.2rem;align-items:center}
+        .nav-icons img{height:50px;width:auto;transition:all .3s ease;opacity:.9}
+        .nav-icons a:hover img{transform:scale(1.1);opacity:1}
+        .led{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:.55rem;letter-spacing:.22em;color:var(--dim)}
+        .led i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.7s infinite}
+        .led.c i{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+        #navClock{font-family:var(--mono);font-size:.9rem;color:var(--cyan);text-shadow:0 0 8px rgba(79,227,255,.5)}
+        .sfx-btn{font-family:var(--mono);font-size:.55rem;letter-spacing:.2em;color:var(--cyan);background:#0a1e2b;
+            border:1px solid var(--line-hi);padding:6px 12px;cursor:pointer;transition:.2s}
+        .sfx-btn:hover{border-color:var(--cyan);box-shadow:0 0 12px rgba(79,227,255,.3)}
+        .sfx-btn.off{color:var(--dim);border-color:var(--line)}
+        @media(max-width:820px){.led{display:none}}
 
-        .nav-title h1 {
-            margin: 0;
-            font-size: 2.0rem;
-            color: var(--text-color);
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
+        /* ===== LAYOUT ===== */
+        #IntroScreen{padding:20px;max-width:1200px;margin:20px auto;animation:fadeIn .8s ease-in-out;position:relative;z-index:1}
+        .sec-h{display:flex;align-items:center;gap:14px;margin:46px 0 18px}
+        .sec-idx{font-family:var(--disp);font-weight:900;font-size:1.9rem;color:transparent;-webkit-text-stroke:1px var(--line-hi)}
+        .sec-h h2{font-family:var(--disp);font-weight:900;font-size:1.15rem;letter-spacing:.3em;color:#eef8ff;margin:0;text-shadow:0 0 14px rgba(79,227,255,.35)}
+        .sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--line-hi),transparent)}
+        .sec-tag{font-family:var(--mono);font-size:.55rem;letter-spacing:.26em;color:var(--amber);border:1px solid rgba(255,180,84,.45);padding:3px 9px}
 
-        .nav-icons {
-            display: flex;
-            padding-top: 1rem;
-            gap: 1.5rem;
-            align-items: center;
-        }
+        .panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);position:relative;
+            clip-path:polygon(0 12px,12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);
+            transition:border-color .25s, box-shadow .25s}
+        .panel:hover{border-color:var(--line-hi);box-shadow:0 0 24px rgba(79,227,255,.12)}
+        .panel-h{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--line);
+            background:repeating-linear-gradient(-45deg, var(--cyan-soft) 0 5px, transparent 5px 11px)}
+        .panel-h .ic{color:var(--cyan);font-size:.65rem}
+        .panel-h h3{font-family:var(--disp);font-weight:700;font-size:.68rem;letter-spacing:.26em;color:var(--cyan);margin:0}
+        .panel-h .tag{margin-left:auto;font-family:var(--mono);font-size:.5rem;letter-spacing:.2em;color:var(--amber);border:1px solid rgba(255,180,84,.45);padding:2px 6px}
+        .panel-b{padding:16px}
+        .note{font-size:.72rem;color:var(--dim);line-height:1.6}
+        .note b{color:var(--txt)}
 
-        .nav-icons img {
-            height: 50px;
-            width: auto;
-            transition: all 0.3s ease;
-            opacity: 0.9;
-        }
+        /* ===== SOUNDING ===== */
+        .sounding-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:16px;align-items:start}
+        @media(max-width:900px){.sounding-grid{grid-template-columns:1fr}}
+        .field{margin-bottom:13px}
+        .field > label{display:block;font-family:var(--mono);font-size:.58rem;letter-spacing:.26em;color:var(--dim);margin-bottom:6px}
+        select, input[type="date"]{width:100%;appearance:none;-webkit-appearance:none;background:#08141d;border:1px solid var(--line);
+            color:var(--txt);font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;padding:9px 32px 9px 11px;cursor:pointer;transition:.2s;color-scheme:dark}
+        select:hover,select:focus,input[type="date"]:hover,input[type="date"]:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(79,227,255,.2);outline:none}
+        .selwrap{position:relative}
+        .selwrap::after{content:'▼';position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--cyan);font-size:.55rem;pointer-events:none}
+        .preview-frame{position:relative;border:1px solid var(--line-hi);background:#04121c;padding:10px;
+            box-shadow:inset 0 0 60px rgba(0,0,0,.5), 0 0 30px rgba(79,227,255,.07)}
+        .preview-frame .corner{position:absolute;width:20px;height:20px;border:2px solid var(--cyan);z-index:2;opacity:.9}
+        .c-tl{top:6px;left:6px;border-right:0;border-bottom:0}.c-tr{top:6px;right:6px;border-left:0;border-bottom:0}
+        .c-bl{bottom:6px;left:6px;border-right:0;border-top:0}.c-br{bottom:6px;right:6px;border-left:0;border-top:0}
+        #soundingPreview{display:block;width:100%;height:auto;max-height:480px;object-fit:contain;background:#071119}
 
-        .nav-icons a:hover img {
-            transform: scale(1.1);
-            opacity: 1;
-        }
+        /* ===== LIVE PIPELINE ===== */
+        .stages{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+        .stage{flex:1;min-width:130px;border:1px solid var(--line);background:#08141d;padding:8px 11px;position:relative;transition:.25s}
+        .stage::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line);transition:.25s}
+        .stage .sn{font-family:var(--mono);font-size:.48rem;letter-spacing:.24em;color:var(--dim)}
+        .stage .ss{font-family:var(--disp);font-weight:700;font-size:.6rem;letter-spacing:.14em;color:var(--txt);margin-top:3px;transition:.25s}
+        .stage.active{border-color:var(--cyan)} .stage.active::after{background:var(--cyan);animation:blink .7s infinite}
+        .stage.ok::after{background:var(--green)} .stage.ok .ss{color:var(--green)}
+        .stage.fail{border-color:var(--red)} .stage.fail::after{background:var(--red)} .stage.fail .ss{color:var(--red)}
+        .pipe-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+        @media(max-width:820px){.pipe-grid{grid-template-columns:1fr}}
+        #liveSounding{width:100%;height:290px;display:block;border:1px solid var(--line);background:#061019}
+        .pstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}
+        .pstat{border:1px solid var(--line);background:#08141d;padding:8px 10px}
+        .pstat b{display:block;font-family:var(--mono);font-size:.92rem;color:var(--cyan);font-weight:400}
+        .pstat span{font-family:var(--mono);font-size:.48rem;letter-spacing:.2em;color:var(--dim)}
+        .pstat.src b{color:var(--green)} .pstat.src.synth b{color:var(--amber)}
+        .plog{margin-top:12px;border:1px solid var(--line);background:#050d14;padding:10px 12px;font-family:var(--mono);
+            font-size:.58rem;line-height:1.75;letter-spacing:.05em;height:118px;overflow:hidden}
+        .plog div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#7fb8c9}
+        .plog .ok{color:var(--green)} .plog .warn{color:var(--amber)} .plog .err{color:var(--red)}
+        .retry{margin-top:12px}
 
-        .resolution-warning {
-            margin-top: 4rem;
-            max-width: 1200px;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: var(--border-radius);
+        /* ===== RESOLUTION ===== */
+        .resolution-warning{margin:0 0 16px;max-width:none;padding:12px 16px;background:rgba(255,180,84,.07);
+            border:1px solid rgba(255,180,84,.4);border-left:3px solid var(--amber)}
+        .resolution-warning p{margin:0;font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;color:var(--amber)}
+        table{width:100%;border-collapse:collapse;margin:0}
+        table td{padding:14px 10px;border-bottom:1px solid rgba(79,227,255,.1);vertical-align:middle}
+        table td b{font-family:var(--disp);font-weight:700;font-size:.66rem;letter-spacing:.2em;color:var(--txt)}
+        #simWorldProperties{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;color:var(--cyan) !important}
+        output{font-family:var(--mono);font-size:.72rem;color:var(--cyan);margin-left:10px}
+        #simResYWarning, #simHeightWarning{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--red) !important;animation:blink 1.2s infinite}
+        input[type="range"]{width:100%;max-width:800px;margin:10px 0;height:4px;-webkit-appearance:none;appearance:none;outline:none;cursor:pointer;
+            background:linear-gradient(90deg,var(--cyan) var(--fill,50%),#123346 var(--fill,50%))}
+        input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:#0a1b26;border:2px solid var(--cyan);
+            cursor:grab;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);box-shadow:0 0 9px rgba(79,227,255,.7)}
+        input[type="range"]::-moz-range-thumb{width:13px;height:13px;background:#0a1b26;border:2px solid var(--cyan);border-radius:0}
+        input[type="button"], .btn{font-family:var(--disp);font-weight:700;font-size:.7rem;letter-spacing:.24em;cursor:pointer;color:#03222e;
+            background:var(--cyan);border:1px solid var(--cyan);padding:13px 26px;transition:.18s;
+            clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+            box-shadow:0 0 18px rgba(79,227,255,.4)}
+        input[type="button"]:hover, .btn:hover{background:#8ceeff;box-shadow:0 0 28px rgba(79,227,255,.75);transform:translateY(-2px)}
+        input[type="button"]:active, .btn:active{transform:scale(.97)}
+        .btn.ghost{background:#0a1e2b;color:var(--cyan);box-shadow:none}
+        .btn.ghost:hover{background:var(--cyan);color:#03222e}
+        .terrain-hint{display:block;margin-top:12px;font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;color:var(--dim)}
+        .terrain-hint b{color:var(--green)}
 
-        }
+        .file-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+        .file-row label{font-family:var(--disp);font-weight:700;font-size:.66rem;letter-spacing:.22em;color:var(--txt)}
+        input[type="file"]{font-family:var(--mono);font-size:.66rem;color:var(--txt);background:#08141d;border:1px dashed var(--line-hi);padding:10px 14px;cursor:pointer;transition:.2s}
+        input[type="file"]:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(79,227,255,.25)}
+        input[type="file"]::file-selector-button{font-family:var(--disp);font-weight:700;font-size:.6rem;letter-spacing:.18em;color:var(--cyan);
+            background:#0a1e2b;border:1px solid var(--line-hi);padding:7px 14px;margin-right:12px;cursor:pointer;transition:.2s}
+        input[type="file"]::file-selector-button:hover{background:var(--cyan);color:#03222e}
 
-        .resolution-warning p {
-            margin: 0;
-            font-size: 1.1rem;
-            color: rgba(255, 255, 255, 0.9);
-            line-height: 1.5;
-        }
+        #help, .tips, .controls, .example-files{margin:0;padding:0;background:none;border-radius:0;box-shadow:none;animation:none}
+        #help ul, .controls ul{list-style:none;margin:0;padding:0}
+        #help li, .controls li{display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed #123346;font-size:.74rem;line-height:1.6;color:var(--txt)}
+        #help li:last-child, .controls li:last-child{border-bottom:0}
+        #help li::before, .controls li::before{content:'▸';color:var(--amber);font-family:var(--mono)}
+        #help li b, .controls li b{color:var(--cyan)}
+        .controls h3{font-family:var(--disp);font-weight:700;font-size:.7rem;letter-spacing:.28em;color:var(--amber);margin:18px 0 6px}
+        .controls table td{font-size:.74rem}
+        .controls table td:first-child{width:200px}
+        kbd{font-family:var(--mono);font-size:.62rem;color:var(--cyan);background:#0c2130;border:1px solid var(--line);
+            min-width:24px;height:24px;display:inline-grid;place-items:center;padding:0 6px;margin:1px;box-shadow:inset 0 -2px 0 #06131c}
+        .support{margin:0;padding:0;background:none;text-align:left}
+        .support h1{font-family:var(--disp);font-weight:900;font-size:1.1rem;letter-spacing:.24em;color:var(--green) !important;margin:0 0 10px;text-shadow:0 0 16px rgba(93,245,164,.5)}
+        .support a{color:var(--cyan) !important;text-decoration:none;border-bottom:1px solid var(--cyan)}
+        .support a:hover{color:#8ceeff !important;text-shadow:0 0 10px rgba(79,227,255,.6)}
+        .support .by{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;color:var(--dim)}
+        .html5note{font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;color:#3f5c6b;margin-top:26px;border-top:1px dashed #123346;padding-top:14px}
 
-        #IntroScreen {
-            padding: 20px;
-            max-width: 1200px;
-            margin: 20px;
-            border-radius: var(--border-radius);
-            animation: fadeIn 1s ease-in-out;
-        }
+        /* ===== CANVASES (preserved) ===== */
+        #mainCanvas{position:fixed;top:0;left:0;z-index:0;display:none}
+        #graphCanvas{position:fixed;z-index:1;display:none}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-
-        table td {
-            padding: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        input[type="range"] {
-            width: 100%;
-            max-width: 800px;
-            margin: 10px 0;
-            height: 8px;
-        }
-
-        input[type="button"] {
-            background: #007bff;
-            border: none;
-            padding: 12px 24px;
-            color: var(--text-color);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: 1rem;
-            transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
-            box-shadow: var(--shadow);
-        }
-
-        input[type="button"]:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-            background-color: #004a9a;
-            transition: var(--transition-speed);
-        }
-
-        #help {
-            margin: 20px 0;
-            padding: 20px;
-            background: var(--soft-gradient);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            animation: fadeIn 1s ease-in-out;
-        }
-
-        .tips,
-        .controls,
-        .example-files {
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-
-        .support {
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            text-align: center;
-        }
-
-        #mainCanvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 0;
-            display: none;
-        }
-
-        #graphCanvas {
-            position: fixed;
-            z-index: 1;
-            display: none;
-        }
-
-        .autopilotNumberInput {
-            background-color: #0000ff;
-            border: 3px solid #0000ff;
-            color: #ffffff;
-        }
-
-        .airbus-switch {
-            display: none
-        }
-
-        .airbus-label {
-            position: relative;
-            width: 50px;
-            height: 50px;
-            background: #222;
-            border: 2px solid #555;
-            border-radius: 10px;
-            box-shadow: inset 0 0 8px #000;
-            color: #fff;
-            font-size: 13px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            align-items: flex-end;
-        }
-
-        .airbus-label::before {
-            content: "";
-            position: absolute;
-            top: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%;
-            height: 10px;
-            background: #020;
-            border: 1px solid #030;
-            border-radius: 2px;
-        }
-
-        .airbus-switch:checked+.airbus-label::before {
-            background: #0f0;
-            box-shadow: 0 0 8px #0f0;
-        }
-
-        :root {
-            --size: 50px
-        }
-
-        .gauge {
-            position: absolute;
-            left: 300px;
-            height: calc(var(--size)/2);
-        }
-
-        svg {
-            display: block;
-            overflow: visible
-        }
-
-        .bg-arc {
-            stroke: #263242;
-            stroke-width: 24;
-            fill: none;
-            stroke-linecap: round
-        }
-
-        .fill-arc {
-            stroke: green;
-            stroke-width: 24;
-            fill: none;
-            stroke-linecap: round;
-            transition: stroke 0.4s linear;
-        }
-
-        .value {
-            font-size: 56px;
-            font-weight: 700;
-            fill: #ffffff;
-            text-anchor: middle
-        }
+        /* ===== IN-GAME UI (preserved classes, sci-fi skin) ===== */
+        .autopilotNumberInput{background:#0a1e2b;border:2px solid var(--cyan);color:var(--cyan);font-family:var(--mono);padding:4px 6px;box-shadow:0 0 10px rgba(79,227,255,.3)}
+        .airbus-switch{display:none}
+        .airbus-label{position:relative;width:50px;height:50px;background:linear-gradient(180deg,#0e2331,#08141d);
+            border:2px solid var(--line-hi);border-radius:6px;box-shadow:inset 0 0 10px #000, 0 0 8px rgba(79,227,255,.15);
+            color:#cfe9f2;font-family:var(--mono);font-size:11px;font-weight:bold;letter-spacing:1px;
+            display:flex;justify-content:center;align-items:center;align-items:flex-end;cursor:pointer;padding-bottom:5px;transition:.2s}
+        .airbus-label:hover{border-color:var(--cyan)}
+        .airbus-label::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:60%;height:10px;
+            background:#0a2a1a;border:1px solid #0f3a26;border-radius:2px;transition:.2s}
+        .airbus-switch:checked + .airbus-label::before{background:var(--green);box-shadow:0 0 10px var(--green)}
+        .gauge{position:absolute;left:300px;height:calc(var(--size)/2)}
+        svg{display:block;overflow:visible}
+        .bg-arc{stroke:#1b3a4d;stroke-width:24;fill:none;stroke-linecap:round}
+        .fill-arc{stroke:var(--green);stroke-width:24;fill:none;stroke-linecap:round;transition:stroke .4s linear;filter:drop-shadow(0 0 6px rgba(93,245,164,.6))}
+        .value{font-size:56px;font-weight:700;fill:#eaf7ff;text-anchor:middle;font-family:var(--mono)}
+        /* ===== LOADING SCREEN (reworked) ===== */
+        .ls-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+            background:
+                radial-gradient(1000px 560px at 50% 28%, rgba(24,74,108,.28), transparent 65%),
+                repeating-linear-gradient(0deg, rgba(79,227,255,.02) 0 1px, transparent 1px 42px),
+                repeating-linear-gradient(90deg, rgba(79,227,255,.02) 0 1px, transparent 1px 42px),
+                #030a10;
+            opacity:1;transition:opacity .45s ease}
+        .ls-overlay.ls-done{opacity:0;pointer-events:none}
+        .ls-box{width:min(560px,88vw);position:relative;padding:26px 30px 24px;
+            background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+            clip-path:polygon(0 14px,14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%);
+            box-shadow:0 0 60px rgba(79,227,255,.08), inset 0 0 40px rgba(0,0,0,.4);
+            animation:fadeIn .5s ease-in-out}
+        .ls-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+        .ls-titles{min-width:0}
+        .ls-glyph{width:34px;height:34px;position:relative;flex:0 0 auto}
+        .ls-glyph::before,.ls-glyph::after{content:'';position:absolute;inset:0;border:2px solid var(--cyan);
+            clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:spin 9s linear infinite}
+        .ls-glyph::after{inset:8px;border-color:var(--amber);animation-direction:reverse;animation-duration:6s}
+        .ls-title{font-family:var(--disp);font-weight:900;font-size:1.05rem;letter-spacing:.18em;color:#eef8ff;
+            text-shadow:0 0 14px rgba(79,227,255,.4);white-space:nowrap}
+        .ls-sub{font-family:var(--mono);font-size:.55rem;letter-spacing:.34em;color:var(--amber);margin-top:4px;white-space:nowrap}
+        .ls-led{margin-left:auto;width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--green);
+            box-shadow:0 0 10px var(--green);animation:blink 1.4s infinite}
+        .ls-status{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;color:var(--txt);
+            min-height:1.4em;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ls-track{height:12px;background:#050d14;border:1px solid var(--line);position:relative;overflow:hidden}
+        .ls-fill{height:100%;width:0%;background:linear-gradient(90deg,#0f6f8f,var(--cyan));
+            box-shadow:0 0 14px rgba(79,227,255,.75);transition:width .3s ease}
+        .ls-track::after{content:'';position:absolute;top:0;bottom:0;left:0;width:38%;
+            background:linear-gradient(90deg,transparent,rgba(238,248,255,.16),transparent);
+            transform:translateX(-120%);animation:lsScan 1.6s linear infinite}
+        @keyframes lsScan{to{transform:translateX(340%)}}
+        .ls-meta{display:flex;justify-content:space-between;margin-top:10px}
+        .ls-percent{font-family:var(--disp);font-weight:700;font-size:1.35rem;color:var(--cyan);
+            text-shadow:0 0 12px rgba(79,227,255,.55)}
+        .ls-step{font-family:var(--mono);font-size:.58rem;letter-spacing:.26em;color:var(--dim);align-self:flex-end}
+        .ls-overlay.ls-error .ls-fill{background:linear-gradient(90deg,#8f1f30,var(--red));box-shadow:0 0 14px rgba(255,84,112,.7)}
+        .ls-overlay.ls-error .ls-status{color:var(--red)}
+        .ls-overlay.ls-error .ls-percent{color:var(--red);text-shadow:0 0 12px rgba(255,84,112,.55)}
+        .ls-overlay.ls-error .ls-led{background:var(--red);box-shadow:0 0 10px var(--red)}
     </style>
 </head>
 
 <body id="body" onload="updateSetupSliders();">
+
     <nav class="main-nav">
         <div class="nav-title">
-            <h1>2D Weather Sandbox</h1>
+            <div class="glyph"></div>
+            <h1>2D WEATHER SANDBOX <small>REMAKE // ATMOS-KERNEL v2.6</small></h1>
         </div>
         <div class="nav-icons">
-            <a href="https://github.com/niels747/2D-Weather-Sandbox" target="_blank" rel="noopener noreferrer">
-                <img src="resources/img/Github.png" alt="GitHub">
-            </a>
-            <a href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer">
-                <img src="resources/img/Patreon.png" alt="Patreon">
-            </a>
-            <a href="https://www.youtube.com/user/nielsdaemen/videos" target="_blank" rel="noopener noreferrer">
-                <img src="resources/img/Youtube.png" alt="YouTube">
-            </a>
-            <a href="https://discord.gg/c4Xdf92PzG" target="_blank" rel="noopener noreferrer">
-                <img src="resources/img/Discord.png" alt="Discord">
-            </a>
+            <span class="led"><i></i>GPU NOMINAL</span>
+            <span class="led c"><i></i>SOUNDING LINK</span>
+            <span id="navClock">--:--:--Z</span>
+            <button class="sfx-btn" id="sfxToggle" type="button">SFX ON</button>
         </div>
     </nav>
 
@@ -289,287 +280,476 @@
 
         <p style="margin-top: 50px;"></p>
 
-        <div style="width: 100%; height: 500px;">
-            <div style="float: left; margin-right: 100px;">
+        <!-- ═══ 01 SOUNDING FORCING ═══ -->
+        <div class="sec-h">
+            <span class="sec-idx">01</span><h2>SOUNDING FORCING</h2><span class="sec-line"></span><span class="sec-tag">PRE-FLIGHT</span>
+        </div>
+        <section class="panel">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>ATMOSPHERIC SOUNDING</h3><span class="tag">REAL-WORLD DATA</span></header>
+            <div class="panel-b sounding-grid">
                 <div>
-                    Preset:<select id="presetSelect" style="margin: 10px;"></select>
+                    <div class="field">
+                        <label for="presetSelect">Preset</label>
+                        <div class="selwrap"><select id="presetSelect" style="margin: 0;"></select></div>
+                    </div>
+                    <div class="field">
+                        <label for="stationSelect">Station</label>
+                        <div class="selwrap"><select id="stationSelect"></select></div>
+                    </div>
+                    <div class="field">
+                        <label for="datePicker">Date</label>
+                        <input type="date" id="datePicker" value="2025-06-15" min="2010-01-01" onchange="prepareSounding();" />
+                    </div>
+                    <div class="field">
+                        <label for="hourSelector">Cycle</label>
+                        <div class="selwrap">
+                            <select id="hourSelector" onchange="prepareSounding();">
+                                <option value="0">00H</option>
+                                <option value="6">06H</option>
+                                <option value="12" selected>12H</option>
+                                <option value="18">18H</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="note">Select a <b>real world sounding</b> to use as forcing in the simulation.</p>
                 </div>
-                <div>
-                    <select id="stationSelect"></select>
-                    <input type="date" id="datePicker" value="2025-06-15" min="2010-01-01"
-                        onchange="prepareSounding();" />
-
-                    <select id="hourSelector" onchange="prepareSounding();">
-                        <option value="0">00H</option>
-                        <option value="6">06H</option>
-                        <option value="12" selected>12H</option>
-                        <option value="18">18H</option>
-                    </select>
-                    <p>Select a real world sounding to use as forcing in the simulation</p>
+                <div class="preview-frame">
+                    <span class="corner c-tl"></span><span class="corner c-tr"></span>
+                    <span class="corner c-bl"></span><span class="corner c-br"></span>
+                    <img id="soundingPreview" alt="sounding arent available. pls select a different one">
                 </div>
             </div>
-            <img style="float: left; height: 500px;" id="soundingPreview"
-                alt="Sounding not available, Please select a different time.">
-        </div>
+        </section>
 
-        <form id="startBtn" oninput="updateSetupSliders();">
-            <div class="resolution-warning">
-                <p>Choose a resolution - Higher resolutions provide more detail but significantly impact performance
+        <!-- ═══ 02 LIVE SOUNDING PIPELINE ═══ -->
+        <div class="sec-h">
+            <span class="sec-idx">02</span><h2>LIVE SOUNDING PIPELINE</h2><span class="sec-line"></span><span class="sec-tag">RAOB UPLINK</span>
+        </div>
+        <section class="panel">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>VERTICAL PROFILE ACQUISITION</h3><span class="tag" id="pipeSrc">STANDBY</span></header>
+            <div class="panel-b">
+                <div class="stages">
+                    <div class="stage" data-stage="station"><div class="sn">STAGE 01</div><div class="ss">STATION</div></div>
+                    <div class="stage" data-stage="uplink"><div class="sn">STAGE 02</div><div class="ss">UPLINK</div></div>
+                    <div class="stage" data-stage="parse"><div class="sn">STAGE 03</div><div class="ss">PARSE</div></div>
+                    <div class="stage" data-stage="profile"><div class="sn">STAGE 04</div><div class="ss">PROFILE</div></div>
+                </div>
+                <div class="pipe-grid">
+                    <canvas id="liveSounding"></canvas>
+                    <div class="pstats">
+                        <div class="pstat src" id="psSrcWrap"><b id="psSrc">—</b><span>SOURCE</span></div>
+                        <div class="pstat"><b id="psSt">—</b><span>STATION</span></div>
+                        <div class="pstat"><b id="psTime">—</b><span>VALID TIME</span></div>
+                        <div class="pstat"><b id="psN">—</b><span>LEVELS</span></div>
+                        <div class="pstat"><b id="psT">—</b><span>SFC TEMP</span></div>
+                        <div class="pstat"><b id="psTd">—</b><span>SFC DEWPOINT</span></div>
+                        <div class="pstat"><b id="psW">—</b><span>MAX WIND</span></div>
+                        <div class="pstat"><b id="psTro">—</b><span>TROPOPAUSE</span></div>
+                    </div>
+                </div>
+                <div class="plog" id="pipeLog"></div>
+                <button class="btn ghost retry" id="pipeRetry" type="button">↻ RETRY UPLINK</button>
+            </div>
+        </section>
+
+        <!-- ═══ 03 GRID RESOLUTION ═══ -->
+        <div class="sec-h">
+            <span class="sec-idx">03</span><h2>GRID RESOLUTION</h2><span class="sec-line"></span><span class="sec-tag">GPU CRITICAL</span>
+        </div>
+        <section class="panel">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>SIMULATION GRID</h3><span class="tag">PERFORMANCE</span></header>
+            <div class="panel-b">
+                <form id="startBtn" oninput="updateSetupSliders();">
+                    <div class="resolution-warning">
+                        <p>⚠ CHOOSE THE RESOLUTION — HIGHER RESOLUTIONS PROVIDE MORE DETAIL BUT SIGNIFICANTLY IMPACT PERFORMANCE FROM GPU LOAD</p>
+                    </div>
+                    <table>
+                        <tr>
+                            <td><b>HORIZONTAL RESOLUTION</b></td>
+                            <td style="width: 30%">
+                                <input type="range" min="100" max="16000" value="3000" step="100" id="simResSelX" />
+                                <output id="simResShowX"></output>
+                            </td>
+                            <td id="simWorldProperties" style="width: 50%">Cellheight: 40m &nbsp;·&nbsp; Sim width: 40 km</td>
+                        </tr>
+                        <tr>
+                            <td><b>VERTICAL RESOLUTION</b></td>
+                            <td>
+                                <input type="range" min="100" max="500" value="300" step="10" id="simResSelY" />
+                                <output id="simResShowY"></output>
+                            </td>
+                            <td><i id="simResYWarning" style="display: none;">⚠ Vertical resolutions other than 300 are not very realistic and can be laggy.</i></td>
+                        </tr>
+                        <tr>
+                            <td><b>SIMULATION HEIGHT</b></td>
+                            <td>
+                                <input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
+                                <output id="simHeightShow"></output>
+                            </td>
+                            <td><i id="simHeightWarning" style="display: none;">⚠ my granny got hit by a bazooka</i></td>
+                        </tr>
+                    </table>
+                    <input type="button" value="▶ CREATE NEW SIMULATION" onclick="loadData ()" />
+                    <i class="terrain-hint">◈ Move the mouse until you see a <b>terrain you like</b>, then just release the mouse or finger to start.</i>
+                </form>
+                <p style="margin-top: 34px;" class="file-row">
+                    <label for="fileInput">LOAD SAVE FILE:</label>
+                    <input type="file" id="fileInput" name="fileInput" accept=".weathersandbox " onchange="loadData()" />
                 </p>
             </div>
+        </section>
 
-            <table>
-                <tr>
-                    <td><b>Horizontal resolution</b></td>
-                    <td style="width: 30%">
-                        <input type="range" min="100" max="16000" value="3000" step="100" id="simResSelX" />
-                        <output id="simResShowX"></output>
-                    </td>
-                    <td id="simWorldProperties" style="color:rgb(255, 255, 255); width: 50%"> Cellheight: 40m Sim
-                        width:
-                        40 km</td>
-                </tr>
-                <tr>
-                    <td><b>Vertical resolution</b></td>
-                    <td>
-                        <input type="range" min="100" max="500" value="300" step="10" id="simResSelY" />
-                        <output id="simResShowY"></output>
-                    </td>
-                    <td><i id="simResYWarning" style="color:rgb(255, 61, 61); display: none;">Vertical resolutions
-                            other
-                            than 300 are not optimized and may be buggy!</i></td>
-                </tr>
-                <tr>
-                    <td><b>Simulation height</b></td>
-                    <td>
-                        <input type="range" min="5000" max="15000" value="12000" step="100" id="simHeightSel" />
-                        <output id="simHeightShow"></output>
-                    </td>
-                    <td><i id="simHeightWarning" style="color:rgb(255, 61, 61); display: none;">Sim heights other
-                            than
-                            12000 m are not optimized and may be buggy!</i></td>
-                </tr>
-            </table>
-            <input type="button" value="Create New Simulation" onclick="loadData ()" />
-            <i>Move the mouse until you see a terrain you like, then just click to start.</i>
-        </form>
-
-
-        <p style="margin-top: 70px;">
-            <label for="fileInput">Load Save File:</label>
-            <input type="file" id="fileInput" name="fileInput" accept=".weathersandbox " onchange="loadData()" />
-        </p>
-
-        <div class="example-files">
-            <h3>Example Save Files</h3>
-            <p><a style="color: white" href="./saves/Background image.weathersandbox">Background image</a></p>
-            <p><a style="color: white" href="./saves/Hotlake Valley.weathersandbox">Hotlake Valley</a></p>
-            <p><a style="color: white" href="./saves/Mountain uplift cell.weathersandbox">Mountain Uplift Cell at
-                    sunset</a></p>
-            <p><a style="color: white" href="./saves/480 km map with strong derecho.weathersandbox">480 km map with
-                    strong Derecho</a></p>
-            <p><a style="color: white" href="./saves/Three Nice Cells.weathersandbox">Three Nice Cells</a></p>
-            <p><a style="color: white" href="./saves/Mountain Snow Storm.weathersandbox">Mountain Snow Storm</a></p>
-            <p><a style="color: white" href="./saves/Powerful & Longlasting Cell.weathersandbox">Powerful &
-                    Longlasting
-                    Cell</a></p>
-            <p><a style="color: white" href="./saves/Rain Sucked Up.weathersandbox">Powerful updraft sucking up rain
-                    and
-                    turning it into hail.</a></p>
-            <p><a style="color: white" href="./saves/Powerful Hail and Snow Cells.weathersandbox">Powerful Hail and
-                    Snow
-                    Cells</a></p>
-            <p><a style="color: white" href="./saves/Very nice cell over coastal mountain.weathersandbox">Very nice
-                    cell
-                    over coastal mountain</a></p>
-            <p><a style="color: white" href="./saves/Awesome Convergence Cell.weathersandbox">Awesome Convergence
-                    Cell</a></p>
-            <p><a style="color: white" href="./saves/Two nice cells in lake valley.weathersandbox">Two nice cells in
-                    lake valley</a></p>
-            <p><a style="color: white" href="./saves/Insane CAPE.weathersandbox">Insane CAPE</a></p>
-            <p><a style="color: white" href="./saves/100 X 100 Test.weathersandbox">100 X 100 Test</a></p>
+        <!-- ═══ 04 BRIEFING ═══ -->
+        <div class="sec-h lazy">
+            <span class="sec-idx">04</span><h2>BRIEFING</h2><span class="sec-line"></span><span class="sec-tag">USEFUL TIPS</span>
         </div>
+        <section class="panel lazy">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>USEFUL TIPS</h3><span class="tag">OPS</span></header>
+            <div class="panel-b" id="help">
+                <ul>
+                    <li>Performance is mostly <b>GPU</b> — Adreno 610, Adreno 613, Adreno 619, Mali G57 MCX, Mali G68 MCX/MPX, Mali G610 MCX/MPX, Mali G615 MCX/MPX, Mali G720 MCX/MPX, Adreno 620, Adreno 710, Adreno 720, Adreno 722, Adreno 810 or better recommended for realtime gameplay. Phones, smartwatches, smart TV, PC, laptop and more are supported. <b>(needs a browser)</b></li>
+                    <li>Play in <b>fullscreen mode (F11)</b> for an immersive experience.</li>
+                </ul>
+            </div>
+        </section>
 
-        <div id="help" class="tips">
-            <h2>Tips</h2>
-            <ul>
-                <li>Vertical resolution of 300 gives most realistic results</li>
-                <li>Larger horizontal resolutions allow stronger converging winds to develop, forming more
-                    realistic,
-                    longer lasting cells</li>
-                <li>Performance is mostly GPU dependent, GTX 1070 or better recommended for realtime gameplay</li>
-                <li>If you have a laptop with a dedicated GPU, make sure the browser is actually using it! It's
-                    often
-                    using the integrated graphics by default</li>
-                <li>Play in fullscreen mode (F11)</li>
-            </ul>
+        <!-- ═══ 05 CONTROLS ═══ -->
+        <div class="sec-h lazy">
+            <span class="sec-idx">05</span><h2>CONTROLS</h2><span class="sec-line"></span><span class="sec-tag">INPUT MAP</span>
         </div>
+        <section class="panel lazy">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>CONTROL SURFACE</h3><span class="tag">MOUSE + KEYS</span></header>
+            <div class="panel-b controls">
+                <h3>◢ MOUSE</h3>
+                <ul>
+                    <li><b>Middle mouse button</b> to drag the simulation area around.</li>
+                    <li><b>Mouse wheel</b> to zoom in and out — or to change brush size while holding down <b>B</b>.</li>
+                    <li><b>Left mouse button</b> to use selected tool. Hold down <b>Ctrl</b> (command on mac) to perform the inverted action.</li>
+                </ul>
+                <h3>◢ KEYS</h3>
+                <table style="width: 100%">
+                    <tr><td><kbd>1</kbd>–<kbd>9</kbd></td><td>Display Modes</td></tr>
+                    <tr><td><kbd>K</kbd></td><td>Air Quality Display</td></tr>
+                    <tr><td><kbd>C</kbd></td><td>Relative Humidity &amp; Cloud Density Display</td></tr>
+                    <tr><td><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd><kbd>T</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>I</kbd><kbd>O</kbd><kbd>P</kbd><kbd>[</kbd><kbd>]</kbd><kbd>\</kbd></td><td>Tools</td></tr>
+                    <tr><td><kbd>L-CTRL</kbd></td><td>Invert Tool Action</td></tr>
+                    <tr><td><kbd>ESC</kbd></td><td>No Tool, Flashlight</td></tr>
+                    <tr><td><kbd>◄</kbd><kbd>▲</kbd><kbd>▼</kbd><kbd>►</kbd></td><td>Move View</td></tr>
+                    <tr><td><kbd>+</kbd><kbd>−</kbd></td><td>Zoom In / Out</td></tr>
+                    <tr><td><kbd>R-CTRL</kbd></td><td>Hold For Slower Pan Speed</td></tr>
+                    <tr><td><kbd>SPACE</kbd></td><td>Pause / Resume</td></tr>
+                    <tr><td><kbd>TAB</kbd></td><td>Show / Hide Velocity Vectors</td></tr>
+                    <tr><td><kbd>A</kbd></td><td>Toggle Flight Simulator Mode. Vertical mouse position controls elevator, Throttle: ▲ ▼</td></tr>
+                    <tr><td><kbd>F</kbd></td><td>Toggle Camera Following Plane</td></tr>
+                    <tr><td><kbd>SHIFT</kbd></td><td>Toggle Gear</td></tr>
+                    <tr><td><kbd>Z</kbd></td><td>Drop Water From Airplane To Extinguish Fires</td></tr>
+                    <tr><td><kbd>CAPSLK</kbd></td><td>Autopilot</td></tr>
+                    <tr><td><kbd>.</kbd></td><td>Brakes</td></tr>
+                    <tr><td><kbd>/</kbd></td><td>Toggle Engine</td></tr>
+                    <tr><td><kbd>D</kbd></td><td>Show / Hide Droplets</td></tr>
+                    <tr><td><kbd>X</kbd></td><td>Toggle Follow Droplet</td></tr>
+                    <tr><td><kbd>G</kbd></td><td>Show / Hide Sounding Graph</td></tr>
+                    <tr><td><kbd>N</kbd></td><td>Show / Hide Weather Stations</td></tr>
+                    <tr><td><kbd>M</kbd></td><td>Add / Remove Weather Stations</td></tr>
+                    <tr><td><kbd>H</kbd></td><td>Show / Hide GUI</td></tr>
+                    <tr><td><kbd>V</kbd></td><td>Reset View</td></tr>
+                    <tr><td><kbd>B</kbd></td><td>Hold To Change Brush Size By Scrolling</td></tr>
+                    <tr><td><kbd>B</kbd><kbd>×2</kbd></td><td>Toggle Whole Width Brush</td></tr>
+                    <tr><td><kbd>L</kbd></td><td>Reload From Save File</td></tr>
+                    <tr><td><kbd>HOME</kbd></td><td>1 Iteration/sec</td></tr>
+                    <tr><td><kbd>END</kbd></td><td>Auto Iterations/sec</td></tr>
+                    <tr><td><kbd>PGUP</kbd></td><td>Increase Iterations/sec</td></tr>
+                    <tr><td><kbd>PGDN</kbd></td><td>Decrease Iterations/sec</td></tr>
+                </table>
+            </div>
+        </section>
 
-        <div class="controls">
-            <h2>Controls</h2>
-            <h3>Mouse</h3>
-            <ul>
-                <li>Middle mouse button to drag the simulation area around</li>
-                <li>Mouse wheel to zoom in and out, Or to change brush size while holding down B</li>
-                <li>Left mouse button to use selected tool. Hold down Ctrl (command on mac) to perform the inverted
-                    action</li>
-                <li>Touchscreen input is pretty basic for now, will add more controls in the future</li>
-            </ul>
-            <h3>Keys</h3>
-            <table style="width: 100%">
-                <tr>
-                    <td>1 - 9</td>
-                    <td>Display Modes</td>
-                </tr>
-                <tr>
-                    <td>K</td>
-                    <td>Air Quality Display</td>
-                </tr>
-                <tr>
-                    <td>C</td>
-                    <td>Relative Humidity & Cloud Density Display</td>
-                </tr>
-                <tr>
-                    <td>QWERTYUIOP [ ] \</td>
-                    <td>Tools</td>
-                </tr>
-                <tr>
-                    <td>Left Ctrl</td>
-                    <td>Invert Tool Action</td>
-                </tr>
-                <tr>
-                    <td>Esc</td>
-                    <td>No Tool, Flashlight</td>
-                </tr>
-                <tr>
-                    <td>Arrows ◄ ▲ ▼ ►</td>
-                    <td>Move View</td>
-                </tr>
-                <tr>
-                    <td>+ -</td>
-                    <td>Zoom In / Out</td>
-                </tr>
-                <tr>
-                    <td>Right Ctrl</td>
-                    <td>Hold For Slower Pan speed</td>
-                </tr>
-                <tr>
-                    <td>Space Bar</td>
-                    <td>Pause / Resume</td>
-                </tr>
-                <tr>
-                    <td>Tab</td>
-                    <td>Show / Hide Velocity Vectors</td>
-                </tr>
-                <tr>
-                    <td>A</td>
-                    <td>Toggle Flight Simulator Mode. Vertical Mouse position controls elevator, Throttle: ▲ ▼ </td>
-                </tr>
-                <tr>
-                    <td>F</td>
-                    <td>Toggle camera following plane</td>
-                </tr>
-                <tr>
-                    <td>Shift</td>
-                    <td>Toggle Gear</td>
-                </tr>
-                <tr>
-                    <td>Z</td>
-                    <td>Drop water from airplane to extinguish fires</td>
-                </tr>
-                <tr>
-                    <td>CapsLk</td>
-                    <td>Autopilot</td>
-                </tr>
-                <tr>
-                    <td>.</td>
-                    <td>Brakes</td>
-                </tr>
-                <tr>
-                    <td>/</td>
-                    <td>Toggle Engine</td>
-                </tr>
-                <tr>
-                    <td>D</td>
-                    <td>Show / Hide Droplets</td>
-                </tr>
-                <tr>
-                    <td>X</td>
-                    <td>Toggle follow droplet</td>
-                </tr>
-                <tr>
-                    <td>G</td>
-                    <td>Show / Hide Sounding Graph</td>
-                </tr>
-                <tr>
-                    <td>N</td>
-                    <td>Show / Hide Weather Stations</td>
-                </tr>
-                <tr>
-                    <td>M</td>
-                    <td>Add / Remove Weather Stations</td>
-                </tr>
-                <tr>
-                    <td>H</td>
-                    <td>Show / Hide GUI</td>
-                </tr>
-                <tr>
-                    <td>V</td>
-                    <td>Reset View</td>
-                </tr>
-                <tr>
-                    <td>B</td>
-                    <td>Hold To Change Brush Size By Scrolling</td>
-                </tr>
-                <tr>
-                    <td>B x 2</td>
-                    <td>Toggle Whole Width Brush</td>
-                </tr>
-                <tr>
-                    <td>L</td>
-                    <td>Reload From Save File</td>
-                </tr>
-                <tr>
-                    <td>Home</td>
-                    <td>1 Iteration/sec</td>
-                </tr>
-                <tr>
-                    <td>End</td>
-                    <td>Auto Iterations/sec</td>
-                </tr>
-                <tr>
-                    <td>PgUp</td>
-                    <td>Increase Iterations/sec</td>
-                </tr>
-                <tr>
-                    <td>PgDn</td>
-                    <td>Decrease Iterations/sec</td>
-                </tr>
-            </table>
+        <!-- ═══ 06 SUPPORT ═══ -->
+        <div class="sec-h lazy">
+            <span class="sec-idx">06</span><h2>SUPPORT</h2><span class="sec-line"></span><span class="sec-tag">UPLINK</span>
         </div>
+        <section class="panel lazy">
+            <header class="panel-h"><span class="ic">◢◤</span><h3>SUPPORT CHANNEL</h3><span class="tag">TIKTOK</span></header>
+            <div class="panel-b support">
+                <h1>◢ SUPPORT ME ON TIKTOK</h1>
+                pls support me to get popular on TikTok —
+                <a href="https://vt.tiktok.com/ZSQTSW8J1/" target="_blank" rel="noopener noreferrer">supporting me on TikTok</a>
+                <br />
+                considered playing my refreshed version of 2d weather sandbox
+                <br /><br />
+                <span class="by">BY ₱@₹@D0X</span>
+            </div>
+        </section>
 
-        <div class="support">
-            <h1 style="color: rgb(0, 255, 0)">$ Support me on Patreon $</h1>
-            If you love my project and want to support its future development, please consider <a
-                href="https://www.patreon.com/user?u=76043935" target="_blank" rel="noopener noreferrer"
-                style="color: white">supporting me on patreon</a>
-            <br />
-            Every small amount helps! Thank you!
-            <br />
-            <br />
-            <br />
-            <i>By Niels Daemen</i>
-        </div>
-    </div>
-
+        <div class="html5note">SYS NOTICE // ur browser does not support HTML5, u must be using a really old browser.</div>
     </div>
 
     <canvas id="graphCanvas"></canvas>
-    <canvas id="dropletInfoCanvas" width="90" height="50"
-        style="z-index: 1; position: absolute; left: 50%; top: 50%;"></canvas>
+    <canvas id="dropletInfoCanvas" width="90" height="50" style="z-index: 1; position: absolute; left: 50%; top: 50%;"></canvas>
     <canvas id="mainCanvas">
-        Your browser does not support HTML5, you must be using a really old browser!
+        ur browser does not support HTML5, u must be using a really old browser
     </canvas>
-</body>
 
-</html>
+    <script>
+    /* ═══════════ UI CLICK SOUNDS (Web Audio, no assets) ═══════════ */
+    const SFX = (() => {
+        let ctx = null, muted = localStorage.getItem('sfxMuted') === '1';
+        const ac = () => {
+            if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+            if (ctx && ctx.state === 'suspended') ctx.resume();
+            return ctx;
+        };
+        const blip = (freq, dur, type, gain, slideTo) => {
+            if (muted) return; const c = ac(); if (!c) return;
+            const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+            o.type = type; o.frequency.setValueAtTime(freq, t);
+            if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+            g.gain.setValueAtTime(gain, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+        };
+        return {
+            click:   () => blip(2100, 0.035, 'square', 0.05),
+            tick:    () => blip(3200, 0.02, 'triangle', 0.03),
+            toggle:  () => { blip(1400, 0.05, 'square', 0.05); setTimeout(() => blip(2050, 0.05, 'square', 0.05), 45); },
+            confirm: () => { blip(660, 0.07, 'sawtooth', 0.06, 1320); setTimeout(() => blip(1760, 0.09, 'square', 0.05), 70); },
+            ok:      () => blip(1500, 0.06, 'triangle', 0.045, 2100),
+            error:   () => blip(190, 0.2, 'sawtooth', 0.06, 85),
+            get muted() { return muted; },
+            toggleMute() { muted = !muted; localStorage.setItem('sfxMuted', muted ? '1' : '0'); return muted; }
+        };
+    })();
+
+    document.addEventListener('click', e => {
+        const t = e.target.closest('input[type=button], button, a, .btn');
+        if (!t || t.id === 'sfxToggle') return;
+        (t.value && String(t.value).includes('CREATE')) ? SFX.confirm() : SFX.click();
+    });
+    document.addEventListener('change', e => {
+        const t = e.target;
+        if (t.matches('select, input[type=date]')) SFX.toggle();
+        else if (t.matches('input[type=range]')) SFX.tick();
+        else if (t.matches('input[type=file]')) SFX.click();
+    });
+    const sfxBtn = document.getElementById('sfxToggle');
+    const paintSfx = () => { sfxBtn.textContent = SFX.muted ? 'SFX OFF' : 'SFX ON'; sfxBtn.classList.toggle('off', SFX.muted); };
+    sfxBtn.addEventListener('click', () => { const m = SFX.toggleMute(); paintSfx(); if (!m) SFX.click(); });
+    paintSfx();
+
+    /* ═══════════ LIVE SOUNDING PIPELINE ═══════════ */
+    const CATALOG = [
+        ['KOUN','NORMAN OK'],['KPIT','PITTSBURGH PA'],['KDEN','DENVER CO'],['KJAX','JACKSONVILLE FL'],
+        ['KTLX','OKLAHOMA CITY OK'],['KDDC','DODGE CITY KS'],['KABQ','ALBUQUERQUE NM'],['KMIA','MIAMI FL'],
+        ['KMPX','MINNEAPOLIS MN'],['EGLL','LONDON UK']
+    ];
+    const liveCv = document.getElementById('liveSounding');
+    const logEl = document.getElementById('pipeLog');
+    const $id = id => document.getElementById(id);
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const nowT = () => new Date().toISOString().substr(11, 8);
+    let lastProf = null, pipeBusy = false;
+    window.__pipeAbort = null;
+
+    function log(msg, cls) {
+        const d = document.createElement('div');
+        if (cls) d.className = cls;
+        d.textContent = '> [' + nowT() + '] ' + msg;
+        logEl.prepend(d);
+        while (logEl.children.length > 7) logEl.lastChild.remove();
+    }
+    function setStage(name, state) {
+        const el = document.querySelector('.stage[data-stage="' + name + '"]');
+        if (!el) return;
+        el.classList.remove('active', 'ok', 'fail');
+        if (state) el.classList.add(state);
+        el.querySelector('.ss').textContent =
+            state === 'active' ? 'LINKING' : state === 'ok' ? 'OK' : state === 'fail' ? 'FAIL' : name.toUpperCase();
+    }
+    function resetStages() { ['station','uplink','parse','profile'].forEach(s => setStage(s, null)); }
+
+    function ensureStations() {
+        const sel = $id('stationSelect');
+        if (sel && sel.options.length === 0) {
+            CATALOG.forEach(([i, n]) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + n; sel.appendChild(o); });
+        }
+    }
+    function resolveStation() {
+        const sel = $id('stationSelect');
+        if (!sel || !sel.value) return null;
+        const v = sel.value.trim().toUpperCase();
+        const txt = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].textContent || v).toUpperCase();
+        if (/^[A-Z]{4}$/.test(v)) return { icao: v, label: txt.replace(v, '').replace(/^[·\s]+/, '') || v };
+        const m = CATALOG.find(c => txt.includes(c[1].split(' ')[0]) || v.includes(c[0]));
+        if (m) return { icao: m[0], label: m[1] };
+        return { icao: /^[A-Z]{4}$/.test(txt.slice(0, 4)) ? txt.slice(0, 4) : 'KOUN', label: txt || v };
+    }
+
+    async function fetchLive(icao, date, hour) {
+        const ds = date.replace(/-/g, '') + String(hour).padStart(2, '0');
+        const url = 'https://mesonet.agron.iastate.edu/json/raob.py?station=' + icao + '&date=' + ds;
+        const ctrl = new AbortController(); window.__pipeAbort = ctrl;
+        const to = setTimeout(() => ctrl.abort(), 8000);
+        try {
+            const r = await fetch(url, { signal: ctrl.signal });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const j = await r.json();
+            const prof = j && j.profiles && j.profiles[0] && j.profiles[0].profile;
+            if (!Array.isArray(prof) || !prof.length) throw new Error('EMPTY PROFILE');
+            const out = prof
+                .filter(l => l && l.pres > 0 && typeof l.tmpc === 'number' && l.tmpc > -120)
+                .map(l => ({ p: l.pres, t: l.tmpc, td: (typeof l.dwpc === 'number' ? l.dwpc : l.tmpc - 10), z: l.hght || 0, wspd: l.sknt || 0, wdir: l.drct || 0 }))
+                .sort((a, b) => b.p - a.p);
+            if (!out.length) throw new Error('NO VALID LEVELS');
+            return out;
+        } finally { clearTimeout(to); window.__pipeAbort = null; }
+    }
+
+    function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+    function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+    function synthProfile(key, hour) {
+        const r = mulberry32(hashStr(key));
+        const diurnal = { 0: 13, 6: 10, 12: 27, 18: 22 }[hour]; const base = diurnal == null ? 18 : diurnal;
+        const sfcT = base + (r() * 12 - 6), sfcTd = sfcT - (2 + r() * 13);
+        const ps = [1000,975,950,925,900,875,850,800,750,700,650,600,550,500,450,400,350,300,250,200,175,150,125,100];
+        return ps.map(p => {
+            const z = 44330 * (1 - Math.pow(p / 1013.25, 0.190263));
+            let t = z < 11000 ? sfcT - 6.5 * z / 1000 : sfcT - 6.5 * 11;
+            t = Math.max(-56.5, t) + (r() * 1.2 - 0.6);
+            let td = z < 3000 ? sfcTd - 2.0 * z / 1000 : t - (8 + z / 1000 * 1.5);
+            td = Math.min(td, t - 1);
+            return { p, t, td, z, wspd: 5 + z / 1000 * 3 + r() * 10, wdir: Math.floor(r() * 360) };
+        });
+    }
+
+    function renderSkewT(prof) {
+        if (!prof || !prof.length) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = liveCv.clientWidth, h = liveCv.clientHeight;
+        if (!w || !h) return;
+        liveCv.width = w * dpr; liveCv.height = h * dpr;
+        const c = liveCv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.clearRect(0, 0, w, h);
+        const mL = 44, mR = 12, mT = 12, mB = 22, pw = w - mL - mR, ph = h - mT - mB;
+        const pTop = 100, pBot = 1050, LR = Math.log(pBot / pTop);
+        const yFor = p => mT + (Math.log(pBot / p) / LR) * ph;
+        const xFor = (t, p) => mL + ((t + 80) / 120) * pw * 0.72 + (1 - (yFor(p) - mT) / ph) * pw * 0.28;
+        c.font = '9px "Share Tech Mono", monospace'; c.textBaseline = 'middle';
+        [1000,850,700,500,400,300,250,200,150,100].forEach(p => {
+            const y = yFor(p);
+            c.strokeStyle = 'rgba(79,227,255,.10)'; c.beginPath(); c.moveTo(mL, y); c.lineTo(w - mR, y); c.stroke();
+            c.fillStyle = 'rgba(94,127,144,.9)'; c.fillText(p, 6, y);
+        });
+        for (let t = -80; t <= 40; t += 20) {
+            c.strokeStyle = t === 0 ? 'rgba(79,227,255,.22)' : 'rgba(79,227,255,.07)';
+            c.beginPath(); c.moveTo(xFor(t, pBot), yFor(pBot)); c.lineTo(xFor(t, pTop), yFor(pTop)); c.stroke();
+        }
+        const path = (key, col, glow) => {
+            c.strokeStyle = col; c.lineWidth = 2.2; c.shadowColor = glow; c.shadowBlur = 8; c.beginPath();
+            prof.forEach((l, i) => { const x = xFor(l[key], l.p), y = yFor(l.p); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+            c.stroke(); c.shadowBlur = 0;
+        };
+        path('td', '#4fe3ff', 'rgba(79,227,255,.7)');
+        path('t', '#ffb454', 'rgba(255,180,84,.7)');
+        c.fillStyle = 'rgba(255,180,84,.9)'; c.fillText('TEMP', w - mR - 34, mT + 8);
+        c.fillStyle = 'rgba(79,227,255,.9)'; c.fillText('DWPT', w - mR - 34, mT + 20);
+    }
+
+    function computeStats(prof) {
+        const sfc = prof[0]; let maxW = 0;
+        prof.forEach(l => { if (l.wspd > maxW) maxW = l.wspd; });
+        const upper = prof.filter(l => l.p < 400);
+        const trop = upper.length ? upper.reduce((m, l) => l.t < m.t ? l : m, upper[0]) : null;
+        return { sfcT: sfc.t, sfcTd: sfc.td, n: prof.length, maxW, tropP: trop ? trop.p : 0 };
+    }
+    function fillStats(s, source, st, date, hour) {
+        $id('psSrc').textContent = source;
+        $id('psSrcWrap').classList.toggle('synth', source !== 'LIVE');
+        $id('pipeSrc').textContent = source === 'LIVE' ? 'RAOB LIVE' : 'SYNTH FALLBACK';
+        $id('psSt').textContent = st.icao;
+        $id('psTime').textContent = date + ' ' + String(hour).padStart(2, '0') + 'Z';
+        $id('psN').textContent = s.n;
+        $id('psT').textContent = s.sfcT.toFixed(1) + '°C';
+        $id('psTd').textContent = s.sfcTd.toFixed(1) + '°C';
+        $id('psW').textContent = Math.round(s.maxW) + ' KT';
+        $id('psTro').textContent = s.tropP ? Math.round(s.tropP) + ' hPa' : '—';
+    }
+
+    async function runPipeline(userTriggered) {
+        if (pipeBusy || document.body.classList.contains('sim-active')) return;
+        pipeBusy = true;
+        resetStages();
+        ensureStations();
+        setStage('station', 'active'); log('RESOLVING STATION...');
+        const st = resolveStation();
+        if (!st) { setStage('station', 'fail'); log('NO STATION SELECTED', 'err'); pipeBusy = false; return; }
+        setStage('station', 'ok'); log('STATION ' + st.icao + ' · ' + st.label, 'ok');
+        const date = $id('datePicker').value || '2025-06-15';
+        const hour = +($id('hourSelector').value || 12);
+        setStage('uplink', 'active'); log('UPLINK mesonet.agron.iastate.edu ...');
+        let prof, source = 'LIVE';
+        try {
+            prof = await fetchLive(st.icao, date, hour);
+            setStage('uplink', 'ok'); log('UPLINK OK · ' + prof.length + ' LEVELS RECEIVED', 'ok');
+            if (userTriggered) SFX.ok();
+        } catch (err) {
+            source = 'SYNTH'; setStage('uplink', 'fail');
+            log('UPLINK FAILED (' + (err.message || 'TIMEOUT') + ') → SYNTH FALLBACK', 'warn');
+            prof = synthProfile(st.icao + date + hour, hour);
+            if (userTriggered) SFX.error();
+        }
+        if (document.body.classList.contains('sim-active')) { pipeBusy = false; return; }
+        setStage('parse', 'active'); await wait(140);
+        setStage('parse', 'ok'); log('PARSE COMPLETE · ' + prof.length + ' VALID LEVELS', 'ok');
+        setStage('profile', 'active'); await wait(90);
+        lastProf = prof;
+        renderSkewT(prof);
+        fillStats(computeStats(prof), source, st, date, hour);
+        setStage('profile', 'ok'); log('PROFILE RENDERED · SOURCE ' + source, source === 'LIVE' ? 'ok' : 'warn');
+        pipeBusy = false;
+    }
+
+    function debounce(fn, ms) { let t; return function () { clearTimeout(t); const a = arguments; t = setTimeout(() => fn.apply(null, a), ms); }; }
+    const rerun = debounce(() => runPipeline(true), 450);
+    ['stationSelect', 'datePicker', 'hourSelector', 'presetSelect'].forEach(id => {
+        const el = $id(id); if (el) el.addEventListener('change', rerun);
+    });
+    $id('pipeRetry').addEventListener('click', () => runPipeline(true));
+    window.addEventListener('resize', debounce(() => { if (lastProf) renderSkewT(lastProf); }, 200));
+    setTimeout(() => runPipeline(false), 1300);
+
+    /* ═══════════ SIM-LAUNCH DETECTOR (hide leftover UI) ═══════════ */
+    (function () {
+        const mainCanvas = document.getElementById('mainCanvas');
+        const intro = document.getElementById('IntroScreen');
+        let active = false;
+        function check() {
+            let canvasOn = false, introOff = false;
+            try { canvasOn = mainCanvas && getComputedStyle(mainCanvas).display !== 'none'; } catch (e) {}
+            try { introOff = intro && getComputedStyle(intro).display === 'none'; } catch (e) {}
+            const on = !!(canvasOn || introOff);
+            if (on !== active) {
+                active = on;
+                document.body.classList.toggle('sim-active', on);
+                if (on) {
+                    SFX.confirm();
+                    if (window.__pipeAbort) { try { window.__pipeAbort.abort(); } catch (e) {} }
+                }
+            }
+        }
+        if ('MutationObserver' in window) {
+            const mo = new MutationObserver(check);
+            [mainCanvas, intro].forEach(el => { if (el) mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] }); });
+        }
+        setInterval(check, 500);
+        check();
+    })();
+
+    /* ═══════════ cosmetic (no app.js interference) ═══════════ */
+    setInterval(() => { const c = $id('navClock'); if (c) c.textContent = new Date().toISOString().substr(11, 8) + 'Z'; }, 1000);
+    document.querySelectorAll('input[type="range"]').forEach(r => {
+        const paint = () => r.style.setProperty('--fill', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+        r.addEventListener('input', paint); paint();
+    });
+    </script>
+</body>
+    </html>

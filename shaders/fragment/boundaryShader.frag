@@ -26,11 +26,10 @@ uniform vec2 texelSize;
 uniform float vorticity;
 uniform float waterEvaporation;
 uniform float landEvaporation;
+uniform float waterTemperature; // configured temperature of lake / sea surfaces, in Kelvin
 uniform float waterWeight;
 uniform vec4 initial_Tv[126];
 uniform bool allowCaves;
-
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 
 uniform float sunAngle;
 
@@ -43,6 +42,15 @@ layout(location = 1) out vec4 water;
 layout(location = 2) out ivec4 wall;
 
 #include "common.glsl"
+
+// The initial profile is the reference temperature for the buoyancy force, so a NaN or a corrupt
+// value in it would accelerate every cell of that row. Keep the real temperature physical.
+float getInitialT(int y)
+{
+  float lapse = float(y) / resolution.y * dryLapse;
+  return cleanTempK(initial_Tv[y / 4][y % 4] - lapse) + lapse;
+}
+
 
 #define minimalFireVegetation 20
 
@@ -63,12 +71,20 @@ void exchangeWith(vec2 texCoord) // exchange temperature and water
 }
 
 
+// How much water a surface adds to the air cell above it in one iteration.
+// Every term is limited on purpose: this is the main source of vapor in the simulation and it is
+// proportional to maxWater(), so an unlimited version feeds itself (vapor -> greenhouse heating ->
+// warmer air -> a hundred times more room for vapor -> ...).
 float calcEvaporation(float T, float W, float V, float M)                                             // temperature, total water, vegetation, soil moisture
 {
-  return max((maxWater(T) - W) * landEvaporation * (V / 127. + 0.1) * min(M + 1.0, 50.0) * 0.05, 0.); // landEvaporation should be adjusted to remove * 0.05 factor
+  float maxW = maxWater(T);                            // capped and NaN free
+  float deficit = max(maxW - cleanWater(W), 0.0);      // how much more water the air can hold, never negative
+  float vegFactor = clamp(V / 127.0 + 0.1, 0.0, 1.1);
+  float moistureFactor = clamp(M / 50.0 + 0.1, 0.0, 1.1); // negative soil moisture would turn this term into vapor removal
+  return min(deficit * landEvaporation * vegFactor * moistureFactor, maxW * maxWaterCapPerIter);
 }
 
-float calcFireIntensity(int veg, float moist, float precip) { return max(float(veg) * 0.00025 - moist * 0.00020 - precip * 0.02, 0.); }
+float calcFireIntensity(int veg, float moist, float precip) { return max(float(veg) * 0.000025 - moist * 0.000020 - precip * 0.002, 0.); }
 
 void main()
 {
@@ -97,17 +113,22 @@ void main()
     wall[TYPE] = wallX0Ym[TYPE];                     // copy wall type from wall below
 
     if (wall[TYPE] != WALLTYPE_WATER)
-      base[TEMPERATURE] += light[NET_HEATING]; // IR heating/cooling effect
+      base[TEMPERATURE] += capTempFlux(light[NET_HEATING]); // IR heating/cooling effect, capped so a broken flux can not change the temperature of a cell by hundreds of Kelvin
 
-    base[TEMPERATURE] += precipFeedback[HEAT]; // rain cools air and riming heats air
+    base[TEMPERATURE] += capTempFlux(precipFeedback[HEAT]); // rain cools air and riming heats air
 
 
-    float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water turns into rain
+    // How much cloud water turns into rain. Every droplet that overlaps a cell asks for its share
+    // of the cloud water of that cell, so the sum can easily exceed what is actually there. Taking
+    // more than available made water[CLOUD] negative, and negative cloud water is converted into a
+    // temperature spike by the condensation code of the advection shader (it "evaporates" water
+    // that does not exist), which is one of the fastest ways to blow up the whole vapor cycle.
+    float precipCoalescence = min(max(-precipFeedback[VAPOR], 0.), max(water[CLOUD], 0.));
 
-    water[CLOUD] -= precipCoalescence;
-    water[TOTAL] -= precipCoalescence;
+    water[CLOUD] = max(water[CLOUD] - precipCoalescence, 0.0);
+    water[TOTAL] = max(water[TOTAL] - precipCoalescence, 0.0);
 
-    float precipEvaporation = max(precipFeedback[VAPOR], 0.);
+    float precipEvaporation = min(max(precipFeedback[VAPOR], 0.), maxWater(realTemp) * maxWaterCapPerIter);
 
     water[TOTAL] += precipEvaporation; // evaporating rain adds water vapor to air
 
@@ -307,9 +328,7 @@ void main()
 
       wall[VEGETATION] = wallX0Ym[VEGETATION];                     // vegetation is copied from below
 
-      // base[PRESSURE] *= 0.995; // 0.999
-
-      // base[PRESSURE]  += 0.001; // add air pressure at the suface. makes air rise everywhere and creates huge cells
+      // base[PRESSURE]  += 0.001; // add air pressure at the surface. makes air rise everywhere and creates huge cells
 
       vec4 waterInSurface = texture(waterTex, texCoordX0Ym);
 
@@ -321,7 +340,7 @@ void main()
           fireIntensity = max(fireIntensity, 0.);
           base[TEMPERATURE] += fireIntensity;   // heat
           water[SMOKE] += fireIntensity * 2.0;  // smoke
-          water[TOTAL] += fireIntensity * 0.50; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
+          water[TOTAL] += fireIntensity * 0.05; // extra water from burning trees, both from water in the wood and from burning of hydrogen and hydrocarbons
         }
         // nobreak!
       case WALLTYPE_INDUSTRIAL:
@@ -329,29 +348,31 @@ void main()
           int texFragX = int(fragCoord.x) % 80;
 
           if (wall[VERT_DISTANCE] == 5 && (texFragX == 18 || texFragX == 22)) { // cooling towers
-            water[TOTAL] += 0.25;
+            water[TOTAL] += 0.0072;
             // base[TEMPERATURE] += 0.02;
             base.xy *= 0.5;
             base.y += 0.05;
           }
 
           else if (wall[VERT_DISTANCE] == 6 && texFragX == 29) { // smoke stack
-            water[SMOKE] += 0.01;
-            base[TEMPERATURE] += 0.02;
+            water[SMOKE] += 0.05;
+            base[TEMPERATURE] += 0.24;
             base.xy *= 0.5;
           }
         }
         // nobreak!
       case WALLTYPE_URBAN:
-        water[SMOKE] += 0.000002; // Urban produces smog
+        water[SMOKE] += 0.00000004; // Urban produces smog
         // nobreak!
       case WALLTYPE_LAND:
         if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
+          // The surface can only give what is in the soil, so the vapor that is added to the air is
+          // limited by the moisture the surface cell still holds.
+          float evaporation = min(calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider / 100.,
+                                  max(waterInSurface[SOIL_MOISTURE] * 0.1, 0.0));
 
-          float evaporation = calcEvaporation(realTemp, water[TOTAL], float(wall[VEGETATION]), waterInSurface[SOIL_MOISTURE]) / influenceDevider;
-
-          water[TOTAL] += evaporation;
-          base[TEMPERATURE] -= evaporation * evapHeat * 0.5;                                // evaporative cooling (half the real value, to prevent boring non convective conditions)
+          water[TOTAL] = cleanWater(water[TOTAL] + evaporation);
+          base[TEMPERATURE] -= capTempFlux(evaporation * evapHeat * 0.5);                   // evaporative cooling (half the real value, to prevent boring non convective conditions)
 
           if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
             water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
@@ -360,10 +381,21 @@ void main()
         break;
       case WALLTYPE_WATER:
         if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
-          float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
-          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * waterHeatExchangeRate;        // air heated or cooled by water
+          // Water surfaces store their own (real, not potential) temperature. It has to be
+          // sanitized before it is used: wall cells that never got a water temperature (older save
+          // files, or land that was flooded by a tool) still contain the 1000.0 indicator, and
+          // maxWater(1000.0) is 1.7e10 g/m³, so this one read used to inject megagrams of vapor
+          // into the air above it every single iteration.
+          float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];       // water temperature
+          if (!(LocalWaterTemperature > 100.0) || LocalWaterTemperature > 500.0)            // NaN or the wall indicator
+            LocalWaterTemperature = waterTemperature;                                      // fall back to the configured water temperature
+          LocalWaterTemperature = clamp(LocalWaterTemperature, CtoK(-5.0), CtoK(maxWaterTemp));
 
-          water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
+          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * waterHeatExchangeRate; // air heated or cooled by water
+
+          float evaporation = max((maxWater(LocalWaterTemperature) - cleanWater(water[TOTAL])) * waterEvaporation / 100., 0.);
+          evaporation = min(evaporation, maxWater(LocalWaterTemperature) * maxWaterCapPerIter); // bounded, no matter how the rate slider is set
+          water[TOTAL] = cleanWater(water[TOTAL] + evaporation);                               // water evaporating
         }
         break;
       }
@@ -411,8 +443,8 @@ void main()
           }
         }
       case WALLTYPE_LAND:                                                                                          // no break,can also be fire or urban:
-        water[SOIL_MOISTURE] = clamp(water[SOIL_MOISTURE] + precipDeposition[RAIN_DEPOSITION] * 0.1, 0.0, 1000.0); // rain accumulation
-        water[SNOW] = clamp(water[SNOW] + precipDeposition[SNOW_DEPOSITION] * snowMassToHeight, 0.0, 4000.0);      // snow accumulation in cm
+        water[SOIL_MOISTURE] = safeClamp(water[SOIL_MOISTURE] + precipDeposition[RAIN_DEPOSITION] * 0.1, 0.0, 1000.0); // rain accumulation
+        water[SNOW] = safeClamp(water[SNOW] + precipDeposition[SNOW_DEPOSITION] * snowMassToHeight, 0.0, 4000.0);      // snow accumulation in cm
 
 
         vec4 baseAboveSurface = texture(baseTex, texCoordX0Yp);
@@ -420,9 +452,11 @@ void main()
 
         float realTempAboveSurface = potentialToRealT(baseAboveSurface[TEMPERATURE], texCoordX0Yp.y);
 
-        float evaporation = calcEvaporation(realTempAboveSurface, waterAboveSurface[TOTAL], float(wall[VEGETATION]), water[SOIL_MOISTURE]) * 0.10;
+        float evaporation = calcEvaporation(realTempAboveSurface, waterAboveSurface[TOTAL], float(wall[VEGETATION]), water[SOIL_MOISTURE]) * 0.10 / 100.;
 
-        water[SOIL_MOISTURE] -= evaporation;
+        // only what is in the ground can leave it: never let the soil moisture go below zero,
+        // negative moisture feeds back into calcEvaporation as a negative (vapor destroying) term
+        water[SOIL_MOISTURE] = safeClamp(water[SOIL_MOISTURE] - evaporation, 0.0, 1000.0);
 
 
         if (int(iterNum) % 100 == 0) { // snow and soil moisture smoothing
@@ -475,6 +509,14 @@ void main()
 
         const float waterTempUpdateInterval = 20.0; // Update less often but with bigger value to reduce rounding error
 
+        // The water temperature of the surface cell is the source of the evaporation of the lake or
+        // sea (and of the longwave emission of the water), so repair it before anything uses it:
+        // cells that never received a real temperature (older save files, flooded land) still hold
+        // the 1000.0 wall indicator, and maxWater(1000.0) is 1.7e10 g/m³.
+        if (!(base[TEMPERATURE] > 100.0) || base[TEMPERATURE] > 500.0)
+          base[TEMPERATURE] = waterTemperature;
+        base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(-5.0), CtoK(maxWaterTemp));
+
         if (dynamicWaterTemperature >= 1.0 && mod(iterNum, waterTempUpdateInterval) < 0.5) {
 
           // average out temperature
@@ -502,8 +544,10 @@ void main()
           float netWaterHeating = 0.0;
           netWaterHeating += (airTemperature - base[TEMPERATURE]) * waterHeatExchangeRate; // water heated or cooled by the air above
 
-          netWaterHeating -=
-            max((maxWater(base[TEMPERATURE]) - waterX0Yp[TOTAL]) * waterEvaporation, 0.) * evapHeat * 0.5; // evaporative cooling (half the real value, to prevent boring non convective conditions)
+          // evaporative cooling (half the real value, to prevent boring non convective conditions).
+          // cleanWater() guards against a corrupted air cell above the surface, and the cap keeps a
+          // broken value from freezing the whole lake in a single iteration.
+          netWaterHeating -= capTempFlux(max((maxWater(base[TEMPERATURE]) - cleanWater(waterX0Yp[TOTAL])) * waterEvaporation, 0.) * evapHeat * 0.5);
 
           float lightPower = max(lightAboveSurface[SUNLIGHT] * cos(sunAngle), 0.0);                        // Light power per horizontal surface area;
 

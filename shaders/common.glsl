@@ -12,6 +12,16 @@ precision highp isampler2D;
 
 #define maxWaterTemp 40.0
 
+// Physical limits of the simulation. They are deliberately generous: normal weather never comes
+// close to them, but every feedback loop that can run away (evaporation ∝ maxWater, latent heat ∝
+// condensation) is bounded by them, so no cell can ever ask for gigagrams of vapor or heat itself
+// to thousands of Kelvin. This is what stops the "vapor explosion".
+#define minPhysTemp 173.15 // -100 °C, lowest plausible atmospheric temperature
+#define maxPhysTemp 333.15 // +60 °C, highest plausible atmospheric temperature
+#define maxWaterCap 200.0  // g/m³, absolute maximum amount of water a cell may hold (saturation at maxPhysTemp is ~127 g/m³)
+#define maxWaterCapPerIter 0.02 // largest fraction of the saturation value that can be exchanged in one iteration
+#define maxLatentDT 0.50   // K, maximum temperature change per iteration caused by a phase change or precipitation
+
 #define waterHeatExchangeRate 0.0002
 
 #define waterHeatCapacity 50.0     // as multiple of airs heat capacity
@@ -100,6 +110,43 @@ float map_range(float value, float min1, float max1, float min2, float max2) { r
 
 float map_rangeC(float value, float min1, float max1, float min2, float max2) { return clamp(map_range(value, min1, max1, min2, max2), min(min2, max2), max(min2, max2)); }
 
+// Clamp that also repairs NaN and infinity. GLSL clamp()/min()/max() pass NaN trough, and a single
+// NaN in the temperature or water field spreads trough the whole fluid within a few iterations,
+// making the entire simulation explode. Anything that is not a usable number ends up at the lower bound.
+float safeClamp(float value, float lo, float hi)
+{
+  if (!(value >= lo)) // false for NaN, for -Infinity and for values below lo
+    return lo;
+  return value > hi ? hi : value;
+}
+
+// Temperature of an air or water cell in Kelvin, always a usable number within the physical range.
+float cleanTempK(float T) { return safeClamp(T, minPhysTemp, maxPhysTemp); }
+
+// Amount of water in g/m³, always a usable number between zero and the physical maximum.
+float cleanWater(float W) { return safeClamp(W, 0.0, maxWaterCap); }
+
+// Cap for one water source or sink term (evaporation, condensation, rain ...) of a single cell in a
+// single iteration. No matter how a rate slider is set, or how broken a cell is, a cell can never
+// exchange more than a few percent of the saturation content at once. NaN becomes zero.
+float capWaterFlux(float flux, float maxW)
+{
+  if (!(flux == flux)) // NaN
+    return 0.0;
+  float cap = maxW * maxWaterCapPerIter;
+  return clamp(flux, -cap, cap);
+}
+
+// Same as capWaterFlux but for the temperature change of a single iteration, which is what makes
+// the latent heat feedback stable: condensing water can not heat a cell by hundreds of Kelvin,
+// and a NaN in the water field can not cool it to negative absolute temperatures.
+float capTempFlux(float dT)
+{
+  if (!(dT == dT)) // NaN
+    return 0.0;
+  return clamp(dT, -maxLatentDT, maxLatentDT);
+}
+
 uint hash(uint x)
 {
   x += (x << 10u);
@@ -174,20 +221,27 @@ float dT_saturated(float dTdry,
 #define wf_pow 17.0      // 17.0						10
 // https://www.geogebra.org/calculator/jc9hkfq4
 
+// Maximum amount of water vapor that can exist in the air at a certain temperature.
+// This curve is extremely steep (it is raised to the power 17) and it drives every evaporation
+// term in the simulation. Without limits, one cell that is too hot (or that contains the 1000.0
+// wall indicator instead of a temperature) asks for megagrams of water per iteration, which is
+// converted into latent heat, which makes the cell even hotter: the vapor explosion.
+// Evaluating it on a physical temperature range and capping the result cuts that loop for good.
 float maxWater(float T)
 {
-  return pow((T / wf_devider), wf_pow); // T in Kelvin, w in grams per m^3
+  return min(pow(cleanTempK(T) / wf_devider, wf_pow), maxWaterCap); // T in Kelvin, w in grams per m^3
 }
 
-float dewpoint(float W)
+float dewpoint(float W) // returns Kelvin
 {
-  if (W < 0.00001)
+  if (!(W > 0.00001)) // also catches NaN
     return 0.0;
   else
-    return wf_devider * pow(W, 1.0 / wf_pow);
+    return safeClamp(wf_devider * pow(min(W, maxWaterCap), 1.0 / wf_pow), 0.0, maxPhysTemp);
 }
 
-float relativeHumd(float T, float W) { return (W / maxWater(T)); }
+// Relative humidity, never NaN and never infinite (a very cold cell can hold almost no vapor).
+float relativeHumd(float T, float W) { return cleanWater(W) / max(maxWater(T), 0.0001); }
 
 // interpolation
 

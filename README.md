@@ -110,3 +110,19 @@ Pako: Only used for data compression to reduce save file sizes. Size reduction c
   4. Open project folder in VS Code
   5. Open index.html
   6. Start live server (Go Live), automatically opens page in browser
+
+## Offline checks for the water cycle
+
+The simulation runs on the GPU, so a mistake in a shader or a runaway in the vapor cycle only shows
+up in the browser. The `tools` folder contains two checks that run without one:
+
+    node tools/vaporExplosionTest.js
+      Simulates the water / latent heat / longwave loop of the shaders headless, for the code before
+      and after the fixes of the vapor explosion, and verifies that the limits are still in the
+      shader sources. Exits with a non zero code when a limit disappears. Add -v to see how the
+      simulation of each scenario develops.
+
+    npm install @shaderfrog/glsl-parser
+    node tools/shaderCheck.js
+      Expands the #include lines like loadShader() does and parses every shader, which catches
+      syntax errors and functions that are used above the line where common.glsl is included.

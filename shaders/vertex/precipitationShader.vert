@@ -49,6 +49,8 @@ uniform float evapRate;           // 0.0005
 
 #include "common.glsl"
 
+#define maxDropMass 50.0 // g/m³, the largest amount of water a single precipitation particle can carry
+
 vec2 newPos;
 vec2 newMass;
 float newDensity;
@@ -57,10 +59,18 @@ bool isActive = true;
 bool spawned = false; // spawned in this iteration
 bool lightningSpawned = false;
 
+float usableCoord(float c) // NaN safe: everything that is not a position inside the simulation area becomes 0
+{
+  return c >= -1.0 && c <= 1.0 ? c : 0.0;
+}
+
 void disableDroplet()
 {
-  newMass[WATER] = -2. - dropPosition.x; // disable droplet by making it negative and save position as seed for respawning
-  newMass[ICE] = dropPosition.y;         // save position as seed for random function when respawning later
+  // disable droplet by making its water mass negative and save the position as seed for respawning.
+  // The seed must stay usable: a NaN position would make the mass negative-NaN, which is not smaller
+  // than 0, so the particle would never be considered inactive again and kept the simulation poisoned.
+  newMass[WATER] = -2. - usableCoord(dropPosition.x);
+  newMass[ICE] = usableCoord(dropPosition.y); // save position as seed for random function when respawning later
 }
 
 void main()
@@ -120,23 +130,23 @@ void main()
 
           vec4 lightningData = texture(lightningDataTex, vec2(0.5)); // data from last lightning bolt
 
-          const float lightningCloudDensityThreshold = 2.5;          // 3.0
-          const float lightningChanceMultiplier = 0.0033;            // 0.0011
+          const float lightningCloudDensityThreshold = 1.2;          // lower threshold makes storm clouds eligible sooner
+          const float lightningChanceMultiplier = 0.125;              // higher multiplier makes eligible clouds strike more often
 
           float cloudPlusPrecipDensity = water[CLOUD] + water[PRECIPITATION];
 
           float lightningSpawnChance = max((cloudPlusPrecipDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
 
-          const float minIterationsSinceLastLightningBolt = 30.; // 50.
+          const float minIterationsSinceLastLightningBolt = 1.; // shorter cooldown allows more frequent strikes
 
           if (lightningData[START_ITERNUM] < iterNum - minIterationsSinceLastLightningBolt &&
-              random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
+              random2d(vec2(base[TEMPERATURE] * 0.5772, water[TOTAL] * 7.8)) < lightningSpawnChance) { // Spawn lightning
             lightningSpawned = true;
             isActive = false;
             gl_PointSize = 1.0;
             feedback.xy = texCoord;
             feedback[START_ITERNUM] = iterNum;
-            feedback[INTENSITY] = clamp(cloudPlusPrecipDensity / 10.0 + (random2d(texCoord) - 0.5), 0.01, 4.0);
+            feedback[INTENSITY] = clamp(cloudPlusPrecipDensity / 5.7 + 0.72 + random2d(texCoord), 0.2, 4.0);
             gl_Position = vec4(vec2(-1. + texelSize.x * 3., -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (1, 0)
           }
         } else {
@@ -171,7 +181,9 @@ void main()
       realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
     }
 
-    float relativeHumidity = relativeHumd(realTemp, water[TOTAL]);
+    // very cold air can hold almost no vapor, so this ratio can become enormous; it is limited to
+    // what is physically meaningful, otherwise every growth term below it explodes
+    float relativeHumidity = safeClamp(relativeHumd(realTemp, water[TOTAL]), 0.0, 2.0);
 
     float totalMass = newMass[WATER] + newMass[ICE];
 
@@ -182,7 +194,10 @@ void main()
 
       disableDroplet();
 
-    } else if (newPos.y < -1.0 /* || base[TEMPERATURE] > 500. */ || water[TOTAL] > 1000.) { // water[TOTAL] > 1000.     base[TEMPERATURE] < 500.      to low or wall
+    } else if (newPos.y < -1.0 || !(water[TOTAL] <= 1000.) || !(newMass[WATER] >= 0.0) || !(newMass[ICE] >= 0.0) || !(newPos.x >= -1.0 && newPos.x <= 1.0) || !(totalMass >= 0.0)) {
+      // to low, inside a wall cell (see the 1001./1002. indicators), or NaN. A droplet that carries
+      // NaN would add NaN to the air through the feedback texture in every single iteration and
+      // never recovers, so those particles are removed here. Deposit and disable.
 
       if (texture(baseTex, vec2(texCoord.x, texCoord.y + texelSize.y))[TEMPERATURE] > 500.) // if above cell was already wall. because of fast fall speed
         newPos.y += texelSize.y * 1.;                                                       // *2. ? move position up so that the water/snow is correcty added to the ground
@@ -211,6 +226,13 @@ void main()
       if (realTemp < CtoK(0.0) && water[CLOUD] > 0.0 && density == 1.0) { // below freezing
         growth += surfaceArea * water[PRECIPITATION] * 0.0030;            // rain freezing onto hail
       }
+
+      // A droplet can not take more water out of a cell than the cell contains, and every particle
+      // of a falling curtain reads the same cell, so without this limit hundreds of droplets could
+      // empty a cell many times over. The over-extraction made cloud water negative in the fluid,
+      // which the advection shader converts back into a huge latent heat spike.
+      float condensable = max(water[CLOUD], 0.0) + max(water[TOTAL] - maxWater(realTemp), 0.0);
+      growth = clamp(growth, 0.0, max(condensable, 0.0));
 
       feedback[VAPOR] -= growth * 1.0; // takes water from the air
 
@@ -251,6 +273,12 @@ void main()
 
       newMass[WATER] -= evap;                               // water evaporation
       newMass[ICE] -= subli;                                // ice sublimation
+
+      // no single particle may carry away an unphysical amount of water: its mass is fed back into
+      // the air as latent heat and deposited on the ground, so it has to stay bounded
+      newMass[WATER] = clamp(newMass[WATER], 0.0, maxDropMass);
+      newMass[ICE] = clamp(newMass[ICE], 0.0, maxDropMass);
+      totalMass = newMass[WATER] + newMass[ICE];
 
       feedback[VAPOR] += evap;                              // added to water vapor in air
       feedback[VAPOR] += subli;
@@ -293,7 +321,12 @@ void main()
     gl_Position = vec4(newPos, 0.0, 1.0);
   } // active
 
+  // never write NaN back into the particle buffers, it can never recover from there
+  newPos = vec2(usableCoord(newPos.x), usableCoord(newPos.y));
+  newMass[WATER] = newMass[WATER] == newMass[WATER] ? newMass[WATER] : -1.0; // negative keeps it inactive
+  newMass[ICE] = newMass[ICE] == newMass[ICE] ? newMass[ICE] : 0.0;
+
   position_out = newPos;
   mass_out = newMass;
-  density_out = max(newDensity, 0.);
+  density_out = max(newDensity, 0.) == max(newDensity, 0.) ? max(newDensity, 0.) : 1.0;
 }

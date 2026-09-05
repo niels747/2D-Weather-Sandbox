@@ -13,12 +13,18 @@ uniform float heightMult;
 
 uniform vec4 initial_Tv[126];
 
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
-
 in vec2 texCoord;
 in vec2 fragCoord;
 
 #include "common.glsl"
+
+float getInitialT(int y)
+{
+  // profile temperatures are potential temperatures and must stay physical when converted back
+  float lapse = float(y) / resolution.y * dryLapse;
+  return cleanTempK(initial_Tv[y / 4][y % 4] - lapse) + lapse;
+}
+
 
 layout(location = 0) out vec4 base;
 layout(location = 1) out vec4 water;
@@ -67,8 +73,11 @@ void main()
     if (height < texelSize.y) {
       wall[TYPE] = WALLTYPE_WATER;                                                                            // set walltype to water
       base[TEMPERATURE] = CtoK(25.0);                                                                         // set water temperature to 25 C
+      water[TOTAL] = 1002.;                                                                                   // wall indicator, see advectionShader
     } else {
       wall[TYPE] = WALLTYPE_LAND;                                                                             // set walltype to land
+      base[TEMPERATURE] = 1000.0;                                                                             // "no snow melting" indicator used by the pressure shader, not a temperature
+      water[TOTAL] = 1001.;                                                                                   // wall indicator, see advectionShader
       water[SOIL_MOISTURE] = 25.0;                                                                            // soil moisture in mm
 
       wall[VEGETATION] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
@@ -86,6 +95,9 @@ void main()
     else
       water[TOTAL] = maxWater(realTemp - 20.0);
 
+    // maxWater() is capped and NaN proof, so the initial state can be saturated without the first
+    // condensation boiling the cell and starting a vapor explosion
+    water[TOTAL] = cleanWater(water[TOTAL]);
     water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate cloud water
   }
   wall[VERT_DISTANCE] = 100;                                    // preset height above ground to prevent water being deleted in boundaryshader ln 250*`

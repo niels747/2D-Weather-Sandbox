@@ -50,17 +50,63 @@ uniform vec2 resolution;
 
 vec2 texelSize;
 
-uniform vec4 initial_Tv[126];
-uniform vec4 realWorldSounding_Tv[126];
-uniform vec4 realWorldSounding_Wv[126];
-uniform vec4 realWorldSounding_Velv[126];
-
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
-float getRealWorldSounding_T(int y) { return (realWorldSounding_Tv[y / 4][y % 4] + realWorldSounding_Tv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
-float getRealWorldSounding_W(int y) { return (realWorldSounding_Wv[y / 4][y % 4] + realWorldSounding_Wv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
-float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y % 4] + realWorldSounding_Velv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
+uniform sampler2D initialProfileTex;
+uniform sampler2D realWorldSoundingTexT;
+uniform sampler2D realWorldSoundingTexW;
+uniform sampler2D realWorldSoundingTexVel;
 
 #include "common.glsl"
+
+float getProfileChannel(vec4 texel, int y)
+{
+  // Profiles are uploaded as a 1-row RGBA32F texture with four vertical samples per texel.
+  int channel = y % 4;
+  if (channel == 0)
+    return texel.x;
+  if (channel == 1)
+    return texel.y;
+  if (channel == 2)
+    return texel.z;
+  return texel.w;
+}
+
+// A NaN or a corrupt value in a profile texture ends up in the temperature of every cell of the
+// row that reads it, from where it spreads trough the whole simulation. Profiles store potential
+// temperatures (which include the lapse of the entire column, up to 150 K for a 15 km high
+// simulation), so they are limited by converting them to the real temperature of their row first.
+float limitProfileT(float potential, int y)
+{
+  float lapse = float(y) / resolution.y * dryLapse;
+  return cleanTempK(potential - lapse) + lapse;
+}
+
+float getInitialT(int y)
+{
+  return limitProfileT(getProfileChannel(texelFetch(initialProfileTex, ivec2(y / 4, 0), 0), y), y);
+}
+
+float getRealWorldSounding_T(int y)
+{
+  return limitProfileT((getProfileChannel(texelFetch(realWorldSoundingTexT, ivec2(y / 4, 0), 0), y) +
+                        getProfileChannel(texelFetch(realWorldSoundingTexT, ivec2(max(y - 1, 0) / 4, 0), 0), max(y - 1, 0))) /
+                       2.,
+                      y);
+}
+
+float getRealWorldSounding_W(int y)
+{
+  return cleanWater((getProfileChannel(texelFetch(realWorldSoundingTexW, ivec2(y / 4, 0), 0), y) +
+                     getProfileChannel(texelFetch(realWorldSoundingTexW, ivec2(max(y - 1, 0) / 4, 0), 0), max(y - 1, 0))) /
+                    2.);
+}
+
+float getRealWorldSounding_Vel(int y)
+{
+  return safeClamp((getProfileChannel(texelFetch(realWorldSoundingTexVel, ivec2(y / 4, 0), 0), y) +
+                    getProfileChannel(texelFetch(realWorldSoundingTexVel, ivec2(max(y - 1, 0) / 4, 0), 0), max(y - 1, 0))) /
+                     2.,
+                   -1.0, 1.0);
+}
 
 void main()
 {
@@ -110,9 +156,15 @@ void main()
 
     realTemp = potentialToRealT(base[TEMPERATURE]);
 
+    // Advected values come from interpolated neighbours and from the precipitation feedback, so
+    // they can be NaN or out of range. Clean them up before they enter the phase change math:
+    // water[CLOUD] is part of water[TOTAL] and can never be bigger than it or smaller than zero.
+    water[TOTAL] = cleanWater(water[TOTAL]);
+    water[CLOUD] = cleanWater(water[CLOUD]);
+    if (water[CLOUD] > water[TOTAL])
+      water[CLOUD] = water[TOTAL];
 
-    //  float excessWater = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate the amount of extra water beyond 100% rel hum, including both vapor and cloud water
-    float excessWater = water[TOTAL] - maxWater(realTemp);
+    float excessWater = water[TOTAL] - maxWater(realTemp); // the amount of extra water beyond 100% rel hum, including both vapor and cloud water
 
     float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
 
@@ -124,10 +176,15 @@ void main()
       condensation = overSaturation * condensationRate; // 0.002 0.25 amount of the oversaturated water vapor that slowly condences
     }
     condensation = max(condensation, -water[CLOUD]);    // Prevent cloudwater from going negative
+    condensation = capWaterFlux(condensation, maxWater(realTemp));
 
-    float dT = condensation * evapHeat * 1.0;           // how much that water phase change would change the temperature
+    float dT = capTempFlux(condensation * evapHeat * 1.0); // how much that water phase change would change the temperature
     base[TEMPERATURE] += dT;
     realTemp += dT;
+    // A phase change only moves water between the vapor and the cloud fraction of the cell, so
+    // the total amount of water must not change here: subtracting condensation from water[TOTAL]
+    // as well destroys (or with negative condensation creates) mass on every single iteration,
+    // which is what makes the vapor content of the whole atmosphere drift upwards and explode.
     water[CLOUD] += condensation;
 
 
@@ -219,10 +276,13 @@ void main()
         water[SOIL_MOISTURE] += melting;                               // melting snow adds water to soil
       }
 
-      if (water[SOIL_MOISTURE] > 0.0 && tempC > 0.0) { // water evaporating from ground
-        float evaporation = max((maxWater(CtoK(tempC)) - water[TOTAL]) * 0.00001, 0.);
-        water[SOIL_MOISTURE] -= evaporation;
-      }
+      // Evaporation of the ground itself is NOT done here: a wall cell can not hold vapor, water[TOTAL]
+      // is overwritten with the wall indicator below and thrown away every iteration, so adding vapor
+      // here only drained soil moisture into nowhere (and made it negative, which turned the
+      // evaporation term of the boundary shader into a negative value that destroyed vapor and
+      // heated the air). Land evaporation is applied to the air cell above the surface in
+      // boundaryShader.frag, where it both adds vapor and cools the air consistently.
+      water[SOIL_MOISTURE] = max(water[SOIL_MOISTURE], 0.0);
     }
   }
 
@@ -402,11 +462,17 @@ void main()
 
   if (wall[DISTANCE] == 0) { // is wall
 
+    // Walls can not hold vapor. The indicator values are not just decoration: the precipitation
+    // shader uses "water[TOTAL] > 1000." to detect that a droplet is inside the ground and the
+    // lighting shader uses the same channel to make terrain opaque to longwave radiation. Zeroing
+    // it instead turned every droplet that touched terrain into a droplet that kept exchanging
+    // vapor with wall cells, and let IR shine trough mountains.
     if (wall[TYPE] == WALLTYPE_WATER) {
       water[TOTAL] = 1002.;
     } else { // any type of land wall
       water[TOTAL] = 1001.;
     }
+    water[CLOUD] = 0.0; // a wall never contains cloud water, so that the total stays >= the cloud amount
 
   } else { // no wall
            //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
@@ -454,5 +520,24 @@ void main()
         water[SMOKE] += 10.;                                         // smoke
       }
     }
+  }
+
+  // ── last line of defence for the whole vapor cycle ──
+  // Everything that can add water to a cell passed trough this shader: advection, condensation,
+  // evaporation, tools, plane crashes and the precipitation feedback. Limiting it here means a
+  // single broken cell can never grow towards infinity or NaN and take the rest of the
+  // simulation with it, because the water amount also feeds back into temperature (latent heat),
+  // into the buoyancy (cloud water weight) and into the longwave radiation (greenhouse effect).
+  if (wall[DISTANCE] != 0) { // air
+    water[TOTAL] = cleanWater(water[TOTAL]);
+    water[CLOUD] = cleanWater(water[CLOUD]);
+    water[SMOKE] = safeClamp(water[SMOKE], 0.0, 100.0);
+    water[PRECIPITATION] = safeClamp(water[PRECIPITATION], 0.0, 100.0);
+    if (water[CLOUD] > water[TOTAL]) // cloud water is part of the total water
+      water[CLOUD] = water[TOTAL];
+
+    // and the temperature of an air cell always stays physically possible (potential
+    // temperature, so the limit has to move up with the height of the cell)
+    base[TEMPERATURE] = cleanTempK(base[TEMPERATURE] - texCoord.y * dryLapse) + texCoord.y * dryLapse;
   }
 }
