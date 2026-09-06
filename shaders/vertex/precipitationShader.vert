@@ -31,6 +31,7 @@ uniform float dryLapse;
 uniform float iterNum;          // used as seed for random function
 uniform float numDroplets;      // total number of droplets
 uniform float inactiveDroplets; // used to maintain constant spawnrate
+uniform bool openBoundaries;
 
 uniform float evapHeat;
 uniform float meltingHeat;
@@ -272,9 +273,17 @@ void main()
       newPos.y -= cellsPerIter * 2. * texelSize.y;
       */
 
-      newPos.x = mod(newPos.x + 1., 2.) - 1.; // wrap horizontal position around map edges
-
-      feedback[MASS] = totalMass;
+      if (openBoundaries && (newPos.x < -1.0 || newPos.x > 1.0)) {
+        // Rain, snow and hail leave with the air instead of teleporting to the
+        // opposite side. The particle becomes available for normal respawning.
+        disableDroplet();
+        feedback = vec4(0.0);
+        deposition = vec2(0.0);
+      } else {
+        if (!openBoundaries)
+          newPos.x = mod(newPos.x + 1., 2.) - 1.; // periodic legacy behavior
+        feedback[MASS] = totalMass;
+      }
 
     }               // update
 

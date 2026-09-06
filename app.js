@@ -152,10 +152,10 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 
   for (let y = 0; y < inSimSoundingRes; y++) {
 
-    const inSimAlt = y * (simHeight / sim_res_y);
+    const inSimAlt = (window.realWorldTerrain?.enabled ? window.realWorldTerrain.baseAltitude : 0) + y * (simHeight / sim_res_y);
 
-    while (soundingData[soundingDataIndex]['alt'] < inSimAlt ||
-           sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
+    while (soundingDataIndex > 0 && (soundingData[soundingDataIndex]['alt'] < inSimAlt ||
+           sampleIsInvalid(soundingData[soundingDataIndex]))) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
       soundingDataIndex--;
     }
 
@@ -373,6 +373,7 @@ const guiControls_default = {
   evapRate : 0.0008, // 0.0005
   displayMode : 'DISP_REAL',
   wrapHorizontally : true,
+  openBoundaries : false,
   SmoothCam : true,
   camSpeed : 0.01,
   exposure : 1.0,
@@ -3393,6 +3394,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       guiControls.latitude = startLatitude;
     }
 
+    // A real-world cross-section has physical end points, so do not wrap it around.
+    if (window.realWorldTerrain?.enabled) {
+      guiControls.openBoundaries = true;
+      guiControls.wrapHorizontally = false;
+      cam.wrapHorizontally = false;
+      horizontalDisplayMult = 1.0;
+    }
+
   } else {
     setupDatGui(guiControlsFromSaveFile);                     // use settings from save file
 
@@ -3427,6 +3436,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
+    gl.uniform1i(gl.getUniformLocation(advectionProgram, 'wrapHorizontally'), guiControls.wrapHorizontally ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(advectionProgram, 'openBoundaries'), guiControls.openBoundaries ? 1 : 0);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsStartAlt'), guiControls.globalEffectsStartAlt / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsEndAlt'), guiControls.globalEffectsEndAlt / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
@@ -3443,14 +3454,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
     gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
+    gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'openBoundaries'), guiControls.openBoundaries ? 1 : 0);
     gl.useProgram(postProcessingProgram);
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
+    setHorizontalBoundaryTextureMode();
   }
 
   function setupDatGui(strGuiControls)
   {
     datGui = new dat.GUI();
     guiControls = JSON.parse(strGuiControls); // load settings object
+
+    // Saves created before open boundaries existed stay periodic.
+    if (typeof guiControls.openBoundaries !== 'boolean')
+      guiControls.openBoundaries = guiControls_default.openBoundaries;
+    if (guiControls.openBoundaries)
+      guiControls.wrapHorizontally = false;
 
     guiControls.tool = 'TOOL_NONE';
 
@@ -3802,14 +3821,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     display_folder.add(guiControls, 'wrapHorizontally')
       .onChange(function() {
+        // Repeating the view while the physics is open would show duplicate,
+        // disconnected maps. Choosing wrap therefore restores periodic physics.
+        if (guiControls.wrapHorizontally && guiControls.openBoundaries) {
+          guiControls.openBoundaries = false;
+        }
         cam.wrapHorizontally = guiControls.wrapHorizontally;
         cam.center();
         if (guiControls.wrapHorizontally)
           horizontalDisplayMult = 3.0;
         else
           horizontalDisplayMult = 1.0;
+        setGuiUniforms();
       })
-      .name('Wrap Horizontally');
+      .name('Wrap Horizontally')
+      .listen();
 
     display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
 
@@ -3861,6 +3887,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
     var advanced_folder = datGui.addFolder('Advanced');
+
+    advanced_folder.add(guiControls, 'openBoundaries')
+      .onChange(function() {
+        // Open physics has real end points; disabling it restores the original
+        // periodic world and its repeating camera view.
+        guiControls.wrapHorizontally = !guiControls.openBoundaries;
+        cam.wrapHorizontally = guiControls.wrapHorizontally;
+        horizontalDisplayMult = guiControls.wrapHorizontally ? 3.0 : 1.0;
+        cam.center();
+        setGuiUniforms();
+      })
+      .name('Open Flow-through Boundaries')
+      .listen();
 
     advanced_folder.add(guiControls, 'enablePrecipitation')
       .onChange(function() {
@@ -4502,6 +4541,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
   document.addEventListener('keydown', (event) => {
+    if (window.weatherAxisymmetricActive) return;
     if (event.code == 'ControlLeft') {
       ctrlPressed = true;
     }
@@ -5204,6 +5244,38 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightningTextures = [];
   const numLightningTextures = 10;
 
+  // The original solver relies on REPEAT for its periodic world. Open flow
+  // switches every field that can feed the fluid solver to CLAMP_TO_EDGE, so
+  // pressure, terrain, moisture, vorticity, lighting and precipitation
+  // feedback cannot sample the opposite side of the map.
+  function setHorizontalBoundaryTextureMode()
+  {
+    const wrapMode = guiControls.openBoundaries ? gl.CLAMP_TO_EDGE : gl.REPEAT;
+    const simulationTextures = [
+      baseTexture_0,
+      baseTexture_1,
+      waterTexture_0,
+      waterTexture_1,
+      wallTexture_0,
+      wallTexture_1,
+      curlTexture,
+      vortForceTexture,
+      lightTexture_0,
+      lightTexture_1,
+      precipitationFeedbackTexture,
+      precipitationDepositionTexture,
+      ...ambientLightFBOs.map(fbo => fbo.texture),
+    ];
+
+    gl.activeTexture(gl.TEXTURE0);
+    for (const texture of simulationTextures) {
+      if (!texture)
+        continue;
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode);
+    }
+  }
+
 
   frameBuff_0 = gl.createFramebuffer(); // global for weather stations
   const frameBuff_1 = gl.createFramebuffer();
@@ -5475,7 +5547,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var realWorldSounding_T = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_W = new Float32Array(504);   // sim_res_y + 1
   var realWorldSounding_Vel = new Float32Array(504); // sim_res_y + 1
-  if (soundingData && soundingData.length > 10) {
+  var hasRealWorldSounding = Boolean(soundingData && soundingData.length > 10);
+  if (hasRealWorldSounding) {
     var soundingForSim = rawSoundingToSimSounding(soundingData, guiControls.simHeight, sim_res_y + 1);
 
     for (var y = 0; y < sim_res_y + 1; y++) {
@@ -5498,7 +5571,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var initial_T = new Float32Array(504); // sim_res_y + 1
 
   for (var y = 0; y < sim_res_y + 1; y++) {
-    let altitude = y / (sim_res_y + 1) * guiControls.simHeight;
+    let altitude = (window.realWorldTerrain?.enabled ? window.realWorldTerrain.baseAltitude : 0) + y / (sim_res_y + 1) * guiControls.simHeight;
     var realTemp = Math.max(map_range(altitude, 0, 12000, 15.0, -70.0), -60);
 
     initial_T[y] = realToPotentialT(CtoK(realTemp), y); // initial temperature profile
@@ -5506,12 +5579,38 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cellHeight = guiControls.simHeight / sim_res_y; // in meters
 
+  // Optional real-world terrain profile. The CPU-side loader resamples the DEM
+  // to exactly one elevation value per model column, then the setup shader
+  // turns every cell below that elevation into terrain.
+  const hasRealTerrain = Boolean(window.realWorldTerrain?.enabled && window.realWorldTerrain.elevations?.length);
+  const terrainBaseAltitude = hasRealTerrain ? Number(window.realWorldTerrain.baseAltitude || 0) : 0;
+  const terrainSeaLevel = hasRealTerrain ? Number(window.realWorldTerrain.seaLevel || 0) : 0;
+  const terrainSeaAsWater = hasRealTerrain ? Boolean(window.realWorldTerrain.seaAsWater) : false;
+  const terrainProfileTexture = gl.createTexture();
+  const terrainProfileData = hasRealTerrain
+    ? window.getRealWorldTerrainProfile(sim_res_x)
+    : new Float32Array(sim_res_x);
+
+  gl.activeTexture(gl.TEXTURE11);
+  gl.bindTexture(gl.TEXTURE_2D, terrainProfileTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, sim_res_x, 1, 0, gl.RED, gl.FLOAT, terrainProfileData);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0);
+
   // Set constant uniforms
   gl.useProgram(setupProgram);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'simHeight'), guiControls.simHeight);
+  gl.uniform1i(gl.getUniformLocation(setupProgram, 'useRealTerrain'), hasRealTerrain ? 1 : 0);
+  gl.uniform1i(gl.getUniformLocation(setupProgram, 'terrainProfileTex'), 11);
+  gl.uniform1f(gl.getUniformLocation(setupProgram, 'terrainBaseAltitude'), terrainBaseAltitude);
+  gl.uniform1f(gl.getUniformLocation(setupProgram, 'terrainSeaLevel'), terrainSeaLevel);
+  gl.uniform1i(gl.getUniformLocation(setupProgram, 'terrainSeaAsWater'), terrainSeaAsWater ? 1 : 0);
 
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
 
@@ -5726,6 +5825,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function draw()
   { // Runs for every frame
+    // A separate cylindrical simulation owns the screen in axisymmetric mode.
+    // Retain every original texture, particle and control setting for instant return.
+    if (window.weatherAxisymmetricActive) {
+      soundSystem?.mute();
+      requestAnimationFrame(draw);
+      return;
+    }
     let camPanSpeed = guiControls.camSpeed;
 
     if (rightCtrlPressed) {
@@ -5771,6 +5877,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.disable(gl.BLEND);
       gl.viewport(0, 0, sim_res_x, sim_res_y);
       gl.useProgram(setupProgram);
+      if (hasRealTerrain) {
+        gl.activeTexture(gl.TEXTURE11);
+        gl.bindTexture(gl.TEXTURE_2D, terrainProfileTexture);
+        gl.activeTexture(gl.TEXTURE0);
+      }
       gl.uniform1f(gl.getUniformLocation(setupProgram, 'seed'), mouseXinSim);
       gl.uniform1f(gl.getUniformLocation(setupProgram, 'heightMult'), ((canvas.height - mouseY) / canvas.height) * 2.0);
       // Render to both framebuffers
@@ -6774,6 +6885,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function calcFps()
   {
+    if (window.weatherAxisymmetricActive) {
+      lastFrameNum = frameNum;
+      return;
+    }
     if (!isPageHidden()) {
       FPS = frameNum - lastFrameNum;
       lastFrameNum = frameNum;

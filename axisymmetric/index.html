@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Axisymmetric Atmosphere · Weather Sandbox</title>
+  <meta name="description" content="An experimental axisymmetric weather and vortex chamber with radial, vertical and rotating winds.">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <header>
+    <div><span class="eyebrow">WEATHER SANDBOX / EXPERIMENTAL</span><h1>Axisymmetric atmosphere <span>2.5D</span></h1></div>
+    <div class="transport"><span id="clock">00:00</span><button id="step" title="Advance one time step while paused">Step</button><button id="pause" class="primary">Pause</button><button id="back">Normal 2D ↗</button></div>
+  </header>
+  <main>
+    <section class="workspace" aria-label="Atmosphere visualization">
+      <div class="viewbar"><label>Display <select id="display"><option value="clouds">Clouds · revolved volume</option><option value="swirl">Rotational wind</option><option value="pressure">Pressure anomaly</option><option value="vertical">Vertical wind</option><option value="cloudwater">Cloud water</option><option value="humidity">Relative humidity</option><option value="temperature">Temperature</option></select></label><label class="check"><input id="vectors" type="checkbox"> Flow arrows</label><label class="check"><input id="tracers" type="checkbox" checked> Tracers</label></div>
+      <div id="stage"><canvas id="atmosphere" aria-label="Mirrored vertical cross-section of an axisymmetric atmosphere. Select a field and use flow arrows to inspect the simulated air."></canvas><div id="startup" role="status">Preparing the cylindrical atmosphere…</div><div id="probe">Move over the atmosphere to inspect</div></div>
+      <div class="legend"><div><span id="legend-left">Clear air</span><div id="legend-bar"></div><span id="legend-right">Optically thick cloud</span></div><span id="view-note">Condensate integrated through the revolved volume</span></div>
+      <div class="readouts" aria-live="off"><div><span>Peak rotation</span><strong id="max-swirl">—</strong></div><div><span>Peak updraft</span><strong id="max-updraft">—</strong></div><div><span>Lowest p′</span><strong id="min-pressure">—</strong></div><div><span>Simulation rate</span><strong id="rate">—</strong></div></div>
+      <p class="model-note">A fixed, rotationally symmetric atmosphere: every radius is a ring. No moving or multiple-vortex tornadoes. Cloud shape comes from simulated moisture; a funnel is not guaranteed.</p>
+    </section>
+    <aside>
+      <section><h2>Chamber</h2><div class="row"><label class="grow" for="preset">Starting conditions<select id="preset"><option value="chamber">Vortex chamber</option><option value="plume">Rotating plume</option><option value="calm">Still atmosphere</option></select></label><button id="preset-load">Load</button></div><p class="hint">The vortex preset supplies rotating air and central lift. The flow then evolves freely under those forces.</p></section>
+      <section><h2>Forcing</h2>
+        <label class="slider">Outer swirl <output id="swirl-value">26 m/s</output><input id="swirl" type="range" min="-55" max="55" step="1" value="26"></label>
+        <label class="slider">Core scale <output id="core-value">240 m</output><input id="core" type="range" min="100" max="700" step="10" value="240"></label>
+        <label class="slider">Central lift <output id="lift-value">0.22 m/s²</output><input id="lift" type="range" min="0" max="0.6" step="0.01" value="0.22"></label>
+        <label class="slider">Ambient humidity <output id="humidity-value">92%</output><input id="humidity" type="range" min="0.35" max="1" step="0.01" value="0.92"></label>
+        <label class="slider">Surface drag <output id="drag-value">0.035 s⁻¹</output><input id="drag" type="range" min="0" max="0.1" step="0.005" value="0.035"></label>
+        <p class="hint">Controls change the forcing and outer air reservoir. Use Reset to apply them as fresh starting conditions.</p>
+      </section>
+      <section><h2>Interact</h2><label>Brush<select id="tool"><option value="inspect">Inspect only</option><option value="swirl">Add rotation</option><option value="heat">Warm air</option><option value="moisture">Add moisture</option></select></label><p class="hint">Drag to paint a ring. Hold Shift to subtract. Both visible halves represent the same air.</p><label>Target speed<select id="speed"><option value="1">1×</option><option value="4">4×</option><option value="12" selected>12×</option><option value="30">30×</option></select></label><div class="row actions"><button id="reset">Reset chamber</button><button id="save">Export save</button></div><div class="row actions"><label class="file-button">Load save<input id="load" type="file" accept=".axisweather,application/json"></label><button id="restore" disabled>Restore checkpoint</button></div><p id="save-status" class="hint">Normal 2D and this chamber keep separate sessions.</p></section>
+      <details><summary>Model & diagnostics</summary><p>Annular finite volumes; radial/vertical pressure projection; transported angular momentum; centrifugal acceleration; surface drag; simplified moist buoyancy and saturation adjustment.</p><p>Constant reference density, flat ground, a closed ceiling and an open outer radius. Pressure is a perturbation, not sea-level pressure. Radiation, terrain, hail and the original precipitation particles are not included in this experimental mode.</p><p id="diagnostics">Waiting for the solver.</p><a href="README.md" target="_blank" rel="noopener">Numerical model notes</a></details>
+    </aside>
+  </main>
+  <div id="message" role="status" hidden></div>
+</body>
+</html>

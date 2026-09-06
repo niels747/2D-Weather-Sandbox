@@ -3,12 +3,16 @@
 
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>2D Weather Sandbox</title>
     <script type="text/javascript" src="libraries/dat.gui.min.js"></script>
     <script type="text/javascript" src="libraries/pako.min.js"></script>
     <script type="text/javascript" src="libraries/chart.js"></script>
     <script type="text/javascript" src="libraries/chartjs-adapter-date-fns.js"></script>
+    <script type="text/javascript" src="terrainImport.js"></script>
     <script type="text/javascript" src="app.js"></script>
+    <script type="module" src="mode-switch.js"></script>
+    <link rel="stylesheet" href="mode-switch.css">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
     <style>
         :root {
@@ -73,6 +77,26 @@
         .nav-icons a:hover img {
             transform: scale(1.1);
             opacity: 1;
+        }
+
+        .nav-icons .nav-3d {
+            display: inline-flex;
+            align-items: center;
+            min-height: 40px;
+            padding: 0 14px;
+            border: 1px solid rgba(112, 207, 255, 0.55);
+            border-radius: 999px;
+            background: rgba(20, 126, 190, 0.3);
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .nav-icons .nav-3d:hover {
+            transform: translateY(-1px);
+            background: rgba(20, 145, 220, 0.5);
         }
 
         .resolution-warning {
@@ -270,6 +294,7 @@
             <h1>2D Weather Sandbox</h1>
         </div>
         <div class="nav-icons">
+            <button class="nav-3d" id="open-axisymmetric" type="button">Axisymmetric 2.5D</button>
             <a href="https://github.com/niels747/2D-Weather-Sandbox" target="_blank" rel="noopener noreferrer">
                 <img src="resources/img/Github.png" alt="GitHub">
             </a>
@@ -402,6 +427,8 @@
                     often
                     using the integrated graphics by default</li>
                 <li>Play in fullscreen mode (F11)</li>
+                <li>Press H, open Advanced, and enable Open Flow-through Boundaries to let weather leave the map without
+                    wrapping. Incoming air continues the locally balanced atmosphere at that edge.</li>
             </ul>
         </div>
 

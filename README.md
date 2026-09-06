@@ -4,6 +4,10 @@ Previously called "Weather_Sim_4"
 
 This projects aims to produce a semirealistic two-dimensional, realtime, interactive simulation of the weather in earth's troposphere.
 
+## Interactive 3D sandbox
+
+The repository also includes a rebuilt [3D Weather Sandbox](./3d-prototype/). It keeps the original game's direct-editing workflow while adding an orbitable 3D atmospheric grid, terrain and sea painting, seven scientific display modes, 3D wind and buoyancy, precipitation, live diagnostics, and local save files.
+
 
 ## Clouds and precipitation
 Simulating clouds and precipitation are the main objectives of this project.
@@ -38,6 +42,17 @@ Sunlight with realistic colors makes clouds and precipitation look real
 
 ## Limitations
 Due to the two-dimensional nature of the simulation, it cannot simulate 3D vortices such as tornadoes, dust devils or hurricanes. It can only simulate linear storm systems.
+
+## Horizontal boundary modes
+
+The original periodic boundary remains the default. In the in-simulation H-key menu, **Advanced → Open Flow-through Boundaries** changes the horizontal edges into independent flow-through boundaries:
+
+- Terrain and fluid fields clamp at each local edge instead of sampling the opposite side, so mismatched edge elevations no longer form a seam cliff.
+- Wind direction is evaluated separately at each altitude. Outflow advects off-map; inflow extrapolates the locally balanced edge atmosphere instead of injecting a new temperature, humidity, pressure or wind profile.
+- A narrow tracer washout clears cloud, precipitation and smoke only from incoming air. Cloud condensate and its matching total-water mass are removed together to avoid artificial condensation heating.
+- Discrete rain, snow and hail particles that cross an open edge are retired instead of wrapped.
+
+Turning the option off restores the exact periodic texture and particle behavior.
 
 
 # Example: low intensity cell analysis

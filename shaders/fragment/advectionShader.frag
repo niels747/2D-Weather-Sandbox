@@ -29,6 +29,7 @@ uniform int userInputType;   // 0 = nothing 	1 = temp ...
 uniform vec4 airplaneValues; // xpos   Ypos   throttle   fire
 
 uniform bool wrapHorizontally;
+uniform bool openBoundaries;
 
 uniform float dryLapse;
 uniform float evapHeat;
@@ -61,6 +62,42 @@ float getRealWorldSounding_W(int y) { return (realWorldSounding_Wv[y / 4][y % 4]
 float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y % 4] + realWorldSounding_Velv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
 
 #include "common.glsl"
+
+// CLAMP_TO_EDGE provides a zero-gradient open boundary: air entering the map
+// continues the locally balanced edge column instead of receiving a prescribed
+// external sounding. Only passive weather tracers are washed out on inflow.
+void applyOpenBoundaryTracerWashout()
+{
+  if (!openBoundaries || wall[DISTANCE] == 0)
+    return;
+
+  float leftDistance = fragCoord.x - 0.5;
+  float rightDistance = resolution.x - fragCoord.x - 0.5;
+  float edgeDistance = min(leftDistance, rightDistance);
+  float washoutWidth = clamp(resolution.x * 0.01, 3.0, 12.0);
+
+  if (edgeDistance >= washoutWidth)
+    return;
+
+  bool leftEdge = leftDistance <= rightDistance;
+  float outwardVelocity = leftEdge ? -base[VX] : base[VX];
+  float inflow = 1.0 - step(0.0, outwardVelocity);
+  float edgeWeight = 1.0 - smoothstep(0.0, washoutWidth, edgeDistance);
+  float edgeWeight2 = edgeWeight * edgeWeight;
+  float inflowSpeed = smoothstep(0.00001, 0.03, -outwardVelocity);
+  float washoutRate = inflow * mix(0.08, 0.24, inflowSpeed) * edgeWeight2;
+
+  // Cloud condensate is part of TOTAL, so remove both together. Clearing CLOUD
+  // alone would immediately re-condense the leftover vapor and release heat.
+  float removedCloud = water[CLOUD] * washoutRate;
+  water[CLOUD] -= removedCloud;
+  water[TOTAL] = max(water[TOTAL] - removedCloud, 0.0);
+  water[PRECIPITATION] = mix(water[PRECIPITATION], 0.0, washoutRate);
+  water[SMOKE] = mix(water[SMOKE], 0.0, washoutRate);
+
+  // Deliberately do not pin temperature, humidity, pressure or velocity here.
+  // Those fields are dynamically balanced; forcing them creates edge jets.
+}
 
 void main()
 {
@@ -455,4 +492,6 @@ void main()
       }
     }
   }
+
+  applyOpenBoundaryTracerWashout();
 }

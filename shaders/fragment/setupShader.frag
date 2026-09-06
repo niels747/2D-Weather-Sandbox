@@ -11,6 +11,12 @@ uniform float simHeight;
 uniform float seed;
 uniform float heightMult;
 
+uniform bool useRealTerrain;
+uniform sampler2D terrainProfileTex;
+uniform float terrainBaseAltitude;
+uniform float terrainSeaLevel;
+uniform bool terrainSeaAsWater;
+
 uniform vec4 initial_Tv[126];
 
 float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
@@ -42,8 +48,15 @@ void main()
 
   float height = 0.0;
   float height_m = 0.0;
+  float surfaceElevation_m = 0.0;
+  bool surfaceIsWater = false;
 
-  if (heightMult < 0.05) { // all sea
+  if (useRealTerrain) {
+    surfaceElevation_m = texture(terrainProfileTex, vec2(clamp(texCoord.x, 0.0, 1.0), 0.5)).r;
+    height_m = max(surfaceElevation_m - terrainBaseAltitude, 0.0);
+    height = clamp(height_m / simHeight, 0.0, 0.98);
+    surfaceIsWater = terrainSeaAsWater && surfaceElevation_m <= terrainSeaLevel;
+  } else if (heightMult < 0.05) { // all sea
 
     height = 0.0;
 
@@ -62,9 +75,14 @@ void main()
     height_m = height * simHeight; // sim height
   }
 
+  if (!useRealTerrain) {
+    surfaceElevation_m = height_m;
+    surfaceIsWater = height < texelSize.y;
+  }
+
   if (texCoord.y < texelSize.y || texCoord.y < height) {                                                      // set to wall
     wall[DISTANCE] = 0;                                                                                       // set to wall
-    if (height < texelSize.y) {
+    if (surfaceIsWater) {
       wall[TYPE] = WALLTYPE_WATER;                                                                            // set walltype to water
       base[TEMPERATURE] = CtoK(25.0);                                                                         // set water temperature to 25 C
     } else {
@@ -73,7 +91,7 @@ void main()
 
       wall[VEGETATION] = int(110.0 - fragCoord.y * 2. + noise(fragCoord.x * 0.01 + rand(seed) * 10.) * 150.); // set vegitation
 
-      water[SNOW] = max(map_rangeC(height_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                                // set snow
+      water[SNOW] = max(map_rangeC(surfaceElevation_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                                // set snow
     }
   } else {                                                                                                    // air, not wall
     wall[DISTANCE] = 255;                                                                                     // reset distance to wall
