@@ -48,8 +48,8 @@ Due to the two-dimensional nature of the simulation, it cannot simulate 3D vorti
 The original periodic boundary remains the default. In the in-simulation H-key menu, **Advanced → Open Flow-through Boundaries** changes the horizontal edges into independent flow-through boundaries:
 
 - Terrain and fluid fields clamp at each local edge instead of sampling the opposite side, so mismatched edge elevations no longer form a seam cliff.
-- Wind direction is evaluated separately at each altitude. Outflow advects off-map; inflow receives temperature, humidity and (when loaded) wind from the environmental sounding.
-- A narrow numerical sponge absorbs pressure and vertical-velocity waves near the edge, while cloud, precipitation and smoke are cleared only from incoming air.
+- Wind direction is evaluated separately at each altitude. Outflow advects off-map; inflow extrapolates the locally balanced edge atmosphere instead of injecting a new temperature, humidity, pressure or wind profile.
+- A narrow tracer washout clears cloud, precipitation and smoke only from incoming air. Cloud condensate and its matching total-water mass are removed together to avoid artificial condensation heating.
 - Discrete rain, snow and hail particles that cross an open edge are retired instead of wrapped.
 
 Turning the option off restores the exact periodic texture and particle behavior.

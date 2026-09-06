@@ -3438,7 +3438,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
     gl.uniform1i(gl.getUniformLocation(advectionProgram, 'wrapHorizontally'), guiControls.wrapHorizontally ? 1 : 0);
     gl.uniform1i(gl.getUniformLocation(advectionProgram, 'openBoundaries'), guiControls.openBoundaries ? 1 : 0);
-    gl.uniform1i(gl.getUniformLocation(advectionProgram, 'useRealSoundingAtOpenBoundaries'), hasRealWorldSounding ? 1 : 0);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsStartAlt'), guiControls.globalEffectsStartAlt / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalEffectsEndAlt'), guiControls.globalEffectsEndAlt / guiControls.simHeight);
     gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));

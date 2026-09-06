@@ -36,16 +36,32 @@ test('all solver-facing horizontal textures switch between clamp and repeat', as
   assert.match(app, /setHorizontalBoundaryTextureMode\(\)/);
 });
 
-test('the shader classifies inflow independently by side and altitude', async() => {
+test('the shader classifies inflow independently by side', async() => {
   const shader = await read('shaders/fragment/advectionShader.frag');
 
   assert.match(shader, /float outwardVelocity = leftEdge \? -base\[VX\] : base\[VX\]/);
   assert.match(shader, /float inflow = 1\.0 - step\(0\.0, outwardVelocity\)/);
-  assert.match(shader, /int y = clamp\(int\(floor\(fragCoord\.y\)\)/);
-  assert.match(shader, /externalTemperature = getBoundarySoundingT\(y\)/);
-  assert.match(shader, /externalWater = maxWater\(externalRealTemperature - dewPointDepression\)/);
-  assert.match(shader, /water\[CLOUD\] = mix\(water\[CLOUD\], 0\.0/);
-  assert.match(shader, /float absorberRate = 0\.10 \* edgeWeight2 \* edgeWeight/);
+  assert.match(shader, /float washoutRate = inflow \* mix\(0\.08, 0\.24, inflowSpeed\) \* edgeWeight2/);
+});
+
+test('open inflow preserves balanced thermodynamics and momentum', async() => {
+  const shader = await read('shaders/fragment/advectionShader.frag');
+  const start = shader.indexOf('void applyOpenBoundaryTracerWashout()');
+  const end = shader.indexOf('\nvoid main()', start);
+  const boundaryFunction = shader.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(boundaryFunction, /base\[(?:TEMPERATURE|PRESSURE|VX|VY)\]\s*=/);
+  assert.doesNotMatch(boundaryFunction, /water\[TOTAL\]\s*=\s*mix/);
+  assert.doesNotMatch(shader, /useRealSoundingAtOpenBoundaries|getBoundarySounding/);
+});
+
+test('cloud washout removes matching total water to avoid latent heating', async() => {
+  const shader = await read('shaders/fragment/advectionShader.frag');
+
+  assert.match(shader, /float removedCloud = water\[CLOUD\] \* washoutRate/);
+  assert.match(shader, /water\[CLOUD\] -= removedCloud/);
+  assert.match(shader, /water\[TOTAL\] = max\(water\[TOTAL\] - removedCloud, 0\.0\)/);
 });
 
 test('open-edge precipitation exits while periodic precipitation still wraps', async() => {

@@ -30,7 +30,6 @@ uniform vec4 airplaneValues; // xpos   Ypos   throttle   fire
 
 uniform bool wrapHorizontally;
 uniform bool openBoundaries;
-uniform bool useRealSoundingAtOpenBoundaries;
 
 uniform float dryLapse;
 uniform float evapHeat;
@@ -64,15 +63,10 @@ float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y 
 
 #include "common.glsl"
 
-int getSafeSoundingY(int y) { return clamp(y, 0, min(int(resolution.y) - 1, 503)); }
-float getBoundarySoundingT(int y) { int i = getSafeSoundingY(y); return realWorldSounding_Tv[i / 4][i % 4]; }
-float getBoundarySoundingW(int y) { int i = getSafeSoundingY(y); return realWorldSounding_Wv[i / 4][i % 4]; }
-float getBoundarySoundingVel(int y) { int i = getSafeSoundingY(y); return realWorldSounding_Velv[i / 4][i % 4]; }
-
-// A thin relaxation zone behaves like an off-map reservoir without allocating
-// a second hidden simulation. Outflow keeps its interior values and simply
-// advects away. Inflow is replaced with a stable environmental sounding.
-void applyOpenBoundaryReservoir()
+// CLAMP_TO_EDGE provides a zero-gradient open boundary: air entering the map
+// continues the locally balanced edge column instead of receiving a prescribed
+// external sounding. Only passive weather tracers are washed out on inflow.
+void applyOpenBoundaryTracerWashout()
 {
   if (!openBoundaries || wall[DISTANCE] == 0)
     return;
@@ -80,52 +74,29 @@ void applyOpenBoundaryReservoir()
   float leftDistance = fragCoord.x - 0.5;
   float rightDistance = resolution.x - fragCoord.x - 0.5;
   float edgeDistance = min(leftDistance, rightDistance);
-  float spongeWidth = clamp(resolution.x * 0.02, 6.0, 32.0);
+  float washoutWidth = clamp(resolution.x * 0.01, 3.0, 12.0);
 
-  if (edgeDistance >= spongeWidth)
+  if (edgeDistance >= washoutWidth)
     return;
 
   bool leftEdge = leftDistance <= rightDistance;
   float outwardVelocity = leftEdge ? -base[VX] : base[VX];
   float inflow = 1.0 - step(0.0, outwardVelocity);
-  float edgeWeight = 1.0 - smoothstep(0.0, spongeWidth, edgeDistance);
+  float edgeWeight = 1.0 - smoothstep(0.0, washoutWidth, edgeDistance);
   float edgeWeight2 = edgeWeight * edgeWeight;
   float inflowSpeed = smoothstep(0.00001, 0.03, -outwardVelocity);
-  float reservoirRate = inflow * mix(0.08, 0.24, inflowSpeed) * edgeWeight2;
+  float washoutRate = inflow * mix(0.08, 0.24, inflowSpeed) * edgeWeight2;
 
-  int y = clamp(int(floor(fragCoord.y)), 0, min(int(resolution.y) - 1, 503));
-  float externalTemperature = getInitialT(y);
-  float externalWater;
-  float externalWind = base[VX];
+  // Cloud condensate is part of TOTAL, so remove both together. Clearing CLOUD
+  // alone would immediately re-condense the leftover vapor and release heat.
+  float removedCloud = water[CLOUD] * washoutRate;
+  water[CLOUD] -= removedCloud;
+  water[TOTAL] = max(water[TOTAL] - removedCloud, 0.0);
+  water[PRECIPITATION] = mix(water[PRECIPITATION], 0.0, washoutRate);
+  water[SMOKE] = mix(water[SMOKE], 0.0, washoutRate);
 
-  if (useRealSoundingAtOpenBoundaries) {
-    externalTemperature = getBoundarySoundingT(y);
-    externalWater = max(getBoundarySoundingW(y), 0.0);
-    externalWind = getBoundarySoundingVel(y);
-  } else {
-    float externalRealTemperature = potentialToRealT(externalTemperature, texCoord.y);
-    float dewPointDepression = texCoord.y < 0.20 ? 2.0 : 20.0;
-    externalWater = maxWater(externalRealTemperature - dewPointDepression);
-  }
-
-  // Scalars only receive a prescribed value while the local wind points into
-  // the domain. This lets a storm leave intact while still giving an inflow
-  // something physical (and non-zero) to carry back in.
-  base[TEMPERATURE] = mix(base[TEMPERATURE], externalTemperature, reservoirRate);
-  water[TOTAL] = mix(water[TOTAL], externalWater, reservoirRate);
-  water[CLOUD] = mix(water[CLOUD], 0.0, min(reservoirRate * 1.5, 1.0));
-  water[PRECIPITATION] = mix(water[PRECIPITATION], 0.0, min(reservoirRate * 1.5, 1.0));
-  water[SMOKE] = mix(water[SMOKE], 0.0, min(reservoirRate * 1.5, 1.0));
-
-  if (useRealSoundingAtOpenBoundaries)
-    base[VX] = mix(base[VX], externalWind, reservoirRate * 0.35);
-
-  // Absorb pressure and vertical-velocity waves in both directions. Horizontal
-  // velocity is deliberately not damped: it decides whether this row is an
-  // inlet or an outlet.
-  float absorberRate = 0.10 * edgeWeight2 * edgeWeight;
-  base[PRESSURE] = mix(base[PRESSURE], 0.0, absorberRate);
-  base[VY] = mix(base[VY], 0.0, max(absorberRate * 0.35, reservoirRate * 0.20));
+  // Deliberately do not pin temperature, humidity, pressure or velocity here.
+  // Those fields are dynamically balanced; forcing them creates edge jets.
 }
 
 void main()
@@ -522,5 +493,5 @@ void main()
     }
   }
 
-  applyOpenBoundaryReservoir();
+  applyOpenBoundaryTracerWashout();
 }
