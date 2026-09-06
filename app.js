@@ -4509,6 +4509,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
   document.addEventListener('keydown', (event) => {
+    if (window.weatherAxisymmetricActive) return;
     if (event.code == 'ControlLeft') {
       ctrlPressed = true;
     }
@@ -5759,6 +5760,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function draw()
   { // Runs for every frame
+    // A separate cylindrical simulation owns the screen in axisymmetric mode.
+    // Retain every original texture, particle and control setting for instant return.
+    if (window.weatherAxisymmetricActive) {
+      soundSystem?.mute();
+      requestAnimationFrame(draw);
+      return;
+    }
     let camPanSpeed = guiControls.camSpeed;
 
     if (rightCtrlPressed) {
@@ -6812,6 +6820,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function calcFps()
   {
+    if (window.weatherAxisymmetricActive) {
+      lastFrameNum = frameNum;
+      return;
+    }
     if (!isPageHidden()) {
       FPS = frameNum - lastFrameNum;
       lastFrameNum = frameNum;

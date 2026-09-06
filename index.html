@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>2D Weather Sandbox</title>
     <script type="text/javascript" src="libraries/dat.gui.min.js"></script>
     <script type="text/javascript" src="libraries/pako.min.js"></script>
@@ -10,6 +11,8 @@
     <script type="text/javascript" src="libraries/chartjs-adapter-date-fns.js"></script>
     <script type="text/javascript" src="terrainImport.js"></script>
     <script type="text/javascript" src="app.js"></script>
+    <script type="module" src="mode-switch.js"></script>
+    <link rel="stylesheet" href="mode-switch.css">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
     <style>
         :root {
@@ -291,7 +294,7 @@
             <h1>2D Weather Sandbox</h1>
         </div>
         <div class="nav-icons">
-            <a class="nav-3d" href="./3d-prototype/">Open 3D Sandbox</a>
+            <button class="nav-3d" id="open-axisymmetric" type="button">Axisymmetric 2.5D</button>
             <a href="https://github.com/niels747/2D-Weather-Sandbox" target="_blank" rel="noopener noreferrer">
                 <img src="resources/img/Github.png" alt="GitHub">
             </a>
