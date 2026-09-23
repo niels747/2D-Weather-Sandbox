@@ -4,8 +4,6 @@ precision highp float;
 uniform vec2 resolution;
 uniform vec2 texelSize;
 
-uniform float dryLapse;
-
 uniform float simHeight;
 
 uniform float seed;

@@ -20,6 +20,7 @@ uniform vec4 cursor; // xpos   Ypos  Size   type
 
 out vec4 fragmentColor;
 
+#include "common.glsl"
 #include "commonDisplay.glsl"
 
 void main()
@@ -29,18 +30,18 @@ void main()
 
   float val = cell[quantityIndex] * dispMultiplier;
 
-  if (wall[1] == 0) {  // is wall
-    switch (wall[0]) { // wall type
-    case 0:
-      fragmentColor = vec4(0, 0, 0, 1);
-      break;
-    case 1: // land wall
+  if (wall[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER) { // is wall
+    switch (wall[TYPE]) {
+    // case :
+    //   fragmentColor = vec4(0, 0, 0, 1);
+    //   break;
+    case WALLTYPE_LAND: // land wall
       fragmentColor = vec4(vec3(0.10), 1.0);
       break;
-    case 2: // water wall
+    case WALLTYPE_WATER: // water wall
       fragmentColor = vec4(0, 0.5, 0.99, 1);
       break;
-    case 3: // Fire wall
+    case WALLTYPE_FIRE: // Fire wall
       fragmentColor = vec4(1.0, 0.5, 0.0, 1);
       break;
     }

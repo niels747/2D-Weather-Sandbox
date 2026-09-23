@@ -6,21 +6,22 @@ precision highp isampler2D;
 #define deg2rad 0.0174533
 
 
-#define lightHeatingConst 0.000002   // how much a unit of IR or sunlight (W/m2) changes the temperature per iteration
+// #define lightHeatingConst 0.000002   // how much a unit of IR or sunlight (W/m2) changes the temperature per iteration
+#define lightHeatingConst 0.00000597 // real world value at 40m cell height and 0.288 s timestep
 
 #define standardSunBrightness 1250.; // W/m2
 
-#define maxWaterTemp 40.0
+#define maxWaterTemp 50.0
 
 #define waterHeatExchangeRate 0.0002
 
-#define waterHeatCapacity 50.0     // as multiple of airs heat capacity
+#define waterHeatCapacity 10.0 // as multiple of airs heat capacity
 
 #define fullGreenSoilMoisture 50.0 // level of soil moisture where vegetation reaches the greenest color
 
-#define fullWhiteSnowHeight 10.0   // snow height at witch full whiteness is displayed and max albedo is achieved
+#define fullWhiteSnowHeight 10.0 // snow height at witch full whiteness is displayed and max albedo is achieved
 
-#define rainMassToHeight 0.04      // 1 g / 40 (cellHeight) = 0.04 mm   or 0.04 cm of snow
+#define rainMassToHeight 0.04 // 1 g / 40 (cellHeight) = 0.04 mm   or 0.04 cm of snow
 
 // #define rainHeightToSnowHeight 10. // fresh snow is on average 10x less dense than water
 
@@ -33,12 +34,19 @@ precision highp isampler2D;
 #define ALBEDO_SNOW 0.85        // above 10 cm of snow cover without vegetation
 #define ALBEDO_SNOW_FOREST 0.30 // at max vegetation and above 10 cm of snow
 #define ALBEDO_FOREST 0.10
-#define ALBEDO_DRYSOIL 0.30     // desert sand
-#define ALBEDO_WETSOIL 0.15     // above 20 mm of soil moisture
+#define ALBEDO_DRYSOIL 0.30 // desert sand
+#define ALBEDO_WETSOIL 0.15 // above 20 mm of soil moisture
 #define ALBEDO_URBAN 0.08
 #define ALBEDO_INDUSTRIAL 0.08
 #define ALBEDO_RUNWAY 0.04
 #define ALBEDO_WATER 0.05
+
+#define CP_AIR 1012.0 // j kg K
+
+#define SURF_DEPTH 0.2 // how deep the effective surface thermal capacity is calculated (m)
+
+#define CP_DRYSOIL 1040000 // j m3 K
+
 
 // TEXTURE DESCRIPTIONS AND DEFINES
 
@@ -222,20 +230,28 @@ vec4 bilerp(sampler2D tex, vec2 pos)
 vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
                 vec2 pos) // prevents sampeling from wall cell
 {
-  vec2 st = pos - 0.5;    // calc pixel coordinats
+  vec2 st = pos - 0.5; // calc pixel coordinats
 
   vec2 ipos = vec2(floor(st));
   vec2 fpos = fract(st);
 
-  vec4 a = texture(tex, (ipos + vec2(0.5, 0.5)) / resolution);
-  vec4 b = texture(tex, (ipos + vec2(1.5, 0.5)) / resolution);
-  vec4 c = texture(tex, (ipos + vec2(0.5, 1.5)) / resolution);
-  vec4 d = texture(tex, (ipos + vec2(1.5, 1.5)) / resolution);
+  // A B
+  // C D
 
-  ivec4 wa = texture(wallTex, (ipos + vec2(0.5, 0.5)) / resolution);
-  ivec4 wb = texture(wallTex, (ipos + vec2(1.5, 0.5)) / resolution);
-  ivec4 wc = texture(wallTex, (ipos + vec2(0.5, 1.5)) / resolution);
-  ivec4 wd = texture(wallTex, (ipos + vec2(1.5, 1.5)) / resolution);
+  vec2 posA = (ipos + vec2(0.5, 0.5)) / resolution;
+  vec2 posB = (ipos + vec2(1.5, 0.5)) / resolution;
+  vec2 posC = (ipos + vec2(0.5, 1.5)) / resolution;
+  vec2 posD = (ipos + vec2(1.5, 1.5)) / resolution;
+
+  vec4 a = texture(tex, posA);
+  vec4 b = texture(tex, posB);
+  vec4 c = texture(tex, posC);
+  vec4 d = texture(tex, posD);
+
+  ivec4 wa = texture(wallTex, posA);
+  ivec4 wb = texture(wallTex, posB);
+  ivec4 wc = texture(wallTex, posC);
+  ivec4 wd = texture(wallTex, posD);
 
   float mixAB = fpos.x;
   float mixCD = fpos.x;
@@ -251,9 +267,58 @@ vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
   else if (wd[DISTANCE] == 0)
     mixCD = 0.;
 
-  if (wa[DISTANCE] == 0 && wb[1] == 0)
+  if (wa[DISTANCE] == 0 && wb[DISTANCE] == 0)
     mixAB_CD = 1.;
   else if (wc[DISTANCE] == 0 && wd[DISTANCE] == 0)
+    mixAB_CD = 0.;
+
+  return mix(mix(a, b, mixAB), mix(c, d, mixCD), mixAB_CD);
+}
+
+
+vec4 bilerpWallWater(sampler2D tex, isampler2D wallTex,
+                     vec2 pos) // // sample from water cells only
+{
+  vec2 st = pos - 0.5; // calc pixel coordinats
+
+  vec2 ipos = vec2(floor(st));
+  vec2 fpos = fract(st);
+
+  // A B
+  // C D
+
+  vec2 posA = (ipos + vec2(0.5, 0.5)) / resolution;
+  vec2 posB = (ipos + vec2(1.5, 0.5)) / resolution;
+  vec2 posC = (ipos + vec2(0.5, 1.5)) / resolution;
+  vec2 posD = (ipos + vec2(1.5, 1.5)) / resolution;
+
+  vec4 a = texture(tex, posA);
+  vec4 b = texture(tex, posB);
+  vec4 c = texture(tex, posC);
+  vec4 d = texture(tex, posD);
+
+  ivec4 wa = texture(wallTex, posA);
+  ivec4 wb = texture(wallTex, posB);
+  ivec4 wc = texture(wallTex, posC);
+  ivec4 wd = texture(wallTex, posD);
+
+  float mixAB = fpos.x;
+  float mixCD = fpos.x;
+  float mixAB_CD = fpos.y;
+
+  if (!(wa[DISTANCE] == 0 && wa[TYPE] == WALLTYPE_WATER))
+    mixAB = 1.;
+  else if (!(wb[DISTANCE] == 0 && wb[TYPE] == WALLTYPE_WATER))
+    mixAB = 0.;
+
+  if (!(wc[DISTANCE] == 0 && wc[TYPE] == WALLTYPE_WATER))
+    mixCD = 1.;
+  else if (!(wd[DISTANCE] == 0 && wd[TYPE] == WALLTYPE_WATER))
+    mixCD = 0.;
+
+  if (!(wa[DISTANCE] == 0 && wa[TYPE] == WALLTYPE_WATER) && !(wb[DISTANCE] == 0 && wb[TYPE] == WALLTYPE_WATER))
+    mixAB_CD = 1.;
+  else if (!(wc[DISTANCE] == 0 && wc[TYPE] == WALLTYPE_WATER) && !(wd[DISTANCE] == 0 && wd[TYPE] == WALLTYPE_WATER))
     mixAB_CD = 0.;
 
   return mix(mix(a, b, mixAB), mix(c, d, mixCD), mixAB_CD);
@@ -305,7 +370,7 @@ float simplesque2D(vec2 p, float seed)
   // Clever way to perform an "if" statement to determine which of two triangles we need.
   float i = p.x < p.y ? 1. : 0.; // Apparently, faster than: step(p.x, p.y);
 
-  vec2 ioffs = vec2(1. - i, i);  // Vertice offset, based on above.
+  vec2 ioffs = vec2(1. - i, i); // Vertice offset, based on above.
 
   // Vectors to the other two triangle vertices.
   vec2 p1 = p - ioffs + .2113249, p2 = p - .5773502;
@@ -313,7 +378,7 @@ float simplesque2D(vec2 p, float seed)
   // Vector to hold the falloff value of the current pixel with respect to each vertice.
   vec3 d = max(.5 - vec3(dot(p, p), dot(p1, p1), dot(p2, p2)), 0.); // Range [0, 0.5]
 
-  d *= d * d * 12.;                                                 //(2*2*2*1.5)
+  d *= d * d * 12.; //(2*2*2*1.5)
   // d *= d*d*d*36.;
 
   vec3 w = vec3(dot(hash22(s, seed), p), dot(hash22(s + ioffs, seed), p1), dot(hash22(s + 1., seed), p2));

@@ -15,7 +15,6 @@ layout(location = 0) out float dens;
 
 uniform vec2 resolution;
 
-float dryLapse; // NOT USED needs to be declared for common.glsl
 vec2 texelSize;
 #include "common.glsl"
 

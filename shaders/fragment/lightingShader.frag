@@ -31,8 +31,6 @@ uniform float waterGreenHouseEffect;
 layout(location = 0) out vec4 light;
 layout(location = 1) out vec4 reflectedLight;
 
-uniform float dryLapse;
-
 #include "common.glsl"
 
 void main()

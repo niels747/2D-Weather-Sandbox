@@ -17,8 +17,6 @@ uniform float iterNum;
 
 out vec4 lightningLocation;
 
-uniform float dryLapse;
-
 #include "common.glsl"
 
 void main()

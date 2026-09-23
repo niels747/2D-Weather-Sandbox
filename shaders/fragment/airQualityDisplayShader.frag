@@ -13,8 +13,6 @@ uniform sampler2D colorScalesTex;
 uniform vec2 resolution;
 uniform vec2 texelSize;
 
-uniform float dryLapse;
-
 uniform float displayVectorField;
 
 uniform vec3 view;   // Xpos  Ypos    Zoom
@@ -32,21 +30,23 @@ void main()
   vec4 water = bilerpWall(waterTex, wallTex, fragCoord);
   ivec2 wall = texture(wallTex, texCoord).xy;
 
-  if (wall[1] == 0) {  // is wall
-    switch (wall[0]) { // wall type
-    case 0:
-      fragmentColor = vec4(0, 0, 0, 1);
-      break;
-    case 1: // land wall
+  if (wall[DISTANCE] == 0) { // is wall
+    switch (wall[TYPE]) {    // wall type
+    // case 0:
+    //   fragmentColor = vec4(0, 0, 0, 1);
+    //   break;
+    case WALLTYPE_LAND: // land wall
       fragmentColor = vec4(vec3(0.10), 1.0);
       break;
-    case 2: // water wall
+    case WALLTYPE_WATER: // water wall
       // fragmentColor = vec4(0, 0.5, 0.99, 1);
-      int palletteIndex = int(map_range(KtoC(base[3]), -26. - 2., 30., 0., 29.));
+      int palletteIndex = int(map_range(KtoC(texture(baseTex, texCoord)[TEMPERATURE]), -26. - 2., 30., 0., 29.));
       palletteIndex = clamp(palletteIndex, 0, 29);
-      fragmentColor = vec4(tempColorPalette[palletteIndex], 1.0);
+      // fragmentColor = vec4(tempColorPalette[palletteIndex], 1.0);
+
+      drawVectorField(base.xy * 20., displayVectorField);
       break;
-    case 3: // Fire wall
+    case WALLTYPE_FIRE: // Fire wall
       fragmentColor = vec4(1.0, 0.5, 0.0, 1);
       break;
     }

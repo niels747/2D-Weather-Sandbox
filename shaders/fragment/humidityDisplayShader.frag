@@ -13,8 +13,6 @@ uniform sampler2D colorScalesTex;
 uniform vec2 resolution;
 uniform vec2 texelSize;
 
-uniform float dryLapse;
-
 uniform float displayVectorField;
 
 uniform vec3 view;   // Xpos  Ypos    Zoom
@@ -45,7 +43,7 @@ void main()
     case WALLTYPE_WATER:
       int palletteIndex = int(map_range(KtoC(base[3]), -26. - 2., 30., 0., 29.));
       palletteIndex = clamp(palletteIndex, 0, 29);
-      fragmentColor = vec4(tempColorPalette[palletteIndex], 1.0);
+      // fragmentColor = vec4(tempColorPalette[palletteIndex], 1.0);
       break;
     case WALLTYPE_FIRE:
       fragmentColor = vec4(1.0, 0.5, 0.0, 1.);

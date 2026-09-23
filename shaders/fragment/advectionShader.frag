@@ -23,14 +23,13 @@ uniform vec4 userInputValues; // xpos    Ypos     intensity     Brush Size
 #define BRUSH_INTENSITY 2
 #define BRUSH_SIZE 3
 
-uniform vec2 userInputMove;  // moveX  moveY
-uniform int userInputType;   // 0 = nothing 	1 = temp ...
+uniform vec2 userInputMove; // moveX  moveY
+uniform int userInputType;  // 0 = nothing 	1 = temp ...
 
 uniform vec4 airplaneValues; // xpos   Ypos   throttle   fire
 
 uniform bool wrapHorizontally;
 
-uniform float dryLapse;
 uniform float evapHeat;
 uniform float meltingHeat;
 uniform float condensationRate;
@@ -70,7 +69,7 @@ void main()
 
   float actualTempChange = 0.0, realTemp;
 
-  if (wall[DISTANCE] != 0) { // not wall
+  if (wall[DISTANCE] != 0 || wall[TYPE] == WALLTYPE_WATER) { // not wall, except water
 
     vec4 cellX0Y0 = texture(baseTex, texCoord);
     vec4 cellXmY0 = texture(baseTex, texCoordXmY0);
@@ -86,109 +85,117 @@ void main()
                        (cellX0Ym.y + cellX0Y0.y) / 2.);                                        // center of cell
     vec2 velAtVx = vec2(cellX0Y0.x, (cellX0Ym.y + cellXpY0.y + cellX0Y0.y + cellXpYm.y) / 4.); // midle of right edge of cell
     vec2 velAtVy = vec2((cellXmY0.x + cellX0Yp.x + cellXmYp.x + cellX0Y0.x) / 4.,
-                        cellX0Y0.y);                                                           // midle of top edge of cell
+                        cellX0Y0.y); // midle of top edge of cell
 
     // ADVECT AIR:
 
-    base[VX] = bilerp(baseTex, fragCoord - velAtVx).x;
-    base[VY] = bilerp(baseTex, fragCoord - velAtVy).y;
+    base[VX] = bilerp(baseTex, fragCoord - velAtVx)[VX];
+    base[VY] = bilerp(baseTex, fragCoord - velAtVy)[VY];
 
-    base[PRESSURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
-    base[TEMPERATURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
+    if (wall[DISTANCE] == 0 && wall[TYPE] == WALLTYPE_WATER) { // advect water
 
-    water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
+      vec2 vel = cellX0Y0.xy;
+      // simple
+      // base[VX] = bilerp(baseTex, fragCoord - vel)[VX];
+      // base[VY] = bilerp(baseTex, fragCoord - vel)[VY];
 
-                                                                       //   water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
-    // // precipitation visualization
-    water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05))[PRECIPITATION]; // precipitation visualization advected with flow, and downward
+      base.xy = bilerpWallWater(baseTex, wallTex, fragCoord - velAtP).xy;
 
-    // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
+      base[PRESSURE] = bilerpWallWater(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
+      base[TEMPERATURE] = bilerpWallWater(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
 
-    // vec2 backTracedPos = texCoord; // no flow
+      // correct?
+      // base[VX] = bilerp(baseTex, fragCoord - velAtVx)[VX];
+      // base[VY] = bilerp(baseTex, fragCoord - velAtVy)[VY];
+      // base[PRESSURE] = bilerpWallWater(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
+      // base[TEMPERATURE] = bilerpWallWater(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
 
-    // water.xy = bilerp(waterTex, backTracedPos).xy;
+      // base.xy *= 0.95;
 
-    realTemp = potentialToRealT(base[TEMPERATURE]);
+    } else { // air
+
+      base[PRESSURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
+      base[TEMPERATURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
+
+      water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
+
+      //   water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
+      // // precipitation visualization
+      water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05))[PRECIPITATION]; // precipitation visualization advected with flow, and downward
+
+      // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
+
+      // vec2 backTracedPos = texCoord; // no flow
+
+      // water.xy = bilerp(waterTex, backTracedPos).xy;
+
+      realTemp = potentialToRealT(base[TEMPERATURE]);
 
 
-    //  float excessWater = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate the amount of extra water beyond 100% rel hum, including both vapor and cloud water
-    float excessWater = water[TOTAL] - maxWater(realTemp);
+      //  float excessWater = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate the amount of extra water beyond 100% rel hum, including both vapor and cloud water
+      float excessWater = water[TOTAL] - maxWater(realTemp);
 
-    float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
+      float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
 
-    float condensation;
+      float condensation;
 
-    if (overSaturation < 0.) {                          // evaporation
-      condensation = overSaturation * 0.20;             // evaporation is rapid
-    } else {                                            // condensation
-      condensation = overSaturation * condensationRate; // 0.002 0.25 amount of the oversaturated water vapor that slowly condences
+      if (overSaturation < 0.) {                          // evaporation
+        condensation = overSaturation * 0.20;             // evaporation is rapid
+      } else {                                            // condensation
+        condensation = overSaturation * condensationRate; // 0.002 0.25 amount of the oversaturated water vapor that slowly condences
+      }
+      condensation = max(condensation, -water[CLOUD]); // Prevent cloudwater from going negative
+
+      const float airDens = 1.2;            // kg / m3
+      const float airHeatCap = 1012.0;      // j kg K
+      float realEvapH = 2260. / airHeatCap; // j / g
+
+      float dT = condensation * realEvapH * 1.0; // how much that water phase change would change the temperature
+      base[TEMPERATURE] += dT;
+      realTemp += dT;
+      water[CLOUD] += condensation;
+
+
+      // Radiative cooling and heating effects
+
+      if (texCoord.y > globalEffectsStartAlt && texCoord.y < globalEffectsEndAlt) {
+        water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
+
+        base[TEMPERATURE] += globalHeating;
+
+
+        // apply real sounding
+
+        int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
+
+        float Tdiff = base[TEMPERATURE] - getRealWorldSounding_T(soundingArrayindex);
+        base[TEMPERATURE] -= Tdiff * 0.001 * soundingForcing;
+
+
+        float Wdiff = water[TOTAL] - getRealWorldSounding_W(soundingArrayindex);
+        water[TOTAL] -= Wdiff * 0.001 * soundingForcing;
+
+        base.xy *= 1.0 - map_rangeC(soundingForcing, 0.1, 1.0, 0.0, 0.001); // drag to stabilize with high forcing
+
+        float velDiff = base[VX] - getRealWorldSounding_Vel(soundingArrayindex);
+        base[VX] -= velDiff * map_rangeC(soundingForcing, 0.9, 1.0, 0.0, 0.001);
+
+
+        // if (texCoord.y > 0.93) {
+        //   base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
+        //   water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
+        // }
+      }
+
+      // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
+      // drying !
+
+
+      water[TOTAL] = max(water[TOTAL], 0.0); // prevent water from going negative
     }
-    condensation = max(condensation, -water[CLOUD]);    // Prevent cloudwater from going negative
+  } else { // this is wall
 
-    float dT = condensation * evapHeat * 1.0;           // how much that water phase change would change the temperature
-    base[TEMPERATURE] += dT;
-    realTemp += dT;
-    water[CLOUD] += condensation;
-
-
-    // float newCloudWater = water[CLOUD] + condensation;                             // slowly condence the oversaturated vapor
-
-    // float dWt = max(water[TOTAL] - maxWater(realTemp + dT), 0.0) - overSaturation; // how much that temperature change would change
-    //  the amount of liquid water
-
-    // actualTempChange = dT_saturated(dT, dWt * evapHeat);
-
-    //  base[TEMPERATURE] += actualTempChange; // APPLY LATENT HEAT!
-
-    // realTemp += actualTempChange;
-
-    // float tempC = KtoC(realTemp);
-
-
-    //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
-
-    // float relHum = relativeHumd(realTemp, water[TOTAL]); // not used
-
-    // Radiative cooling and heating effects
-
-    if (texCoord.y > globalEffectsStartAlt && texCoord.y < globalEffectsEndAlt) {
-      water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
-
-      base[TEMPERATURE] += globalHeating;
-
-
-      // apply real sounding
-
-      int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
-
-      float Tdiff = base[TEMPERATURE] - getRealWorldSounding_T(soundingArrayindex);
-      base[TEMPERATURE] -= Tdiff * 0.001 * soundingForcing;
-
-
-      float Wdiff = water[TOTAL] - getRealWorldSounding_W(soundingArrayindex);
-      water[TOTAL] -= Wdiff * 0.001 * soundingForcing;
-
-      base.xy *= 1.0 - map_rangeC(soundingForcing, 0.1, 1.0, 0.0, 0.001); // drag to stabilize with high forcing
-
-      float velDiff = base[VX] - getRealWorldSounding_Vel(soundingArrayindex);
-      base[VX] -= velDiff * map_rangeC(soundingForcing, 0.9, 1.0, 0.0, 0.001);
-
-
-      // if (texCoord.y > 0.93) {
-      //   base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
-      //   water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
-      // }
-    }
-
-    // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
-    // drying !
-
-
-    water[TOTAL] = max(water[TOTAL], 0.0); // prevent water from going negative
-
-  } else {                                 // this is wall
-
-    base = texture(baseTex, texCoord);     // pass trough
+    base = texture(baseTex, texCoord); // pass trough
 
     water = texture(waterTex, texCoord);
 
@@ -212,12 +219,12 @@ void main()
 
       float tempC = KtoC(potentialToRealT(baseX0Yp[TEMPERATURE])); // temperature of cell above
 
-      if (water[SNOW] > 0.0 && tempC > 0.0) {                      // snow melting on ground
+      if (water[SNOW] > 0.0 && tempC > 0.0) { // snow melting on ground
         float snowMelt = min(tempC * snowMeltRate, water[SNOW]);
-        float snowMelt_mass = snowMelt / rainMassToHeight;         // mass of snow melted
+        float snowMelt_mass = snowMelt / rainMassToHeight; // mass of snow melted
         water[SNOW] -= snowMelt;
-        base[TEMPERATURE] += snowMelt_mass * meltingHeat;          // signal snow melting mass, cooling will be applied in pressure shader
-        water[SOIL_MOISTURE] += snowMelt;                          // melting snow adds water to soil
+        base[TEMPERATURE] += snowMelt_mass * meltingHeat; // signal snow melting mass, cooling will be applied in pressure shader
+        water[SOIL_MOISTURE] += snowMelt;                 // melting snow adds water to soil
       }
 
       if (water[SOIL_MOISTURE] > 0.0 && tempC > 0.0) { // water evaporating from ground
@@ -229,8 +236,8 @@ void main()
 
   // USER INPUT:
 
-  bool inBrush = false;           // if cell is in brush area
-  float weight = 1.0;             // 1.0 at center, 0.0 at border
+  bool inBrush = false; // if cell is in brush area
+  float weight = 1.0;   // 1.0 at center, 0.0 at border
 
   if (userInputValues.x < -0.5) { // whole width brush
     if (abs(userInputValues.y - texCoord.y) < userInputValues[BRUSH_SIZE] * texelSize.y)
@@ -257,11 +264,13 @@ void main()
   }
 
   if (inBrush) {
-    if (userInputType == 1) {                                              // temperature
-      base[3] += userInputValues[BRUSH_INTENSITY];
-      if (wall[TYPE] == 2 && wall[DISTANCE] == 0)                          // water wall
-        base[3] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)); // limit water temperature range
-    } else if (userInputType == 2) {                                       // water
+    if (userInputType == 1) { // temperature
+
+      if (wall[TYPE] == WALLTYPE_WATER && wall[DISTANCE] == 0 && texture(wallTex, texCoordX0Ym)[TYPE] != WALLTYPE_WATER)
+        base[TEMPERATURE] = clamp(base[TEMPERATURE], CtoK(0.0), CtoK(maxWaterTemp)) + 0.1;
+      else
+        base[TEMPERATURE] += userInputValues[BRUSH_INTENSITY];
+    } else if (userInputType == 2) { // water
 
 
       //     if ()
@@ -270,10 +279,10 @@ void main()
       // float vaporChange = max(userInputValues[BRUSH_INTENSITY]);
 
 
-      if (water[CLOUD] > 0.0) {                // add as liquid
+      if (water[CLOUD] > 0.0) { // add as liquid
         water[CLOUD] += cloudWaterChange;
         water[CLOUD] = max(water[CLOUD], 0.0); // prevent negative cloudwater
-      }                                        // else {                                 // add as gas
+      } // else {                                 // add as gas
       water[TOTAL] += cloudWaterChange;
       water[TOTAL] = max(water[TOTAL], 0.0);
       // }
@@ -282,7 +291,7 @@ void main()
       water[SMOKE] += userInputValues[BRUSH_INTENSITY];
       water[SMOKE] = min(max(water[SMOKE], 0.0), 2.0);
 
-    } else if (userInputType == 4) {                                                 // drag/move air
+    } else if (userInputType == 4) { // drag/move air
 
       if (userInputValues.x < -0.5) {                                                // whole width brush
         base.x += userInputMove.x * 5.0 * weight * userInputValues[BRUSH_INTENSITY]; // only move horizontally
@@ -294,7 +303,7 @@ void main()
 
         bool setWall = false;
 
-        switch (userInputType) {       // set wall type
+        switch (userInputType) { // set wall type
         case 10:
           wall[TYPE] = WALLTYPE_INERT; // inert wall
           setWall = true;
@@ -314,19 +323,19 @@ void main()
             setWall = true;
           }
           break;
-        case 14:                                               // set urban
+        case 14: // set urban
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_RUNWAY || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_URBAN;
           }
           break;
-        case 15:                                               // set runway
+        case 15: // set runway
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_RUNWAY;
           }
           break;
-        case 16:                                               // set industrial
+        case 16: // set industrial
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_RUNWAY) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[TYPE] = WALLTYPE_INDUSTRIAL;
@@ -338,13 +347,13 @@ void main()
             water[SOIL_MOISTURE] += userInputValues[BRUSH_INTENSITY] * 10.0;
           }
           break;
-        case 21:                                               // add snow
+        case 21: // add snow
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             water[SNOW] += userInputValues[BRUSH_INTENSITY] * 0.5;
           }
           break;
-        case 22:                                               // add vegetation
+        case 22: // add vegetation
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_FIRE || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
             wall[VEGETATION] += 1;                             // add vegetation
@@ -365,7 +374,7 @@ void main()
           }
         }
       } else {
-        if (wall[DISTANCE] == 0) {           // remove wall only if it is a wall and not bottem layer
+        if (wall[DISTANCE] == 0) { // remove wall only if it is a wall and not bottem layer
 
           if (userInputType == 13) {         // fire
             if (wall[TYPE] == WALLTYPE_FIRE) // extinguish fire
@@ -379,15 +388,15 @@ void main()
           } else if (userInputType == 16) {
             if (wall[TYPE] == WALLTYPE_INDUSTRIAL) // remove industry
               wall[TYPE] = WALLTYPE_LAND;
-          } else if (userInputType == 20) {        // remove moisture
+          } else if (userInputType == 20) { // remove moisture
             water[SOIL_MOISTURE] += userInputValues[BRUSH_INTENSITY] * 10.0;
           } else if (userInputType == 21) {
             water[SNOW] += userInputValues[BRUSH_INTENSITY] * 0.5; // remove snow
           } else if (userInputType == 22) {
-            wall[VEGETATION] = max(wall[VEGETATION] - 1, 0);       // remove vegetation
+            wall[VEGETATION] = max(wall[VEGETATION] - 1, 0); // remove vegetation
           } else if (texCoord.y > texelSize.y) {
-            wall[DISTANCE] = 255;                                  // remove wall
-            base[VX] = 0.0;                                        // reset all properties to prevent NaN bug
+            wall[DISTANCE] = 255; // remove wall
+            base[VX] = 0.0;       // reset all properties to prevent NaN bug
             base[VY] = 0.0;
             base[PRESSURE] = 0.0;
             base[TEMPERATURE] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));
@@ -425,7 +434,7 @@ void main()
   vecFromPlane *= resolution.y;                // convert to cell coordinates
 
   if (airplaneValues[3] < 0.0)
-    vecFromPlane += vec2(0., -1.);            // dump water below plane
+    vecFromPlane += vec2(0., -1.); // dump water below plane
 
   float distFromPlane = length(vecFromPlane); // in cells
 

@@ -9,8 +9,7 @@ details. You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-function updateSetupSliders()
-{
+function updateSetupSliders() {
   let simResX = parseInt(simResSelX.value);
   let simResY = parseInt(simResSelY.value);
   let simHeight = parseInt(simHeightSel.value);
@@ -30,8 +29,7 @@ function updateSetupSliders()
 var FPS = 60.0;
 
 
-function mixGeneric(a, b, t, {clamp = false} = {})
-{
+function mixGeneric(a, b, t, { clamp = false } = {}) {
   const clampT = v => (v < 0 ? 0 : v > 1 ? 1 : v);
 
   if (typeof a === 'number' && typeof b === 'number') {
@@ -70,8 +68,7 @@ function mixGeneric(a, b, t, {clamp = false} = {})
 
 const corsUrl = 'https://my-cors-proxy.nielsdaemen747.workers.dev/?url='; // my own proxy worker on cloudfare
 
-async function getSoundingGraphImgUrl(url)
-{
+async function getSoundingGraphImgUrl(url) {
   try {
     const response = await fetch(corsUrl + encodeURIComponent(url));
     const html = await response.text();
@@ -85,8 +82,7 @@ async function getSoundingGraphImgUrl(url)
 }
 
 // Function to scrape table data from the given URL
-async function scrapeTableData(url)
-{
+async function scrapeTableData(url) {
   try {
     const response = await fetch(corsUrl + encodeURIComponent(url));
     const html = await response.text();
@@ -103,14 +99,14 @@ async function scrapeTableData(url)
       const cells = row.querySelectorAll('td');
 
       const rowData = {
-        alt : parseFloat(cells[0].textContent),
-        p : parseFloat(cells[1].textContent),
-        t : parseFloat(cells[2].textContent),
-        tw : parseFloat(cells[3].textContent),
-        td : parseFloat(cells[4].textContent),
-        rh : parseFloat(cells[5].textContent),
-        vel : parseFloat(cells[6].textContent.split(' / ')[1]),
-        angle : parseFloat(cells[6].textContent.split(' / ')[0]),
+        alt: parseFloat(cells[0].textContent),
+        p: parseFloat(cells[1].textContent),
+        t: parseFloat(cells[2].textContent),
+        tw: parseFloat(cells[3].textContent),
+        td: parseFloat(cells[4].textContent),
+        rh: parseFloat(cells[5].textContent),
+        vel: parseFloat(cells[6].textContent.split(' / ')[1]),
+        angle: parseFloat(cells[6].textContent.split(' / ')[0]),
       };
 
       const hasNaN = Object.values(rowData).some(v => Number.isNaN(v));
@@ -125,8 +121,7 @@ async function scrapeTableData(url)
   }
 }
 
-async function loadSounding(stationID, timeStamp)
-{
+async function loadSounding(stationID, timeStamp) {
 
   const imgMapType = 1; // 0 = large classic emagram   1 = small emagram
   const graphPageUrl = 'https://www.meteociel.fr/cartes_obs/sondage_display.php?id=' + stationID + '&map=' + imgMapType + '&date=' + timeStamp;
@@ -144,8 +139,7 @@ async function loadSounding(stationID, timeStamp)
 
 function sampleIsInvalid(s) { return isNaN(s.t) || isNaN(s.td) || isNaN(s.vel); }
 
-function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
-{
+function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes) {
   let soundingForSim = [];
 
   soundingDataIndex = soundingData.length - 1; // start from lowest datapoint
@@ -155,7 +149,7 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
     const inSimAlt = y * (simHeight / sim_res_y);
 
     while (soundingData[soundingDataIndex]['alt'] < inSimAlt ||
-           sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
+      sampleIsInvalid(soundingData[soundingDataIndex])) { // go up in the sounding until the altitude matches, or is more than the in sim altitude
       soundingDataIndex--;
     }
 
@@ -175,7 +169,7 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 
     const inSimVel = msToRawVelocity(twoDimentionalVel / 3.6);      // convert to m/s first
 
-    soundingForSim[y] = {'t' : s.t, 'td' : s.td, 'vel' : inSimVel}; // Put the requered data in an array of objects
+    soundingForSim[y] = { 't': s.t, 'td': s.td, 'vel': inSimVel }; // Put the requered data in an array of objects
   }
 
   // console.log('soundingForSim', soundingForSim);
@@ -186,18 +180,17 @@ function rawSoundingToSimSounding(soundingData, simHeight, inSimSoundingRes)
 var stationSelector;
 
 const presets = [
-  {name : 'Summer storms in northern Italy', location : 'Milan', date : '2025-06-05', hour : 12}, {name : 'Some cells in the Netherlands', location : 'Essen', date : '2016-06-23', hour : 12},
-  {name : 'Supercell in the Netherlands', location : 'De Bilt', date : '2014-06-09', hour : 12}, {name : 'Cold winter on Gotland', location : 'Gotland', date : '2025-01-03', hour : 12},
-  {name : 'Spring cells in Germany', location : 'Stuttgart', date : '2021-06-09', hour : 12}, {name : 'Hot summer in Spain', location : 'Madrid', date : '2018-07-07', hour : 12},
-  {name : 'Double inversion over Sicily', location : 'Sicily', date : '2021-07-14', hour : 12}, {name : 'Low base with CAPE in Rome', location : 'Rome', date : '2021-07-16', hour : 12},
-  {name : 'High low level cape over mediterranean in fall', location : 'Ajaccio', date : '2025-10-23', hour : 12}
+  { name: 'Summer storms in northern Italy', location: 'Milan', date: '2025-06-05', hour: 12 }, { name: 'Some cells in the Netherlands', location: 'Essen', date: '2016-06-23', hour: 12 },
+  { name: 'Supercell in the Netherlands', location: 'De Bilt', date: '2014-06-09', hour: 12 }, { name: 'Cold winter on Gotland', location: 'Gotland', date: '2025-01-03', hour: 12 },
+  { name: 'Spring cells in Germany', location: 'Stuttgart', date: '2021-06-09', hour: 12 }, { name: 'Hot summer in Spain', location: 'Madrid', date: '2018-07-07', hour: 12 },
+  { name: 'Double inversion over Sicily', location: 'Sicily', date: '2021-07-14', hour: 12 }, { name: 'Low base with CAPE in Rome', location: 'Rome', date: '2021-07-16', hour: 12 },
+  { name: 'High low level cape over mediterranean in fall', location: 'Ajaccio', date: '2025-10-23', hour: 12 }
 ];
 
 var startDate;
 var startLatitude;
 
-function createPresetSelect()
-{
+function createPresetSelect() {
   let select = document.getElementById('presetSelect');
 
   //  console.log(presets);
@@ -210,7 +203,7 @@ function createPresetSelect()
   });
   select.value = -1;
 
-  select.onchange = function() {
+  select.onchange = function () {
     let preset = presets[select.selectedIndex];
 
     document.getElementById('datePicker').value = preset.date;
@@ -220,74 +213,81 @@ function createPresetSelect()
     document.getElementById('hourSelector').value = preset.hour;
 
     stationSelector.selectedIndex = Object.keys(soundingStations).indexOf(preset.location);
-    stationSelector.dispatchEvent(new Event('change', {bubbles : true}));
+    stationSelector.dispatchEvent(new Event('change', { bubbles: true }));
 
     prepareSounding();
   };
 }
 
 const soundingStations = {
-  'Andoya' : {id : 1010, lat : 69.1144},
-  'Lapland' : {id : 2836, lat : 67.4160},
-  'Iceland' : {id : 4018, lat : 64.9631},
-  'Trondheim' : {id : 1241, lat : 63.4305},
-  'Helsinki' : {id : 2963, lat : 60.1699},
-  'Stavanger' : {id : 1415, lat : 58.9700},
-  'Gotland' : {id : 2591, lat : 57.6359},
-  'North Sea' : {id : 1400, lat : 56.5333},
-  'Moscow' : {id : 27730, lat : 55.7558},
-  'Gdańsk' : {id : 12120, lat : 54.3520},
-  'Greifswald' : {id : 10184, lat : 54.0833},
-  'Norderney' : {id : 10113, lat : 53.7000},
-  'Hamburg' : {id : 10035, lat : 53.5507},
-  'Nottingham' : {id : 3354, lat : 52.9500},
-  'Bergen(DE)' : {id : 10238, lat : 52.8092},
-  'Meppen' : {id : 10304, lat : 52.7928},
-  'Berlin' : {id : 10393, lat : 52.5235},
-  'Warsaw' : {id : 12374, lat : 52.2297},
-  'De Bilt' : {id : 6260, lat : 52.1085},
-  'Essen' : {id : 10410, lat : 51.4556},
-  'Wroclaw' : {id : 12425, lat : 51.1079},
-  'Brussels' : {id : 6458, lat : 50.8371},
-  'Meiningen' : {id : 10548, lat : 50.5678},
-  'Kraków' : {id : 12575, lat : 50.0647},
-  'Idar-Oberstein' : {id : 10618, lat : 49.7167},
-  'Nuremberg' : {id : 10771, lat : 49.4521},
-  'Paris' : {id : 7145, lat : 48.8567},
-  'Stuttgart' : {id : 10739, lat : 48.7758},
-  'Brest' : {id : 7110, lat : 48.3900},
-  'Vienna' : {id : 11035, lat : 48.2092},
-  'Altenstadt' : {id : 10954, lat : 48.3556},
-  'Munich' : {id : 10868, lat : 48.1333},
-  'peißenberg' : {id : 10962, lat : 47.7975},
-  'Insbruck' : {id : 11120, lat : 47.2692},
-  'Bern' : {id : 6610, lat : 46.9480},
-  'Udine' : {id : 16045, lat : 46.0713},
-  'Zagreb' : {id : 14240, lat : 45.8150},
-  'Milan' : {id : 16064, lat : 45.4642},
-  'Bordeaux' : {id : 7510, lat : 44.8378},
-  'Bologna' : {id : 16144, lat : 44.4968},
-  'Bucharest' : {id : 15420, lat : 44.4268},
-  'Cuneo' : {id : 16113, lat : 44.3843},
-  'Zadar' : {id : 14430, lat : 44.1194},
-  'Montpellier' : {id : 7645, lat : 43.6119},
-  'Barcelona' : {id : 8190, lat : 41.3851},
-  'Ajaccio' : {id : 7761, lat : 41.9192},
-  'Rome' : {id : 16245, lat : 41.9028},
-  'Istanbul' : {id : 17064, lat : 41.0082},
-  'Madrid' : {id : 8221, lat : 40.4168},
-  'Sardinia' : {id : 16546, lat : 40.1209},
-  'Lisbon' : {id : 8536, lat : 38.7223},
-  'Athens' : {id : 16716, lat : 37.9792},
-  'Sicily' : {id : 16429, lat : 37.6000},
-  'Krete' : {id : 16754, lat : 35.2401},
-  'Cyprus' : {id : 17607, lat : 35.1264},
-  'Palestine' : {id : 40179, lat : 32.0853},
-  'Cairo' : {id : 62378, lat : 30.0444},
+  'Andoya - Norway': { id: 1010, lat: 69.1 },
+  'Lapland - Finland': { id: 2836, lat: 67.4 },
+  'Reykjavík (Keflavík) - Iceland': { id: 4018, lat: 64.9 },
+  'Trondheim (Ørland) - Norway': { id: 1241, lat: 63.4 },
+  'Helsinki (Jokioinen) - Finland': { id: 2963, lat: 60.1 },
+  'Stavanger - Norway': { id: 1415, lat: 58.9 },
+  'Gotland - Sweden': { id: 2591, lat: 57.6 },
+  'North Sea (ekofisk) - Norway': { id: 1400, lat: 56.5 },
+  'Moscow (Ryazan) - Russia': { id: 27730, lat: 55.7 },
+  'Flensburg (Schleswig) - Germany': { id: 10035, lat: 54.5 },
+  'Gdańsk (Łeba) - Poland': { id: 12120, lat: 54.3 },
+  'Greifswald - Germany': { id: 10184, lat: 54.0 },
+  'Norderney - Germany': { id: 10113, lat: 53.7 },
+  'Nottingham - UK': { id: 3354, lat: 52.9 },
+  'Hanover (Bergen) - Germany': { id: 10238, lat: 52.8 },
+  'Meppen - Germany': { id: 10304, lat: 52.7 },
+  'Berlin - Germany': { id: 10393, lat: 52.5 },
+  'Warsaw (Legionowo) - Poland': { id: 12374, lat: 52.2 },
+  'Utrecht (De Bilt) - Netherlands': { id: 6260, lat: 52.1 },
+  'Essen - Germany': { id: 10410, lat: 51.4 },
+  'Wroclaw - Poland': { id: 12425, lat: 51.1 },
+  'Brussels - Belgium': { id: 6458, lat: 50.8 },
+  'Meiningen - Germany': { id: 10548, lat: 50.5 },
+  'Kraków (Tarnów) - Poland': { id: 12575, lat: 50.0 },
+  'Idar-Oberstein - Germany': { id: 10618, lat: 49.7 },
+  'Nuremberg - Germany': { id: 10771, lat: 49.4 },
+  'Paris (Trappes) - France': { id: 7145, lat: 48.8 },
+  'Stuttgart - Germany': { id: 10739, lat: 48.7 },
+  'Brest - France': { id: 7110, lat: 48.3 },
+  'Vienna - Austria': { id: 11035, lat: 48.2 },
+  'Munich - Germany': { id: 10868, lat: 48.1 },
+  'Shongau (Altenstadt) - Germany': { id: 10954, lat: 48.3 },
+  'Shongau (Hohenpeißenberg) - Germany': { id: 10962, lat: 47.7 },
+  'Insbruck - Austria': { id: 11120, lat: 47.2 },
+  'Lac de Neuchâtel (Payerne) - Switserland': { id: 6610, lat: 46.9 },
+  'Udine - Italy': { id: 16045, lat: 46.0 },
+  'Zagreb - Croatia': { id: 14240, lat: 45.8 },
+  'Milan - Italy': { id: 16064, lat: 45.4 },
+  'Bordeaux - France': { id: 7510, lat: 44.8 },
+  'Bologna - Italy': { id: 16144, lat: 44.4 },
+  'Bucharest - Romania': { id: 15420, lat: 44.4 },
+  'Cuneo - Italy': { id: 16113, lat: 44.3 },
+  'Zadar - Croatia': { id: 14430, lat: 44.1 },
+  'Montpellier (Nîmes) - France': { id: 7645, lat: 43.6 },
+  'Barcelona - Spain': { id: 8190, lat: 41.3 },
+  'Corsica (Ajaccio) - France': { id: 7761, lat: 41.9 },
+  'Rome (Pratica di Mare) - Italy': { id: 16245, lat: 41.9 },
+  'Istanbul - Türkiye': { id: 17064, lat: 41.0 },
+  'Sardinia (Decimomannu) - Italy': { id: 16546, lat: 40.5 },
+  'Madrid - Spain': { id: 8221, lat: 40.4168 },
+  'Mallorca - Spain': { id: 8302, lat: 40.4 },
+  'Lecce - Italy': { id: 16332, lat: 40.3 },
+  'Lisbon - Portugal': { id: 8536, lat: 38.7 },
+  'Murcia - Spain': { id: 8430, lat: 38.0 },
+  'Athens - Greece': { id: 16716, lat: 37.9 },
+  'Huelva - Spain': { id: 8383, lat: 37.2 },
+  'Sicily (Trapani) - Italy': { id: 16429, lat: 37.6 },
+  'Tunis - Tunesia': { id: 60715, lat: 36.8 },
+  'Algiers (Dar El Beïda) - Algeria': { id: 60390, lat: 36.7 },
+  'Tozeur - Tunesia': { id: 60760, lat: 33.9 },
+  'Krete - Greece': { id: 16754, lat: 35.2 },
+  'Nicosia (athalassa) - Cyprus': { id: 17607, lat: 35.1 },
+  'Jaffa - Palestine': { id: 40179, lat: 32.0 },
+  'Cairo - Egypt': { id: 62378, lat: 30.0 },
+  'Tabuk - Saudi Arabia': { id: 40375, lat: 28.4 },
 };
 
-function createStationSelect()
-{
+function createStationSelect() {
   let select = document.getElementById('stationSelect');
 
   for (const [key, value] of Object.entries(soundingStations)) {
@@ -298,13 +298,13 @@ function createStationSelect()
   }
   select.value = 16064; // Milan
 
-  select.onchange = function() {
+  select.onchange = function () {
     startLatitude = Object.values(soundingStations)[select.selectedIndex].lat;
     prepareSounding();
   };
 
   let datePicker = document.getElementById('datePicker');
-  datePicker.onchange = function() {
+  datePicker.onchange = function () {
     startDate = new Date(datePicker.value);
     prepareSounding();
   };
@@ -343,67 +343,68 @@ const mToFt = 3.28084;
 const saveFileVersionID = 263574036; // Uint32 id to check if save file is compatible
 
 const guiControls_default = {
-  vorticity : 0.005,
-  dragMultiplier : 0.001, // 0.01
-  wind : 0.0,
-  globalEffectsStartAlt : 0,
-  globalEffectsEndAlt : 10000,
-  globalDrying : 0.000000, // 0.000010
-  globalHeating : 0.0,
-  soundingForcing : 0.0,
-  sunIntensity : 1.0,
-  waterTemperature : 25.0, // °C
-  dynamicWaterTemperature : true,
-  landEvaporation : 0.00005,
-  waterEvaporation : 0.0001,
-  evapHeat : 2.90,          //  Real: 2260 J/g
-  meltingHeat : 0.43,       //  Real:  334 J/g
-  condensationRate : 0.0050,
-  waterWeight : 0.25,       // 0.50
-  inactiveDroplets : 0,
-  aboveZeroThreshold : 1.0, // PRECIPITATION
-  subZeroThreshold : 0.005, // 0.01
-  spawnChance : 0.00005,    // 30. 10 to 50
-  snowDensity : 0.2,        // 0.3
-  fallSpeed : 0.0003,
-  growthRate0C : 0.0001,    // 0.0005
-  growthRate_30C : 0.001,   // 0.01
-  freezingRate : 0.01,
-  meltingRate : 0.01,
-  evapRate : 0.0008, // 0.0005
-  displayMode : 'DISP_REAL',
-  wrapHorizontally : true,
-  SmoothCam : true,
-  camSpeed : 0.01,
-  exposure : 1.0,
-  timeOfDay : 9.9,
-  latitude : 45.0,
-  month : 6.65, // Northern hemisphere summer solstice
-  sunAngle : 9.9,
-  dayNightCycle : true,
-  accelerateNight : true,
-  greenhouseGases : 0.0010,
-  waterGreenHouseEffect : 0.0023,
-  IR_rate : 1.0,
-  tool : 'TOOL_NONE',
-  brushSize : 20,
-  wholeWidth : false,
-  brushIntensity : 0.01,
-  allowCaves : true,
-  showGraph : false,
-  realDewPoint : false, // show real dew point in graph, instead of dew point with cloud water included
-  enablePrecipitation : true,
-  showDrops : false,
-  paused : false,
-  IterPerFrame : 10,
-  auto_IterPerFrame : true,
-  sound : true,
-  dryLapseRate : 10.0,     // Real: 9.8 degrees / km
-  simHeight : 12000,       // meters
-  twelveHourClock : false, // only for display.  false = metric
-  lengthUnit : 'LENGTH_UNIT_METRIC',
-  tempUnit : 'TEMP_UNIT_C',
-  windUnit : 'SPEED_UNIT_KMH',
+  vorticity: 0.006,
+  dragMultiplier: 0.001, // 0.01
+  wind: 0.0,
+  globalEffectsStartAlt: 10000,
+  globalEffectsEndAlt: 12000,
+  globalDrying: 0.000010, // 0.000010
+  globalHeating: 0.0,
+  soundingForcing: 0.0,
+  sunIntensity: 1.0,
+  waterTemperature: 25.0, // °C
+  dynamicWaterTemperature: true,
+  landEvaporation: 0.00005,
+  waterEvaporation: 0.0001,
+  evapHeat: 2.260,         //  Real: 2260 J/g
+  meltingHeat: 1.334,       //  Real:  334 J/g
+  condensationRate: 0.5000, // 0.0050
+  waterWeight: 0.25,        // 0.50
+  inactiveDroplets: 0,
+  aboveZeroThreshold: 1.0,  // PRECIPITATION
+  subZeroThreshold: 0.005,  // 0.01
+  spawnChance: 0.00008,     // 30. 10 to 50
+  snowDensity: 0.5,         // 0.3
+  fallSpeed: 0.0003,
+  growthRate0C: 0.0001,     // 0.0005
+  growthRate_30C: 0.0015,    // 0.01
+  freezingRate: 0.01,
+  meltingRate: 0.01,
+  evapRate: 0.0008, // 0.0005
+  displayMode: 'DISP_REAL',
+  wrapHorizontally: true,
+  SmoothCam: true,
+  camSpeed: 0.01,
+  exposure: 1.0,
+  timeOfDay: 9.9,
+  latitude: 45.0,
+  month: 6.65, // Northern hemisphere summer solstice
+  sunAngle: 9.9,
+  dayNightCycle: true,
+  accelerateNight: true,
+  greenhouseGases: 0.0010,
+  waterGreenHouseEffect: 0.0023,
+  IR_rate: 1.0,
+  tool: 'TOOL_NONE',
+  brushSize: 20,
+  wholeWidth: false,
+  brushIntensity: 0.01,
+  allowCaves: true,
+  showGraph: false,
+  realDewPoint: false, // show real dew point in graph, instead of dew point with cloud water included
+  smoothColorScales: true,
+  enablePrecipitation: true,
+  showDrops: false,
+  paused: false,
+  IterPerFrame: 10,
+  auto_IterPerFrame: true,
+  sound: true,
+  dryLapseRate: 10.0,     // Real: 9.8 degrees / km
+  simHeight: 12000,       // meters
+  twelveHourClock: false, // only for display.  false = metric
+  lengthUnit: 'LENGTH_UNIT_METRIC',
+  tempUnit: 'TEMP_UNIT_C',
+  windUnit: 'SPEED_UNIT_KMH',
 };
 
 var horizontalDisplayMult = 3.0; // 3.0 to cover srceen while zoomed out
@@ -476,22 +477,19 @@ layerAvgDensFBO_new = 1;
 
 function clamp(num, min, max) { return Math.min(Math.max(num, min), max); }
 
-function screenToSimX(screenX)
-{
+function screenToSimX(screenX) {
   let leftEdge = canvas.width / 2.0 - (canvas.width * cam.curZoom) / 2.0;
   let rightEdge = canvas.width / 2.0 + (canvas.width * cam.curZoom) / 2.0;
   return map_range(screenX, leftEdge, rightEdge, 0.0, 1.0) - cam.curXpos / 2.0;
 }
 
-function screenToSimY(screenY)
-{
+function screenToSimY(screenY) {
   let topEdge = canvas.height / 2.0 - ((canvas.width / sim_aspect) * cam.curZoom) / 2.0;
   let bottemEdge = canvas.height / 2.0 + ((canvas.width / sim_aspect) * cam.curZoom) / 2.0;
   return map_range(screenY, bottemEdge, topEdge, 0.0, 1.0) - (cam.curYpos / 2.0) * sim_aspect;
 }
 
-function simToScreenX(simX)
-{
+function simToScreenX(simX) {
   simX += 0.5;
   simX /= sim_res_x;
   let leftEdge = canvas.width / 2.0 - (canvas.width * cam.curZoom) / 2.0;
@@ -499,8 +497,7 @@ function simToScreenX(simX)
   return map_range(simX + cam.curXpos / 2.0, 0.0, 1.0, leftEdge, rightEdge);
 }
 
-function simToScreenY(simY)
-{
+function simToScreenY(simY) {
   simY += 0.5; // center in cell
   simY /= sim_res_y;
   let topEdge = canvas.height / 2.0 - ((canvas.width / sim_aspect) * cam.curZoom) / 2.0;
@@ -508,8 +505,7 @@ function simToScreenY(simY)
   return map_range(simY + (cam.curYpos / 2.0) * sim_aspect, 0.0, 1.0, bottemEdge, topEdge);
 }
 
-function download(filename, data)
-{
+function download(filename, data) {
   var url = URL.createObjectURL(data);
   const element = document.createElement('a');
   element.setAttribute('href', url);
@@ -522,8 +518,7 @@ function download(filename, data)
 
 // Universal Functions
 
-function mod(a, b)
-{
+function mod(a, b) {
   // proper modulo to handle negative numbers
   return ((a % b) + b) % b;
 }
@@ -541,8 +536,7 @@ function KtoC(K) { return K - 273.15; }
 function CtoF(C) { return C * 1.8 + 32.0; }
 
 
-function dT_saturated(dTdry, dTl)
-{
+function dT_saturated(dTdry, dTl) {
   // dTl = temperature difference because of latent heat
   // if (dTl == 0.0)
   //   return dTdry;
@@ -554,13 +548,11 @@ function dT_saturated(dTdry, dTl)
 
 const IR_constant = 5.670374419; // ×10−8
 
-function IR_emitted(T)
-{
+function IR_emitted(T) {
   return Math.pow(T * 0.01, 4) * IR_constant; // Stefan–Boltzmann law
 }
 
-function IR_temp(IR)
-{
+function IR_temp(IR) {
   // inversed Stefan–Boltzmann law
   return Math.pow(IR / IR_constant, 1.0 / 4.0) * 100.0;
 }
@@ -569,14 +561,12 @@ function IR_temp(IR)
 const wf_devider = 250.0;
 const wf_pow = 17.0;
 
-function maxWater(Td)
-{
+function maxWater(Td) {
   return Math.pow(Td / wf_devider,
-                  wf_pow); // w = ((Td)/(250))^(18) // Td in Kelvin, w in grams per m^3
+    wf_pow); // w = ((Td)/(250))^(18) // Td in Kelvin, w in grams per m^3
 }
 
-function dewpoint(W)
-{
+function dewpoint(W) {
   //  if (W < 0.00001) // can't remember why this was here...
   //    return 0.0;
   //  else
@@ -587,28 +577,26 @@ function relativeHumd(T, W) { return (W / maxWater(T)) * 100.0; }
 
 // Print funtions:
 
-function convertTempToSelectedUnit(tempC)
-{
+function convertTempToSelectedUnit(tempC) {
   switch (guiControls.tempUnit) {
-  case 'TEMP_UNIT_C':
-    return tempC;
-  case 'TEMP_UNIT_F':
-    return CtoF(tempC);
-  case 'TEMP_UNIT_K':
-    return (tempC + 273.15);
+    case 'TEMP_UNIT_C':
+      return tempC;
+    case 'TEMP_UNIT_F':
+      return CtoF(tempC);
+    case 'TEMP_UNIT_K':
+      return (tempC + 273.15);
   }
 }
 
-function printTemp(tempC)
-{
+function printTemp(tempC) {
   let tempStr = convertTempToSelectedUnit(tempC).toFixed(1);
   switch (guiControls.tempUnit) {
-  case 'TEMP_UNIT_C':
-    return tempStr + '°C';
-  case 'TEMP_UNIT_F':
-    return tempStr + '°F';
-  case 'TEMP_UNIT_K':
-    return tempStr + ' K';
+    case 'TEMP_UNIT_C':
+      return tempStr + '°C';
+    case 'TEMP_UNIT_F':
+      return tempStr + '°F';
+    case 'TEMP_UNIT_K':
+      return tempStr + ' K';
   }
 }
 
@@ -620,16 +608,14 @@ function msToMPH(ms) { return ms * 2.23694; };
 
 function knotsToMs(kt) { return kt * 0.514444; };
 
-function printSnowHeight(snowHeight_cm)
-{
+function printSnowHeight(snowHeight_cm) {
   if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     return mmToIn(snowHeight_cm).toFixed(1) + '"'; // inches
   } else
     return snowHeight_cm.toFixed(1) + ' cm';
 }
 
-function printSoilMoisture(soilMoisture_mm)
-{
+function printSoilMoisture(soilMoisture_mm) {
   if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     return mmToIn(soilMoisture_mm).toFixed(1) + '"'; // inches
   } else
@@ -637,8 +623,7 @@ function printSoilMoisture(soilMoisture_mm)
 }
 
 
-function printDistance(m)
-{
+function printDistance(m) {
   if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     let miles = m * kmToMil / 1000;
     let ft = m * mToFt;
@@ -649,8 +634,7 @@ function printDistance(m)
   }
 }
 
-function printAltitude(meters)
-{
+function printAltitude(meters) {
   if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
     let feet = meters * mToFt;
     return feet.toFixed() + ' ft';
@@ -658,37 +642,34 @@ function printAltitude(meters)
     return meters.toFixed() + ' m';
 }
 
-function convertVelocityToSelectedUnit(ms)
-{
+function convertVelocityToSelectedUnit(ms) {
   switch (guiControls.speedUnit) {
-  case 'SPEED_UNIT_KMH':
-    return ms * 3.6;
-  case 'SPEED_UNIT_MS':
-    return ms;
-  case 'SPEED_UNIT_MPH':
-    return msToMPH(ms);
-  case 'SPEED_UNIT_KT':
-    return msToKnots(ms);
+    case 'SPEED_UNIT_KMH':
+      return ms * 3.6;
+    case 'SPEED_UNIT_MS':
+      return ms;
+    case 'SPEED_UNIT_MPH':
+      return msToMPH(ms);
+    case 'SPEED_UNIT_KT':
+      return msToKnots(ms);
   }
 }
 
-function printVelocity(ms)
-{
+function printVelocity(ms) {
   let velStr = convertVelocityToSelectedUnit(ms).toFixed();
   switch (guiControls.speedUnit) {
-  case 'SPEED_UNIT_KMH':
-    return velStr + ' km/h';
-  case 'SPEED_UNIT_MS':
-    return velStr + ' m/s';
-  case 'SPEED_UNIT_MPH':
-    return velStr + ' MPH';
-  case 'SPEED_UNIT_KT':
-    return velStr + ' kt';
+    case 'SPEED_UNIT_KMH':
+      return velStr + ' km/h';
+    case 'SPEED_UNIT_MS':
+      return velStr + ' m/s';
+    case 'SPEED_UNIT_MPH':
+      return velStr + ' MPH';
+    case 'SPEED_UNIT_KT':
+      return velStr + ' kt';
   }
 }
 
-function printVerticalVelocity(ms)
-{
+function printVerticalVelocity(ms) {
   let veloStr = ms >= 0. ? '+' : '';
   let unitStr = '';
 
@@ -699,19 +680,17 @@ function printVerticalVelocity(ms)
     veloStr += ms.toFixed(1);
     unitStr = ' m/s';
   }
-  return [ veloStr, unitStr ];
+  return [veloStr, unitStr];
 }
 
-function rawVelocityTo_ms(vel)
-{                          // Raw velocity is in cells/iteration
+function rawVelocityTo_ms(vel) {                          // Raw velocity is in cells/iteration
   vel /= timePerIteration; // convert to cells per hour
   vel *= cellHeight;       // convert to meters per hour
   vel /= 3600.0;           // convert to m/s
   return vel;
 }
 
-function msToRawVelocity(vel)
-{                          // Raw velocity is in cells/iteration
+function msToRawVelocity(vel) {                          // Raw velocity is in cells/iteration
   vel *= 3600;             // convert to meters per hour
   vel /= cellHeight;       // convert to cells per hour
   vel *= timePerIteration; // convert to raw (cells per iteration)
@@ -731,8 +710,7 @@ class Vec2D // simple 2D vector
 {
   x;
   y;
-  constructor(x = 0, y = 0)
-  {
+  constructor(x = 0, y = 0) {
     this.x = x;
     this.y = y;
   }
@@ -746,26 +724,22 @@ class Vec2D // simple 2D vector
   }
 
   copy() { return new Vec2D(this.x, this.y); }
-  add(other)
-  {
+  add(other) {
     this.x += other.x;
     this.y += other.y;
     return this;
   }
-  subtract(other)
-  {
+  subtract(other) {
     this.x -= other.x;
     this.y -= other.y;
     return this;
   }
-  mult(mult)
-  {
+  mult(mult) {
     this.x *= mult;
     this.y *= mult;
     return this;
   }
-  div(div)
-  {
+  div(div) {
     this.x /= div;
     this.y /= div;
     return this;
@@ -798,8 +772,7 @@ class FBO // wraps texture, frambuffer and info in one
   texture;
   frameBuffer;
 
-  constructor(w, h, internalFormat, format, type, texFilter, wrapMode_S)
-  {
+  constructor(w, h, internalFormat, format, type, texFilter, wrapMode_S) {
     this.width = w;
     this.height = h;
     gl.activeTexture(gl.TEXTURE0);
@@ -828,8 +801,7 @@ class FBO // wraps texture, frambuffer and info in one
 
 function createHdrFBO() { hdrFBO = new FBO(canvas.width, canvas.height, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR); }
 
-function createBloomFBOs()
-{
+function createBloomFBOs() {
   let res = new Vec2D(canvas.width, canvas.height);
 
   bloomFBOs.length = 0;           // empty array
@@ -848,8 +820,7 @@ function createBloomFBOs()
 }
 
 
-function createAmbientLightFBOs()
-{
+function createAmbientLightFBOs() {
   emittedLightFBO = new FBO(sim_res_x, sim_res_y, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, gl.LINEAR);
 
   let res = new Vec2D(sim_res_x, sim_res_y);
@@ -869,8 +840,7 @@ function createAmbientLightFBOs()
   }
 }
 
-class Weatherstation
-{
+class Weatherstation {
   #width = 120; // 100 display size
   #height = 70; // 55
   #mainDiv;
@@ -901,8 +871,7 @@ class Weatherstation
   #displaySunAndIRPower;
 
 
-  constructor(xIn, yIn)
-  {
+  constructor(xIn, yIn) {
     this.#x = Math.floor(xIn);
     this.#y = Math.floor(yIn);
     this.#mainDiv = document.createElement('div');
@@ -924,7 +893,7 @@ class Weatherstation
     this.#displaySunAndIRPower = false;
 
     let thisObj = this;
-    this.#canvas.addEventListener('mousedown', function(event) {
+    this.#canvas.addEventListener('mousedown', function (event) {
       if (event.button == 0) {     // left mouse button
         if (guiControls.tool == 'TOOL_STATION') {
           thisObj.destroy();       // remove weather station
@@ -939,13 +908,12 @@ class Weatherstation
       }
     });
 
-    this.#canvas.addEventListener('contextmenu', function(event) { event.preventDefault(); }); // Prevent the browser's context menu from appearing
+    this.#canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); }); // Prevent the browser's context menu from appearing
 
     this.createChartJSCanvas();
   }
 
-  createChartJSCanvas()
-  {
+  createChartJSCanvas() {
     this.#chartCanvas = document.createElement('canvas');
 
     this.#mainDiv.appendChild(this.#chartCanvas);
@@ -967,82 +935,82 @@ class Weatherstation
 
 
     this.#historyChart = new Chart(ctx, {
-      type : 'line',
-      data : {
-        labels : [], // Time-based labels
-        datasets : [
+      type: 'line',
+      data: {
+        labels: [], // Time-based labels
+        datasets: [
           {
-            label : 'Temperature',
-            data : [],
-            backgroundColor : 'rgba(255, 0, 0, 0.9)',
-            borderColor : 'rgba(255, 0, 0, 1)',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
+            label: 'Temperature',
+            data: [],
+            backgroundColor: 'rgba(255, 0, 0, 0.9)',
+            borderColor: 'rgba(255, 0, 0, 1)',
+            radius: 0,
+            borderWidth: 1,
+            fill: false,
           },
           {
-            label : 'Dew Point',
-            data : [],
-            backgroundColor : '#00FFFF',
-            borderColor : '#00FFFF',
-            radius : 0,
-            borderWidth : 1,
-            fill : false,
+            label: 'Dew Point',
+            data: [],
+            backgroundColor: '#00FFFF',
+            borderColor: '#00FFFF',
+            radius: 0,
+            borderWidth: 1,
+            fill: false,
           },
-          {label : 'Wind Speed', data : [], backgroundColor : '#AAAAAA', borderColor : '#AAAAAA', radius : 0, borderWidth : 1, fill : false, hidden : true},                            //
-          {label : 'Air Quality', data : [], backgroundColor : '#803c00', borderColor : '#803c00', radius : 0, borderWidth : 1, fill : false, hidden : true},                           //
-          {label : 'Precipitation', data : [], backgroundColor : '#0055FF', borderColor : '#0055FF', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true},    //
-          {label : 'Snow Height', data : [], backgroundColor : '#FFFFFF', borderColor : '#FFFFFF', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true},      //
-          {label : 'Water Temperature', data : [], backgroundColor : '#406cff', borderColor : '#406cff', radius : 0, borderWidth : 1, fill : false, hidden : true, reallyHidden : true} //
+          { label: 'Wind Speed', data: [], backgroundColor: '#AAAAAA', borderColor: '#AAAAAA', radius: 0, borderWidth: 1, fill: false, hidden: true },                            //
+          { label: 'Air Quality', data: [], backgroundColor: '#803c00', borderColor: '#803c00', radius: 0, borderWidth: 1, fill: false, hidden: true },                           //
+          { label: 'Precipitation', data: [], backgroundColor: '#0055FF', borderColor: '#0055FF', radius: 0, borderWidth: 1, fill: false, hidden: true, reallyHidden: true },    //
+          { label: 'Snow Height', data: [], backgroundColor: '#FFFFFF', borderColor: '#FFFFFF', radius: 0, borderWidth: 1, fill: false, hidden: true, reallyHidden: true },      //
+          { label: 'Water Temperature', data: [], backgroundColor: '#406cff', borderColor: '#406cff', radius: 0, borderWidth: 1, fill: false, hidden: true, reallyHidden: true } //
         ]
       },
-      options : {
-        scales : {
-          x : {
-            type : 'time', // Set the x-axis to use a time scale
-            time : {unit : 'minute', tooltipFormat : 'HH:mm'},
-            title : {
-              display : true,
-              color : 'white' // Make sure title color is white
+      options: {
+        scales: {
+          x: {
+            type: 'time', // Set the x-axis to use a time scale
+            time: { unit: 'minute', tooltipFormat: 'HH:mm' },
+            title: {
+              display: true,
+              color: 'white' // Make sure title color is white
             },
-            ticks : {
-              color : 'white' // White color for the x-axis labels
+            ticks: {
+              color: 'white' // White color for the x-axis labels
             },
-            grid : {
-              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            grid: {
+              color: 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
             }
           },
-          y : {
-            beginAtZero : false, // Start the y-axis at 0
-            ticks : {
-              color : 'white'    // White color for the y-axis labels
+          y: {
+            beginAtZero: false, // Start the y-axis at 0
+            ticks: {
+              color: 'white'    // White color for the y-axis labels
             },
-            title : {
-              display : true,
-              color : 'white' // Make sure title color is white
+            title: {
+              display: true,
+              color: 'white' // Make sure title color is white
             },
-            grid : {
-              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            grid: {
+              color: 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
             }
           }
         },
-        plugins : {
-          legend : {
-            display : true,
-            labels : {
-              color : 'white', // White color for legend text
-              font : {
-                size : 14,
-                family : 'Arial' // Optional: Ensure font family is set
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: 'white', // White color for legend text
+              font: {
+                size: 14,
+                family: 'Arial' // Optional: Ensure font family is set
               },
-              filter : function(item, chart) { return !chart.datasets[item.datasetIndex].reallyHidden; }
+              filter: function (item, chart) { return !chart.datasets[item.datasetIndex].reallyHidden; }
             }
           }
         },
-        responsive : false, // Auto rescale on canvas resize
-        maintainAspectRatio : false,
-        animation : false,  // Disables all animations
-        normalized : true
+        responsive: false, // Auto rescale on canvas resize
+        maintainAspectRatio: false,
+        animation: false,  // Disables all animations
+        normalized: true
         // parsing : false
       }
     });
@@ -1079,23 +1047,20 @@ class Weatherstation
     }
   }
 
-  clearChart()
-  {
+  clearChart() {
     this.#historyChart.data.datasets.forEach(dataSet => { dataSet.data = []; });
     this.#historyChart.data.labels = [];
     this.#historyChart.update();
   }
 
-  destroy()
-  {
+  destroy() {
     this.#chartCanvas.remove();
     this.#canvas.parentElement.removeChild(this.#canvas); // remove canvas element
     let index = weatherStations.indexOf(this);
     weatherStations.splice(index, 1);                     // remove object from array
   }
 
-  measure()
-  {
+  measure() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
     gl.readBuffer(gl.COLOR_ATTACHMENT0); // basetexture
     var baseTextureValues = new Float32Array(4 * 3);
@@ -1194,14 +1159,12 @@ class Weatherstation
 
   getYpos() { return this.#y; }
 
-  setHidden(hidden)
-  {
+  setHidden(hidden) {
     this.#mainDiv.style.display = hidden ? 'none' : 'block';
     this.#chartCanvas.style.display = 'none'; // hide charts
   }
 
-  updateCanvas()
-  {
+  updateCanvas() {
     let screenX = simToScreenX(this.#x) - this.#width / 2;
     let screenY = simToScreenY(this.#y) - this.#height;
 
@@ -1267,8 +1230,7 @@ class Weatherstation
 
 let weatherStations = []; // array holding all weather stations
 
-class GlobalWaterChart
-{
+class GlobalWaterChart {
   #width = 120; // 100 display size
   #height = 70; // 55
   #mainDiv;
@@ -1286,8 +1248,7 @@ class GlobalWaterChart
   #chartCanvas;
   #historyChart;
 
-  constructor()
-  {
+  constructor() {
     this.#mainDiv = document.createElement('div');
     document.body.appendChild(this.#mainDiv);
 
@@ -1300,8 +1261,7 @@ class GlobalWaterChart
     this.createChartJSCanvas();
   }
 
-  createChartJSCanvas()
-  {
+  createChartJSCanvas() {
     this.#chartCanvas = document.createElement('canvas');
 
     this.#mainDiv.appendChild(this.#chartCanvas);
@@ -1323,65 +1283,65 @@ class GlobalWaterChart
 
 
     this.#historyChart = new Chart(ctx, {
-      type : 'line',
-      data : {
-        labels : [],                                                                                                                                      // Time-based labels
-        datasets : [
-          {label : 'Total', data : [], backgroundColor : '#ff0000', borderColor : '#ff0000', radius : 0, borderWidth : 1, fill : false, hidden : true},   //
-          {label : 'Vapor', data : [], backgroundColor : '#b4faff', borderColor : '#b4faff', radius : 0, borderWidth : 1, fill : false, hidden : false},  //
-          {label : 'Cloud', data : [], backgroundColor : '#ffffff', borderColor : '#ffffff', radius : 0, borderWidth : 1, fill : false, hidden : false},  //
-          {label : 'Precip', data : [], backgroundColor : '#0044ff', borderColor : '#0044ff', radius : 0, borderWidth : 1, fill : false, hidden : false}, //
-          {label : 'Soil', data : [], backgroundColor : '#803c00', borderColor : '#803c00', radius : 0, borderWidth : 1, fill : false, hidden : false}    //
+      type: 'line',
+      data: {
+        labels: [],                                                                                                                                      // Time-based labels
+        datasets: [
+          { label: 'Total', data: [], backgroundColor: '#ff0000', borderColor: '#ff0000', radius: 0, borderWidth: 1, fill: false, hidden: true },   //
+          { label: 'Vapor', data: [], backgroundColor: '#b4faff', borderColor: '#b4faff', radius: 0, borderWidth: 1, fill: false, hidden: false },  //
+          { label: 'Cloud', data: [], backgroundColor: '#ffffff', borderColor: '#ffffff', radius: 0, borderWidth: 1, fill: false, hidden: false },  //
+          { label: 'Precip', data: [], backgroundColor: '#0044ff', borderColor: '#0044ff', radius: 0, borderWidth: 1, fill: false, hidden: false }, //
+          { label: 'Soil', data: [], backgroundColor: '#803c00', borderColor: '#803c00', radius: 0, borderWidth: 1, fill: false, hidden: false }    //
         ]
       },
-      options : {
-        scales : {
-          x : {
-            type : 'time', // Set the x-axis to use a time scale
-            time : {unit : 'minute', tooltipFormat : 'HH:mm'},
-            title : {
-              display : true,
-              color : 'white' // Make sure title color is white
+      options: {
+        scales: {
+          x: {
+            type: 'time', // Set the x-axis to use a time scale
+            time: { unit: 'minute', tooltipFormat: 'HH:mm' },
+            title: {
+              display: true,
+              color: 'white' // Make sure title color is white
             },
-            ticks : {
-              color : 'white' // White color for the x-axis labels
+            ticks: {
+              color: 'white' // White color for the x-axis labels
             },
-            grid : {
-              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            grid: {
+              color: 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
             }
           },
-          y : {
-            beginAtZero : true, // Start the y-axis at 0
-            min : 0,
-            ticks : {
-              color : 'white' // White color for the y-axis labels
+          y: {
+            beginAtZero: true, // Start the y-axis at 0
+            min: 0,
+            ticks: {
+              color: 'white' // White color for the y-axis labels
             },
-            title : {
-              display : true,
-              color : 'white' // Make sure title color is white
+            title: {
+              display: true,
+              color: 'white' // Make sure title color is white
             },
-            grid : {
-              color : 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
+            grid: {
+              color: 'rgba(255, 255, 255, 0.2)' // Optional: light white for grid lines
             }
           }
         },
-        plugins : {
-          legend : {
-            display : true,
-            labels : {
-              color : 'white', // White color for legend text
-              font : {
-                size : 14,
-                family : 'Arial' // Optional: Ensure font family is set
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              color: 'white', // White color for legend text
+              font: {
+                size: 14,
+                family: 'Arial' // Optional: Ensure font family is set
               },
-              filter : function(item, chart) { return !chart.datasets[item.datasetIndex].reallyHidden; }
+              filter: function (item, chart) { return !chart.datasets[item.datasetIndex].reallyHidden; }
             }
           }
         },
-        responsive : false, // Auto rescale on canvas resize
-        maintainAspectRatio : false,
-        animation : false,  // Disables all animations
-        normalized : true
+        responsive: false, // Auto rescale on canvas resize
+        maintainAspectRatio: false,
+        animation: false,  // Disables all animations
+        normalized: true
         // parsing : false
       }
     });
@@ -1407,15 +1367,13 @@ class GlobalWaterChart
     }
   }
 
-  clearChart()
-  {
+  clearChart() {
     this.#historyChart.data.datasets.forEach(dataSet => { dataSet.data = []; });
     this.#historyChart.data.labels = [];
     this.#historyChart.update();
   }
 
-  measure()
-  {
+  measure() {
     if (this.#hidden)
       return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
@@ -1486,8 +1444,7 @@ class GlobalWaterChart
     this.updateChartJS(); // update chart
   }
 
-  toggleHidden()
-  {
+  toggleHidden() {
     this.#hidden = !this.#hidden;
     this.#mainDiv.style.display = this.#hidden ? 'none' : 'block';
     this.#chartCanvas.style.display = this.#hidden ? 'none' : 'block';
@@ -1496,8 +1453,7 @@ class GlobalWaterChart
 
 let globalWaterChart;
 
-async function loadData()
-{
+async function loadData() {
   let file = document.getElementById('fileInput').files[0];
 
   if (file) {                                                    // load data from save file
@@ -1511,7 +1467,7 @@ async function loadData()
       // the end of the file
       let fileUint8Arr = new Uint8Array(fileArrBuf);        // convert to Uint8Array for pako
       let decompressed = window.pako.inflate(fileUint8Arr); // uncompress
-      let dataBlob = new Blob([ decompressed ]);            // turn into blob
+      let dataBlob = new Blob([decompressed]);            // turn into blob
 
       let sliceStart = 0;
       let sliceEnd = 4;
@@ -1608,8 +1564,7 @@ async function loadData()
   }
 }
 
-function loadImage(url)
-{
+function loadImage(url) {
   return new Promise((resolve, reject) => {
     let img = new Image();
     img.onload = () => resolve(img);
@@ -1618,16 +1573,14 @@ function loadImage(url)
   });
 }
 
-class LoadingBar
-{
+class LoadingBar {
   #loadingBar;
   #bar;
   #underBar;
   #percent;
   #description;
 
-  constructor(percentIn)
-  {
+  constructor(percentIn) {
     if (percentIn == null)
       this.percent = 0;
     else
@@ -1665,29 +1618,25 @@ class LoadingBar
     document.body.appendChild(this.loadingBar);
   }
 
-  async add(num, text)
-  {
+  async add(num, text) {
     this.percent += num;
     this.description = text;
     await this.#update();
   }
 
-  async set(num, text)
-  {
+  async set(num, text) {
     this.percent = num;
     this.description = text;
     await this.#update();
   }
 
-  async showError(error)
-  {
+  async showError(error) {
     this.bar.style.backgroundColor = 'red';
     this.description = error;
     await this.#update();
   }
 
-  #update()
-  {
+  #update() {
     return new Promise((resolve) => {
       this.bar.style.width = this.percent + '%';
       this.bar.innerHTML = this.percent + ' %';
@@ -1705,8 +1654,7 @@ class LoadingBar
 }
 
 
-function setLoadingBar()
-{
+function setLoadingBar() {
   return new Promise((resolve) => {
     var element = document.getElementById('IntroScreen');
     element.parentNode.removeChild(element); // remove introscreen div
@@ -1721,8 +1669,7 @@ function setLoadingBar()
 
 var soundingData;
 
-async function prepareSounding()
-{
+async function prepareSounding() {
   const dateSel = document.getElementById('datePicker');
   const date = new Date(dateSel.value);
   let epochTime = Math.floor(date.getTime() / 1000);
@@ -1735,16 +1682,14 @@ async function prepareSounding()
   soundingData = await loadSounding(stationSelector.options[stationSelector.selectedIndex].value, epochTime);
 }
 
-async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops)
-{
+async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initialRainDrops) {
   await setLoadingBar();
 
   let lastSaveTime = new Date();
 
   globalWaterChart = new GlobalWaterChart();
 
-  class Camera
-  {
+  class Camera {
     #spring = 0.02;   // 0.02
     #damp = 0.70;     // 0.70
     wrapHorizontally; // bool
@@ -1760,8 +1705,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #Yvel;
     #Zvel;
 
-    constructor()
-    {
+    constructor() {
       this.curXpos = 0;
       this.curXposLin = 0;
       this.curYpos = -0.5 + sim_res_y / sim_res_x; // viewYpos = -0.5 + sim_res_y / sim_res_x;// match bottem of sim area to bottem of screen
@@ -1776,8 +1720,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#Zvel = 0;
     }
 
-    center()
-    {
+    center() {
       this.tarXpos = this.curXpos = this.curXposLin = 0.0;
       this.tarYpos = this.curYpos = -0.5 + sim_res_y / sim_res_x;
       this.tarZoom = this.curZoom = 1.0001;
@@ -1786,14 +1729,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#Zvel = 0;
     }
 
-    changeCurXpos(change)
-    {
+    changeCurXpos(change) {
       this.curXposLin = this.curXposLin + change;
       this.curXpos = mod(this.curXposLin + 1.0, 2.0) - 1.0;
     }
 
-    setPosition(x, y, zoom)
-    {
+    setPosition(x, y, zoom) {
       this.curXpos = this.tarXpos = x;
       this.curYpos = this.tarYpos = y;
 
@@ -1801,8 +1742,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         this.curZoom = this.tarZoom = zoom;
     }
 
-    move()
-    {
+    move() {
       let xDif = this.tarXpos - this.curXposLin;
       let yDif = this.tarYpos - this.curYpos;
       let zoomDif = this.tarZoom - this.curZoom;
@@ -1829,12 +1769,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    changeViewZoom(change)
-    {
+    changeViewZoom(change) {
       this.tarZoom *= 1.0 + change;
 
-      let minZoom = 0.5;
-      let maxZoom = 35.0 * sim_aspect;
+      let minZoom = 0.1;
+      let maxZoom = 55.0 * sim_aspect;
 
       if (this.tarZoom > maxZoom) {
         this.tarZoom = maxZoom;
@@ -1847,17 +1786,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    changeViewXpos(change)
-    {
+    changeViewXpos(change) {
       this.tarXpos += change;
       if (!this.wrapHorizontally)
-        this.tarXpos = clamp(this.tarXpos, -0.99, 0.99);
+        this.tarXpos = clamp(this.tarXpos, -4.99, 4.99);
     }
 
-    changeViewYpos(change) { this.tarYpos = clamp(this.tarYpos + change, -2.50, 0.50); }
+    changeViewYpos(change) { this.tarYpos = clamp(this.tarYpos + change, -20.50, 20.50); }
 
-    zoomAtMousePos(delta)
-    {
+    zoomAtMousePos(delta) {
       if (cam.changeViewZoom(delta)) {
         // zoom center at mouse position
         var mousePositionZoomCorrectionX = (((mouseX - canvas.width / 2 + this.tarXpos) * delta) / cam.tarZoom / canvas.width) * 2.0;
@@ -1870,19 +1807,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   cam = new Camera();
 
-  class JetEngineSoundGenerator
-  {
+  class JetEngineSoundGenerator {
     constructor(ctx) { this.audioCtx = ctx; }
 
-    createSource(bufferSize)
-    {
+    createSource(bufferSize) {
       const bufferSource = this.audioCtx.createBufferSource();
       bufferSource.buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
       return bufferSource;
     }
 
-    createLowNoiseSource()
-    {
+    createLowNoiseSource() {
       const bufferSize = 20 * this.audioCtx.sampleRate;
       const bufferSource = this.createSource(bufferSize);
       const data = bufferSource.buffer.getChannelData(0);
@@ -1893,8 +1827,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       return bufferSource;
     }
 
-    start()
-    {
+    start() {
       // High-pitch turbine whine
       this.lowWhine = this.audioCtx.createOscillator();
       this.lowWhine.type = "sine";
@@ -1931,8 +1864,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.lowNoiseSource.start();
     }
 
-    update(N1, dist, horizontalAngle)
-    {
+    update(N1, dist, horizontalAngle) {
       const rpm = N1 * 7000;
       const whineFreq = 100 + rpm * 1.0; // 300 + rpm * 0.8;
       const noiseFreq = N1 * 600;        // 200 + N1 * 300;
@@ -1954,14 +1886,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.mix.gain.value = 170.0 / dist;
     }
 
-    mute()
-    {
+    mute() {
       if (this.mix)
         this.mix.gain.value = 0.;
     }
 
-    stop()
-    {
+    stop() {
       this.mix.gain.value = 0;
       this.lowWhine.stop();
       this.highWhine.stop();
@@ -1969,8 +1899,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  class SoundSystem
-  {
+  class SoundSystem {
     audioCtx;
     jetEngineSound;
 
@@ -1984,8 +1913,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     wind_sound;
 
 
-    constructor()
-    {
+    constructor() {
       this.audioCtx = new window.AudioContext();
       this.jetEngineSound = new JetEngineSoundGenerator(this.audioCtx);
       // load sound files asynchronously
@@ -1999,15 +1927,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.loadSound('wind.m4a').then(buffer => { this.wind_sound = this.playLoop(buffer, 0.0); });
     }
 
-    async loadSound(url)
-    {
+    async loadSound(url) {
       const resp = await fetch('resources/sounds/' + url);
       const arrayBuffer = await resp.arrayBuffer();
       return await this.audioCtx.decodeAudioData(arrayBuffer);
     }
 
-    async loadThunderSounds(name, num)
-    {
+    async loadThunderSounds(name, num) {
       const soundPromises = [];
       for (let i = 1; i <= num; i++) {
         const filename = name + `${i}.m4a`;
@@ -2016,8 +1942,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       return await Promise.all(soundPromises);
     }
 
-    soundThunder(x, y, intensity)
-    {
+    soundThunder(x, y, intensity) {
       let camXnorm = 1. - (cam.curXpos + 1.0) / 2.0;
 
       let camDistFromSim = cellHeight * sim_res_x * 0.5 / cam.curZoom; // asuming 90° HFOV
@@ -2044,8 +1969,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.playOnce(randomThunderSound, intensity / (distance * 0.001), leftRightBalance, soundDelay);
     }
 
-    playOnce(buffer, volume = 1, leftRightBalance = 0, delay = 0)
-    {
+    playOnce(buffer, volume = 1, leftRightBalance = 0, delay = 0) {
       const src = this.audioCtx.createBufferSource();
       const gain = this.audioCtx.createGain();
       const pan = this.audioCtx.createStereoPanner();
@@ -2057,8 +1981,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       src.start(this.audioCtx.currentTime + delay);
     }
 
-    playLoop(buffer, volume = 1, leftRightBalance = 0)
-    {
+    playLoop(buffer, volume = 1, leftRightBalance = 0) {
       const src = this.audioCtx.createBufferSource();
       const gain = this.audioCtx.createGain();
       const pan = this.audioCtx.createStereoPanner();
@@ -2068,11 +1991,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       pan.pan.value = clamp(leftRightBalance, -1., 1.);
       src.connect(gain).connect(pan).connect(this.audioCtx.destination);
       src.start();
-      return {gain : gain.gain, pan : pan.pan};
+      return { gain: gain.gain, pan: pan.pan };
     }
 
-    updateAmbientSound(Xpos, Ypos, zoom)
-    {
+    updateAmbientSound(Xpos, Ypos, zoom) {
       let camDistFromSim = cellHeight * sim_res_x * 0.5 / zoom; // asuming 90° HFOV
 
       if (camDistFromSim < 5000) {
@@ -2180,8 +2102,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    setSoundLeftRight(sound, L, R)
-    {
+    setSoundLeftRight(sound, L, R) {
       let gain = Math.max(L, R);
       if (gain == 0) {
         this.setSoundGainAndPan(sound, 0, 0);
@@ -2191,8 +2112,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.setSoundGainAndPan(sound, gain, pan);
     }
 
-    setSoundGainAndPan(sound, gain, pan = 0.0)
-    {
+    setSoundGainAndPan(sound, gain, pan = 0.0) {
       if (!sound)
         return;
 
@@ -2200,8 +2120,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       sound.pan.value = Number.isFinite(pan) ? pan : 0;
     }
 
-    mute()
-    {
+    mute() {
       this.setSoundGainAndPan(this.forest_sound, 0);
       this.setSoundGainAndPan(this.beach_sound, 0);
       this.setSoundGainAndPan(this.urban_sound, 0);
@@ -2213,14 +2132,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   // AIRPLANE
 
-  class PIDController
-  {
+  class PIDController {
     #previousValue;
     #previousError;
     integral;
 
-    constructor(kp, ki, kd, iThreshold)
-    {
+    constructor(kp, ki, kd, iThreshold) {
       this.kp = kp; // Proportional gain
       this.ki = ki; // Integral gain
       this.kd = kd; // Derivative gain
@@ -2228,15 +2145,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.resetState();
     }
 
-    resetState()
-    {
+    resetState() {
       this.#previousValue = 0;
       this.#previousError = 0;
       this.integral = 0;
     }
 
-    update(setpoint, measuredValue)
-    {
+    update(setpoint, measuredValue) {
       const error = setpoint - measuredValue;
 
       const derivative = error - this.#previousError;
@@ -2262,8 +2177,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  class Autopilot
-  {
+  class Autopilot {
     mode;
     autoThrottleEnabled;
     targetPitch;
@@ -2275,8 +2189,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     #instrumentPanel;
     #airplane;
 
-    constructor(airplane)
-    {
+    constructor(airplane) {
       this.#airplane = airplane;
       // PID for altitude to pitch
       this.altitudePID = new PIDController(0.04, 0.00003, 20.0, 100.0);
@@ -2304,53 +2217,51 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     setAutoThrottle(ATHR_state) { this.autoThrottleEnabled = ATHR_state; }
 
-    resetState()
-    {
+    resetState() {
       this.altitudePID.resetState();
       this.pitchPID.resetState();
       this.speedPID.resetState();
       this.glideslopePID.resetState();
     }
 
-    update(pitchAttitude, altitude, trueVel, IAS, vecToRunway, gearOnGround)
-    {
+    update(pitchAttitude, altitude, trueVel, IAS, vecToRunway, gearOnGround) {
       let targetIAS = this.targetIAS;
 
       switch (this.mode) {
 
-      case 'ALTITUDE':
-        this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
+        case 'ALTITUDE':
+          this.targetPitch = clamp(this.altitudePID.update(this.targetAltitude, altitude) + 3.0, -6.0, 10.0); // add 3.0 degree pitch bias
 
-        this.targetPitch *= 1.0 - Math.abs(trueVel.y) * 0.03;                                               // limit vertical speed
+          this.targetPitch *= 1.0 - Math.abs(trueVel.y) * 0.03;                                               // limit vertical speed
 
-        break;
-      case 'AUTOLAND':
+          break;
+        case 'AUTOLAND':
 
-        if (vecToRunway.x <= 4000) {
-          this.#airplane.setGear(true);
-        }
+          if (vecToRunway.x <= 4000) {
+            this.#airplane.setGear(true);
+          }
 
-        let currentGlideslope = trueVel.angle() * radToDeg;
-        let adjustedTargetGlideslope = 0.0;
+          let currentGlideslope = trueVel.angle() * radToDeg;
+          let adjustedTargetGlideslope = 0.0;
 
-        if (vecToRunway.x <= 200) {
-          adjustedTargetGlideslope = Math.max((vecToRunway.y - 10) * -0.08, -2.0); // flare
-          // targetGlideslope = Math.max(targetGlideslope, currentGlideslope); // prevent acelerating down when entering at shallow angle
-          targetIAS = 0.0;
+          if (vecToRunway.x <= 200) {
+            adjustedTargetGlideslope = Math.max((vecToRunway.y - 10) * -0.08, -2.0); // flare
+            // targetGlideslope = Math.max(targetGlideslope, currentGlideslope); // prevent acelerating down when entering at shallow angle
+            targetIAS = 0.0;
 
-        } else {
+          } else {
 
-          let slopeToRunway = vecToRunway.angle() * radToDeg;
+            let slopeToRunway = vecToRunway.angle() * radToDeg;
 
-          adjustedTargetGlideslope = this.targetGlideslope + clamp((slopeToRunway - this.targetGlideslope) * 3.0, -5.0, 3.0); // move towards ideal glideslope
+            adjustedTargetGlideslope = this.targetGlideslope + clamp((slopeToRunway - this.targetGlideslope) * 3.0, -5.0, 3.0); // move towards ideal glideslope
 
-          targetIAS = map_range_C(vecToRunway.x, 2000, 15000, 95, 128);                                                       // target speed depend on distance to runway
-          this.#instrumentPanel.setTargetIAS(msToKnots(targetIAS));
-        }
+            targetIAS = map_range_C(vecToRunway.x, 2000, 15000, 95, 128);                                                       // target speed depend on distance to runway
+            this.#instrumentPanel.setTargetIAS(msToKnots(targetIAS));
+          }
 
-        this.targetPitch = clamp(this.glideslopePID.update(adjustedTargetGlideslope, currentGlideslope) + 0.0, -6.0, 10.0);
+          this.targetPitch = clamp(this.glideslopePID.update(adjustedTargetGlideslope, currentGlideslope) + 0.0, -6.0, 10.0);
 
-        break;
+          break;
       }
 
 
@@ -2368,19 +2279,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       //  console.log(this.#desiredPitch, pitchAttitude, elevator);
 
-      return [ elevator, throttle ];
+      return [elevator, throttle];
     }
   }
 
-  class N1Indicator
-  {
+  class N1Indicator {
     container;
     percentText;
     fillArc;
     arcLength;
 
-    constructor(parentElement)
-    {
+    constructor(parentElement) {
       this.container = document.createElement('div');
       this.container.innerHTML += `
           <svg class="gauge" viewBox="0 90 320 90" aria-hidden="true">
@@ -2400,8 +2309,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       parentElement.appendChild(this.container);
     }
 
-    getColor(p)
-    {
+    getColor(p) {
       if (p < 80) {
         const ratio = p / 80;
         const r = Math.round(0 + ratio * 255);
@@ -2417,8 +2325,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    update(N1)
-    {
+    update(N1) {
       const p = N1 * 100.;
       this.percentText.textContent = p.toFixed(1) + '%';
       this.fillArc.style.stroke = this.getColor(p);
@@ -2427,8 +2334,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  class InstrumentPanel
-  {
+  class InstrumentPanel {
     #instrumentCanvas;
     #panelImg;
     #targetAltInput;
@@ -2443,8 +2349,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     // dependencies:
     #autopilot
 
-    constructor(autopilot)
-    {
+    constructor(autopilot) {
       this.#autopilot = autopilot;
       this.#panelDiv = document.createElement('div');
       this.#instrumentCanvas = document.createElement('canvas');
@@ -2461,8 +2366,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       body.appendChild(this.#panelDiv);
     }
 
-    setDisplaySideRight(right)
-    {
+    setDisplaySideRight(right) {
       if (right) {
         this.#panelDiv.style.right = 0;
         this.#panelDiv.style.left = 'auto';
@@ -2472,8 +2376,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    setMode_AUTOLAND(on)
-    {
+    setMode_AUTOLAND(on) {
       if (on) {
         this.#autopilot.setMode('AUTOLAND');
         this.#altHoldButton.checked = false;
@@ -2482,8 +2385,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    setMode_ALTITUDE(on)
-    {
+    setMode_ALTITUDE(on) {
       if (on) {
         this.#autopilot.setMode('ALTITUDE');
         this.#autolandButton.checked = false;
@@ -2494,8 +2396,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     setAutoThrottle(ATHR_state) { this.#autopilot.setAutoThrottle(ATHR_state); }
 
-    genAutopilotBar(panelDiv)
-    {
+    genAutopilotBar(panelDiv) {
       const container = document.createElement('div');
 
       const speedLabel = document.createElement('label');
@@ -2563,7 +2464,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#autolandButton.type = 'checkbox';
       this.#autolandButton.id = 'autoland';
       this.#autolandButton.className = 'airbus-switch';
-      this.#autolandButton.addEventListener('change', e => {this.setMode_AUTOLAND(e.target.checked)});
+      this.#autolandButton.addEventListener('change', e => { this.setMode_AUTOLAND(e.target.checked) });
       container.appendChild(this.#autolandButton);
 
       let autolandLabel = document.createElement('label');
@@ -2577,7 +2478,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#altHoldButton.type = 'checkbox';
       this.#altHoldButton.id = 'althold';
       this.#altHoldButton.className = 'airbus-switch';
-      this.#altHoldButton.addEventListener('change', e => {this.setMode_ALTITUDE(e.target.checked)});
+      this.#altHoldButton.addEventListener('change', e => { this.setMode_ALTITUDE(e.target.checked) });
       container.appendChild(this.#altHoldButton);
 
       let altLabel = document.createElement('label');
@@ -2627,16 +2528,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     getTargetIAS() { return knotsToMs(this.#targetIASInput.value); }
     getTargetGlideslope() { return -this.#targetGlideslopeInput.value; }
 
-    remove()
-    {
+    remove() {
       this.#instrumentCanvas.remove();
       this.#panelDiv.remove()
     }
 
     async loadImages() { this.#panelImg = await loadImage('resources/img/Panel.png'); }
 
-    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, N1, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, vecToRunway, brake)
-    {
+    async display(pitchAngle, airAngle, altitude, radarAltitude, IAS, trueVel, OAT_C, throttle, N1, elevator, targetPitch, autopilotEn, gearStatus, runwayPointer, vecToRunway, brake) {
       let ctx = this.#instrumentCanvas.getContext('2d');
       let width = this.#instrumentCanvas.width - 50;
       let height = this.#instrumentCanvas.height;
@@ -2729,8 +2628,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
       let unit = ' m'
 
-      if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL')
-      {
+      if (guiControls.lengthUnit == 'LENGTH_UNIT_IMPERIAL') {
         altitude *= mToFt;
         radarAltitude *= mToFt;
         targetAltitude *= mToFt;
@@ -2921,8 +2819,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const dt = 1. / FPS;
 
-  class PhysicsObject
-  {        // 2D PhysicsObject
+  class PhysicsObject {        // 2D PhysicsObject
     m;     // mass in kg
     I;     // moment of inertia
     pos;   // in meters
@@ -2930,8 +2827,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     angle; // radians
     aVel;  // angular velocity in rad/s
 
-    constructor(m, I, x, y, vx, vy)
-    {
+    constructor(m, I, x, y, vx, vy) {
       this.m = m;
       this.I = I;
       this.pos = new Vec2D(x, y);
@@ -2950,18 +2846,17 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         let angleToCm = pos.angle();      // angle to center of mass
 
-                                          // console.log(F);
+        // console.log(F);
         F.rotate(-angleToCm); // make force vector perpendicular to vector to center off mass
 
-                              // console.log('After rotating ', F, angleToCm * radToDeg);
+        // console.log('After rotating ', F, angleToCm * radToDeg);
 
         let torque = -F.y * pos.mag(); // if force perpendicular to vector from center, mult by dist from center
         this.aVel += torque / this.I;
       }
     }
 
-    move(directionIsLeft)
-    {
+    move(directionIsLeft) {
       let movementPerFrame = this.vel.copy();
       movementPerFrame.mult(dt);
       if (!directionIsLeft)
@@ -2972,22 +2867,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  class JetEngine
-  {
+  class JetEngine {
     N1;     // 0. to 1.
     thrust; // 0. to 1.
     starting;
     started;
 
-    constructor()
-    {
+    constructor() {
       this.N1 = 0.186;
       this.starting = false;
       this.started = true;
     }
 
-    toggle()
-    {
+    toggle() {
       if (this.started) {
         this.stop();
       } else {
@@ -2995,21 +2887,18 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    start()
-    {
+    start() {
       if (!this.started) {
         this.starting = true;
       }
     }
 
-    stop()
-    {
+    stop() {
       this.started = false;
       this.starting = false;
     }
 
-    update(throttle)
-    {
+    update(throttle) {
       if (this.starting) {
         this.N1 += 0.00008;
         this.N1 *= 1.006;
@@ -3028,8 +2917,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  class Airplane
-  {
+  class Airplane {
     #instrumentPanel;
     #autopilot;
 
@@ -3062,8 +2950,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     phys; // physics object, containing all physical properties including position and velocity
 
-    getClosestRunwayPos()
-    {
+    getClosestRunwayPos() {
       let Xpos = Math.floor(mod(this.phys.pos.x / cellHeight, sim_res_x));
       // let Ypos = Math.floor(clamp(this.phys.pos.y / cellHeight + 1.0, 100, sim_res_y - 1));
 
@@ -3104,8 +2991,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       return new Vec2D(0, 0);
     }
 
-    constructor()
-    {
+    constructor() {
       this.#camFollow = true;
       this.phys = new PhysicsObject(1, 1, 0, 0);
       this.phys.pos.x = -99.0;
@@ -3120,14 +3006,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#runwayThresholdPos = new Vec2D(0, 0);
     }
 
-    toggleCamFollow()
-    {
+    toggleCamFollow() {
       if (airplaneMode)
         this.#camFollow = !this.#camFollow;
     }
 
-    enableAirplaneMode(autopilotEn)
-    {
+    enableAirplaneMode(autopilotEn) {
       this.#autopilot = new Autopilot(this);
       this.setAutopilot(autopilotEn);
       this.#instrumentPanel = new InstrumentPanel(this.#autopilot);
@@ -3169,8 +3053,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       soundSystem.jetEngineSound.start();
     }
 
-    changeDirection()
-    {
+    changeDirection() {
       if (this.directionIsLeft) {
         if (!confirm('Do you want to change the flight direction to Right?'))
           return;
@@ -3183,8 +3066,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       this.#runwayThresholdPos = this.getClosestRunwayPos();
     }
 
-    disableAirplaneMode()
-    {
+    disableAirplaneMode() {
       airplaneMode = false;
       this.#framesSinceCrash = -1;
       this.phys.pos.x = -99.0;
@@ -3198,15 +3080,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     getN1() { return this.jetEngine ? this.jetEngine.N1 : 0.0; }
 
-    onUpPressed()
-    {
+    onUpPressed() {
       if (this.throttle == 0.) {
         this.throttle = +0.01;
       }
     }
 
-    onDownPressed()
-    {
+    onDownPressed() {
       if (this.throttle == 0.) {
         this.throttle = -0.01;
       }
@@ -3218,8 +3098,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     toggleGear() { this.setGear(this.#gearStatus == 'UP'); }
 
-    setGear(boolDown)
-    {
+    setGear(boolDown) {
       if (boolDown) {
         if (this.#gearStatus == 'UP')
           this.#gearStatus = 'EXTENDING';
@@ -3247,8 +3126,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       return 1.0 - Math.cos(2 * AOA);
     }
 
-    move()
-    {
+    move() {
       if (this.#framesSinceCrash >= 0) {
         this.#framesSinceCrash++;
         if (this.#framesSinceCrash > 30)
@@ -3476,8 +3354,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     hasCrashed() { return this.#framesSinceCrash >= 0; }
 
-    setAutopilot(enabledIn)
-    {
+    setAutopilot(enabledIn) {
       document.body.style.cursor = enabledIn ? 'default' : 'crosshair';
       this.#autopilotEnabled = enabledIn;
 
@@ -3488,8 +3365,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    calcVecToRunway()
-    {
+    calcVecToRunway() {
       if (this.directionIsLeft) {
         let distToRunwayY = this.phys.pos.y - this.#runwayThresholdPos.y;
         let distToRunwayX = 0;
@@ -3517,8 +3393,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
     }
 
-    takeUserInput()
-    {
+    takeUserInput() {
       this.prevThrottle = this.throttle;
 
       if (upPressed) {
@@ -3568,11 +3443,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       }
 
       this.throttle = clamp(this.throttle, (this.#gearOnGround && (this.prevThrottle < 0. || this.#autopilot.autoThrottleEnabled || gp)) ? -0.3 : 0.0,
-                            (this.prevThrottle > 0. || this.#autopilot.autoThrottleEnabled || gp) ? 1.0 : 0.0);
+        (this.prevThrottle > 0. || this.#autopilot.autoThrottleEnabled || gp) ? 1.0 : 0.0);
     }
 
-    display()
-    {
+    display() {
       let normXpos = this.phys.pos.x / cellHeight / sim_res_x;
       let normYpos = (this.phys.pos.y / cellHeight + 1.0) / sim_res_y;
 
@@ -3591,8 +3465,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       let vecToRunway = this.calcVecToRunway();
 
       this.#instrumentPanel.display(this.phys.angle * radToDeg, this.#relVelAngle * radToDeg, this.phys.pos.y, this.#radarAltitude, this.#IAS, this.phys.vel, this.#OAT, this.throttle * 100.0,
-                                    this.jetEngine.N1, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway,
-                                    this.#braking);
+        this.jetEngine.N1, this.elevator, this.#autopilot.targetPitch, this.#autopilotEnabled, this.#gearStatus, vecToRunway.angle() * radToDeg, vecToRunway,
+        this.#braking);
     }
   }
 
@@ -3603,15 +3477,15 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   canvas = document.getElementById('mainCanvas');
 
   var contextAttributes = {
-    alpha : false,
-    desynchronized : false,
-    antialias : true,
-    depth : false,
-    failIfMajorPerformanceCaveat : false,
-    powerPreference : 'high-performance',
-    premultipliedAlpha : true, // true
-    preserveDrawingBuffer : false,
-    stencil : false,
+    alpha: false,
+    desynchronized: false,
+    antialias: true,
+    depth: false,
+    failIfMajorPerformanceCaveat: false,
+    powerPreference: 'high-performance',
+    premultipliedAlpha: true, // true
+    preserveDrawingBuffer: false,
+    stencil: false,
   };
   gl = canvas.getContext('webgl2', contextAttributes);
   // console.log(gl.getContextAttributes());
@@ -3646,8 +3520,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  function setGuiUniforms()
-  { // set all uniforms to new values
+  function setGuiUniforms() { // set all uniforms to new values
     gl.useProgram(boundaryProgram);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'), guiControls.vorticity);
     gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
@@ -3690,12 +3563,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
   }
 
-  function setupDatGui(strGuiControls)
-  {
+  function setupDatGui(strGuiControls) {
     datGui = new dat.GUI();
     guiControls = JSON.parse(strGuiControls); // load settings object
 
     guiControls.tool = 'TOOL_NONE';
+    guiControls.paused = true; // start paused
 
     cam.wrapHorizontally = guiControls.wrapHorizontally;
     cam.smooth = guiControls.SmoothCam;
@@ -3712,9 +3585,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       datGui.hide();
     }
     // add functions to guicontrols object
-    guiControls.download = function() { prepareDownload(); };
+    guiControls.download = function () { prepareDownload(); };
 
-    guiControls.resetSettings = function() {
+    guiControls.resetSettings = function () {
       if (confirm('Are you sure you want to reset all settings to default?')) {
         datGui.destroy();                                 // remove datGui completely
         setupDatGui(JSON.stringify(guiControls_default)); // generate new one with new settings
@@ -3727,35 +3600,35 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     var fluidParams_folder = datGui.addFolder('Fluid');
 
     fluidParams_folder.add(guiControls, 'vorticity', 0.0, 0.010, 0.001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'), guiControls.vorticity);
       })
       .name('Vorticity');
 
     fluidParams_folder.add(guiControls, 'dragMultiplier', 0.0, 1.0, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(velocityProgram);
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'dragMultiplier'), guiControls.dragMultiplier);
       })
       .name('Drag');
 
     fluidParams_folder.add(guiControls, 'wind', -1.0, 1.0, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(velocityProgram);
         gl.uniform1f(gl.getUniformLocation(velocityProgram, 'wind'), guiControls.wind);
       })
       .name('Wind');
 
     fluidParams_folder.add(guiControls, 'globalDrying', 0.0, 0.0001, 0.000001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalDrying'), guiControls.globalDrying);
       })
       .name('Global Drying');
 
     fluidParams_folder.add(guiControls, 'globalHeating', -0.001, 0.001, 0.00001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'globalHeating'), guiControls.globalHeating);
       })
@@ -3763,14 +3636,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     // , 0, 1.0, 0.01
     fluidParams_folder.add(guiControls, 'soundingForcing', 0, 1.0, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'soundingForcing'), guiControls.soundingForcing);
       })
       .name('Sounding Forcing');
 
     fluidParams_folder.add(guiControls, 'globalEffectsEndAlt', 0, guiControls.simHeight, 10)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         if (guiControls.globalEffectsEndAlt < guiControls.globalEffectsStartAlt) {
           guiControls.globalEffectsStartAlt = guiControls.globalEffectsEndAlt;
@@ -3782,7 +3655,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .name('Apply below altitude');
 
     fluidParams_folder.add(guiControls, 'globalEffectsStartAlt', 0, guiControls.simHeight, 10)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         if (guiControls.globalEffectsStartAlt > guiControls.globalEffectsEndAlt) {
           guiControls.globalEffectsEndAlt = guiControls.globalEffectsStartAlt;
@@ -3799,21 +3672,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     UI_folder
       .add(guiControls, 'tool', {
-        'Flashlight' : 'TOOL_NONE',
-        'Temperature' : 'TOOL_TEMPERATURE',
-        'Water Vapor / Cloud' : 'TOOL_WATER',
-        'Land' : 'TOOL_WALL_LAND',
-        'Lake / Sea' : 'TOOL_WALL_SEA',
-        'Urban' : 'TOOL_WALL_URBAN',
-        'Runway' : 'TOOL_WALL_RUNWAY',
-        'Industrial' : 'TOOL_WALL_INDUSTRIAL',
-        'Fire' : 'TOOL_WALL_FIRE',
-        'Smoke / Dust' : 'TOOL_SMOKE',
-        'Soil Moisture' : 'TOOL_WALL_MOIST',
-        'Vegetation' : 'TOOL_VEGETATION',
-        'Snow' : 'TOOL_WALL_SNOW',
-        'Wind' : 'TOOL_WIND',
-        'Weather Station' : 'TOOL_STATION',
+        'Flashlight': 'TOOL_NONE',
+        'Temperature': 'TOOL_TEMPERATURE',
+        'Water Vapor / Cloud': 'TOOL_WATER',
+        'Land': 'TOOL_WALL_LAND',
+        'Lake / Sea': 'TOOL_WALL_SEA',
+        'Urban': 'TOOL_WALL_URBAN',
+        'Runway': 'TOOL_WALL_RUNWAY',
+        'Industrial': 'TOOL_WALL_INDUSTRIAL',
+        'Fire': 'TOOL_WALL_FIRE',
+        'Smoke / Dust': 'TOOL_SMOKE',
+        'Soil Moisture': 'TOOL_WALL_MOIST',
+        'Vegetation': 'TOOL_VEGETATION',
+        'Snow': 'TOOL_WALL_SNOW',
+        'Wind': 'TOOL_WIND',
+        'Weather Station': 'TOOL_STATION',
       })
       .name('Tool')
       .listen();
@@ -3821,7 +3694,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     UI_folder.add(guiControls, 'wholeWidth').name('Whole Width Brush').listen();
     UI_folder.add(guiControls, 'brushIntensity', 0.005, 0.05, 0.001).name('Brush Intensity');
     UI_folder.add(guiControls, 'allowCaves')
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'allowCaves'), guiControls.allowCaves ? 1 : 0);
       })
@@ -3835,29 +3708,29 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     radiation_folder.add(guiControls, 'accelerateNight').name('Accelerate Night').listen();
 
-    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1).onChange(function() { updateSunlight(); }).name('Latitude').listen();
+    radiation_folder.add(guiControls, 'latitude', -90.0, 90.0, 0.1).onChange(function () { updateSunlight(); }).name('Latitude').listen();
 
     radiation_folder.add(guiControls, 'month', 1.0, 12.99, 0.01).onChange(onUpdateMonthSlider).name('Month').listen();
 
     radiation_folder.add(guiControls, 'sunAngle', -10.0, 190.0, 0.1)
-      .onChange(function() {
+      .onChange(function () {
         updateSunlight('MANUAL_ANGLE');
         guiControls.dayNightCycle = false;
       })
       .name('Sun Angle')
       .listen();
 
-    radiation_folder.add(guiControls, 'sunIntensity', 0.0, 2.0, 0.01).onChange(function() { updateSunlight('MANUAL_ANGLE'); }).name('Sun Intensity');
+    radiation_folder.add(guiControls, 'sunIntensity', 0.0, 2.0, 0.01).onChange(function () { updateSunlight('MANUAL_ANGLE'); }).name('Sun Intensity');
 
     radiation_folder.add(guiControls, 'greenhouseGases', 0.0, 0.01, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(lightingProgram);
         gl.uniform1f(gl.getUniformLocation(lightingProgram, 'greenhouseGases'), guiControls.greenhouseGases);
       })
       .name('Greenhouse Gases');
 
     radiation_folder.add(guiControls, 'waterGreenHouseEffect', 0.0, 0.01, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(lightingProgram);
         gl.uniform1f(gl.getUniformLocation(lightingProgram, 'waterGreenHouseEffect'), guiControls.waterGreenHouseEffect);
       })
@@ -3874,7 +3747,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     var water_folder = datGui.addFolder('Water');
 
     water_folder.add(guiControls, 'waterTemperature', 0.0, 40.0, 0.1)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'), CtoK(guiControls.waterTemperature));
         gl.useProgram(lightingProgram);
@@ -3882,25 +3755,25 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Lake / Sea Temperature (°C)');
 
-    water_folder.add(guiControls, 'dynamicWaterTemperature').name('Dynamic Water Temperature').onChange(function() {
+    water_folder.add(guiControls, 'dynamicWaterTemperature').name('Dynamic Water Temperature').onChange(function () {
       gl.useProgram(boundaryProgram);
       gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dynamicWaterTemperature'), guiControls.dynamicWaterTemperature ? 1.0 : 0.0);
     });
 
     water_folder.add(guiControls, 'landEvaporation', 0.0, 0.0002, 0.00001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'landEvaporation'), guiControls.landEvaporation);
       })
       .name('Land Evaporation');
     water_folder.add(guiControls, 'waterEvaporation', 0.0, 0.0004, 0.00001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterEvaporation'), guiControls.waterEvaporation);
       })
       .name('Lake / Sea Evaporation');
     water_folder.add(guiControls, 'evapHeat', 0.0, 5.0, 0.1)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'evapHeat'), guiControls.evapHeat);
         gl.useProgram(precipitationProgram);
@@ -3910,22 +3783,22 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Evaporation Heat');
     water_folder.add(guiControls, 'meltingHeat', 0.0, 5.0, 0.1)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'meltingHeat'), guiControls.meltingHeat);
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingHeat'), guiControls.meltingHeat);
       })
       .name('Melting Heat');
-    water_folder.add(guiControls, 'condensationRate', 0.001, 0.020, 0.001)
-      .onChange(function() {
+    water_folder.add(guiControls, 'condensationRate', 0.001, 0.050, 0.001)
+      .onChange(function () {
         gl.useProgram(advectionProgram);
         gl.uniform1f(gl.getUniformLocation(advectionProgram, 'condensationRate'), guiControls.condensationRate);
       })
       .listen()
       .name('Condensation Rate');
     water_folder.add(guiControls, 'waterWeight', 0.0, 2.0, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(boundaryProgram);
         gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterWeight'), guiControls.waterWeight);
       })
@@ -3934,21 +3807,21 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     var precipitation_folder = datGui.addFolder('Precipitation');
 
     precipitation_folder.add(guiControls, 'aboveZeroThreshold', 0.1, 2.0, 0.001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'aboveZeroThreshold'), guiControls.aboveZeroThreshold);
       })
       .name('Precipitation Threshold +°C');
 
     precipitation_folder.add(guiControls, 'subZeroThreshold', 0.0, 1.0, 0.001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'subZeroThreshold'), guiControls.subZeroThreshold);
       })
       .name('Precipitation Threshold -°C');
 
     precipitation_folder.add(guiControls, 'spawnChance', 0.00001, 0.0001, 0.00001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'spawnChanceMult'), guiControls.spawnChance);
       })
@@ -3956,28 +3829,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       .listen();
 
     precipitation_folder.add(guiControls, 'snowDensity', 0.1, 0.9, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'snowDensity'), guiControls.snowDensity);
       })
       .name('Snow Density');
 
     precipitation_folder.add(guiControls, 'fallSpeed', 0.0001, 0.001, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'fallSpeed'), guiControls.fallSpeed);
       })
       .name('Fall Speed');
 
     precipitation_folder.add(guiControls, 'growthRate0C', 0.0001, 0.005, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'growthRate0C'), guiControls.growthRate0C);
       })
       .name('Growth Rate 0°C');
 
     precipitation_folder.add(guiControls, 'growthRate_30C', 0.0001, 0.005, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'growthRate_30C'), guiControls.growthRate_30C);
       })
@@ -3985,7 +3858,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     precipitation_folder
       .add(guiControls, 'freezingRate', 0.0005, 0.01, 0.0001) // 0.0035
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'freezingRate'), guiControls.freezingRate);
       })
@@ -3993,14 +3866,14 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     precipitation_folder
       .add(guiControls, 'meltingRate', 0.0005, 0.01, 0.0001) // 0.0035
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'meltingRate'), guiControls.meltingRate);
       })
       .name('Melting Rate');
 
     precipitation_folder.add(guiControls, 'evapRate', 0.0001, 0.005, 0.0001)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(precipitationProgram);
         gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'evapRate'), guiControls.evapRate);
       })
@@ -4013,28 +3886,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     display_folder
       .add(guiControls, 'displayMode', {
-        '1 Temperature -26°C to 30°C' : 'DISP_TEMPERATURE',
-        '2 Water Vapor' : 'DISP_WATER',
-        '3 Realistic' : 'DISP_REAL',
-        '4 Horizontal Velocity' : 'DISP_HORIVEL',
-        '5 Vertical Velocity' : 'DISP_VERTVEL',
-        '6 IR Heating / Cooling' : 'DISP_IRHEATING',
-        '7 IR Down -60°C to 26°C' : 'DISP_IRDOWNTEMP',
-        '8 IR Up -26°C to 30°C' : 'DISP_IRUPTEMP',
-        '9 Precipitation Mass' : 'DISP_PRECIPFEEDBACK_MASS',
-        'Precipitation Heating/Cooling' : 'DISP_PRECIPFEEDBACK_HEAT',
-        'Precipitation Condensation/Evaporation' : 'DISP_PRECIPFEEDBACK_VAPOR',
-        'Rain Deposition' : 'DISP_PRECIPFEEDBACK_RAIN',
-        'Snow Deposition' : 'DISP_PRECIPFEEDBACK_SNOW',
-        'Precipitation/Soil Moisture' : 'DISP_SOIL_MOISTURE',
-        'Curl' : 'DISP_CURL',
-        'Relative Humidity / Cloud Density' : 'DISP_HUMD',
-        'Air Quality' : 'DISP_AIRQUALITY'
+        '1 Temperature -26°C to 30°C': 'DISP_TEMPERATURE',
+        '2 Water Vapor': 'DISP_WATER',
+        '3 Realistic': 'DISP_REAL',
+        '4 Horizontal Velocity': 'DISP_HORIVEL',
+        '5 Vertical Velocity': 'DISP_VERTVEL',
+        '6 IR Heating / Cooling': 'DISP_IRHEATING',
+        '7 IR Down -60°C to 26°C': 'DISP_IRDOWNTEMP',
+        '8 IR Up -26°C to 30°C': 'DISP_IRUPTEMP',
+        '9 Precipitation Mass': 'DISP_PRECIPFEEDBACK_MASS',
+        'Precipitation Heating/Cooling': 'DISP_PRECIPFEEDBACK_HEAT',
+        'Precipitation Condensation/Evaporation': 'DISP_PRECIPFEEDBACK_VAPOR',
+        'Rain Deposition': 'DISP_PRECIPFEEDBACK_RAIN',
+        'Snow Deposition': 'DISP_PRECIPFEEDBACK_SNOW',
+        'Precipitation/Soil Moisture': 'DISP_SOIL_MOISTURE',
+        'Curl': 'DISP_CURL',
+        'Relative Humidity / Cloud Density': 'DISP_HUMD',
+        'Air Quality': 'DISP_AIRQUALITY'
       })
       .name('Display Mode')
       .listen();
     display_folder.add(guiControls, 'exposure', 0.5, 5.0, 0.01)
-      .onChange(function() {
+      .onChange(function () {
         gl.useProgram(postProcessingProgram);
         gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
       })
@@ -4044,7 +3917,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
     display_folder.add(guiControls, 'wrapHorizontally')
-      .onChange(function() {
+      .onChange(function () {
         cam.wrapHorizontally = guiControls.wrapHorizontally;
         cam.center();
         if (guiControls.wrapHorizontally)
@@ -4054,59 +3927,63 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       })
       .name('Wrap Horizontally');
 
-    display_folder.add(guiControls, 'SmoothCam').onChange(function() { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
+    display_folder.add(guiControls, 'SmoothCam').onChange(function () { cam.smooth = guiControls.SmoothCam; }).name('Smooth Camera');
 
     display_folder.add(guiControls, 'showGraph').onChange(hideOrShowGraph).name('Show Sounding Graph').listen();
     display_folder.add(guiControls, 'showDrops').name('Show Droplets').listen();
     display_folder.add(guiControls, 'realDewPoint').name('Show Real Dew Point');
-
+    display_folder.add(guiControls, 'smoothColorScales').name('Smooth Color Scales').onChange(function () {
+      gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, guiControls.smoothColorScales ? gl.LINEAR : gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, guiControls.smoothColorScales ? gl.LINEAR : gl.NEAREST);
+      });
 
     display_folder.add(guiControls, 'twelveHourClock').name('12-hour clock');
 
     display_folder
       .add(guiControls, 'lengthUnit', {
-        'km / meters / cm / mm' : 'LENGTH_UNIT_METRIC',
-        'miles / ft / inch' : 'LENGTH_UNIT_IMPERIAL',
+        'km / meters / cm / mm': 'LENGTH_UNIT_METRIC',
+        'miles / ft / inch': 'LENGTH_UNIT_IMPERIAL',
       })
       .name('Length Unit')
-      .onChange(function() { clearWeatherStations(); });
+      .onChange(function () { clearWeatherStations(); });
 
     display_folder
       .add(guiControls, 'speedUnit', {
-        'km/h' : 'SPEED_UNIT_KMH',
-        'm/s' : 'SPEED_UNIT_MS',
-        'mph' : 'SPEED_UNIT_MPH',
-        'kt' : 'SPEED_UNIT_KT',
+        'km/h': 'SPEED_UNIT_KMH',
+        'm/s': 'SPEED_UNIT_MS',
+        'mph': 'SPEED_UNIT_MPH',
+        'kt': 'SPEED_UNIT_KT',
       })
       .name('Speed Unit')
-      .onChange(function() { clearWeatherStations(); });
+      .onChange(function () { clearWeatherStations(); });
 
     display_folder
       .add(guiControls, 'tempUnit', {
-        '°C' : 'TEMP_UNIT_C',
-        '°F' : 'TEMP_UNIT_F',
-        'K' : 'TEMP_UNIT_K',
+        '°C': 'TEMP_UNIT_C',
+        '°F': 'TEMP_UNIT_F',
+        'K': 'TEMP_UNIT_K',
       })
       .name('Temperature Unit')
-      .onChange(function() { clearWeatherStations(); });
+      .onChange(function () { clearWeatherStations(); });
 
 
     var advanced_folder = datGui.addFolder('Advanced');
 
     advanced_folder.add(guiControls, 'enablePrecipitation')
-      .onChange(function() {
+      .onChange(function () {
         initRainDrops();
         setupPrecipitationBuffers();
         guiControls.inactiveDroplets = NUM_DROPLETS;
       })
       .name('Enable Precipitation');
 
-    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).onChange(function() { guiControls.auto_IterPerFrame = false; }).name('Iterations / Frame').listen();
+    advanced_folder.add(guiControls, 'IterPerFrame', 1, 50, 1).onChange(function () { guiControls.auto_IterPerFrame = false; }).name('Iterations / Frame').listen();
 
     advanced_folder.add(guiControls, 'auto_IterPerFrame').name('Auto Adjust').listen();
 
 
-    advanced_folder.add(guiControls, 'sound').name('Enable Sound').onChange(function() {
+    advanced_folder.add(guiControls, 'sound').name('Enable Sound').onChange(function () {
       if (guiControls.sound) {
         if (soundSystem == null) {
           soundSystem = new SoundSystem();
@@ -4129,8 +4006,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   await loadingBar.set(3, 'Initializing Sounding Graph');
   // END OF GUI
 
-  function startSimulation()
-  {
+  function startSimulation() {
     SETUP_MODE = false;
     gl.useProgram(postProcessingProgram);
     gl.uniform1f(gl.getUniformLocation(postProcessingProgram, 'exposure'), guiControls.exposure);
@@ -4155,9 +4031,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
   var soundingGraph = {
-    graphCanvas : null,
-    ctx : null,
-    init : function() {
+    graphCanvas: null,
+    ctx: null,
+    init: function () {
       this.graphCanvas = document.getElementById('graphCanvas');
       this.graphCanvas.height = window.innerHeight;
       this.graphCanvas.width = this.graphCanvas.height;
@@ -4168,7 +4044,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       else
         style.display = 'none';
     },
-    draw : function(simXpos, simYpos) {
+    draw: function (simXpos, simYpos) {
       // draw graph
       // mouse positions in sim coordinates
 
@@ -4176,7 +4052,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.readBuffer(gl.COLOR_ATTACHMENT0);
       var baseTextureValues = new Float32Array(4 * sim_res_y);
       gl.readPixels(simXpos, 0, 1, sim_res_y, gl.RGBA, gl.FLOAT,
-                    baseTextureValues); // read a vertical culumn of cells
+        baseTextureValues); // read a vertical culumn of cells
 
       gl.readBuffer(gl.COLOR_ATTACHMENT1);
       var waterTextureValues = new Float32Array(4 * sim_res_y);
@@ -4227,7 +4103,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.strokeStyle = '#FFF';
             c.lineWidth = 1.0;
             c.strokeRect(T_to_Xpos(temp, scrYpos), scrYpos, 10,
-                         1); // vertical position indicator
+              1); // vertical position indicator
             c.fillText('' + printTemp(temp), T_to_Xpos(temp, scrYpos) + 20, scrYpos + 5);
           }
 
@@ -4318,7 +4194,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
 
             c.strokeRect(T_to_Xpos(dewPoint, scrYpos) - 10, scrYpos, 10,
-                         1); // vertical position indicator
+              1); // vertical position indicator
             c.fillText('' + printTemp(dewPoint), T_to_Xpos(dewPoint, scrYpos) - 70, scrYpos + 5);
           }
 
@@ -4351,7 +4227,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         var dT = drylapsePerCell;
 
         var cloudWater = Math.max(water - maxWater(prevTemp + dT),
-                                  0.0); // how much cloud water there would be after that
+          0.0); // how much cloud water there would be after that
         // temperature change
 
         var dWt = (cloudWater - prevCloudWater) * guiControls.evapHeat; // how much that water phase change would
@@ -4377,7 +4253,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             c.beginPath();
             c.moveTo(T_to_Xpos(KtoC(T), scrYpos) - 0, scrYpos); // temperature
             c.lineTo(T_to_Xpos(KtoC(T), scrYpos) + 40,
-                     scrYpos);                                  // Horizontal ceiling line
+              scrYpos);                                  // Horizontal ceiling line
             c.strokeStyle = '#FFFFFF';
             c.stroke();
             c.fillText('' + printAltitude(Math.round(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight))), T_to_Xpos(KtoC(T), scrYpos) + 50, scrYpos + 5);
@@ -4400,15 +4276,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       c.fillText('' + printDistance(map_range(simXpos, 0, sim_res_y, 0, guiControls.simHeight)), this.graphCanvas.width - 70, 20);
 
 
-      function T_to_Xpos(T, y)
-      {
+      function T_to_Xpos(T, y) {
         // temperature to horizontal position
         var normX = T * 0.0115 + 1.18 - (y / graphBottem) * 0.8; // -30 to 50
         return normX * this.graphCanvas.width;                   // T * 7.5 + 780.0 - 600.0 * (y / graphBottem);
       }
 
-      function drawIsotherms()
-      {
+      function drawIsotherms() {
         c.strokeStyle = '#964B00';
         c.beginPath();
         c.fillStyle = 'white';
@@ -4449,7 +4323,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var mouseXinSim, mouseYinSim;
   var prevMouseXinSim, prevMouseYinSim;
 
-  window.addEventListener('resize', function() {
+  window.addEventListener('resize', function () {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     canvas_aspect = canvas.width / canvas.height;
@@ -4462,8 +4336,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     createHdrFBO();    // recreate hdr framebuffer
   });
 
-  function logSample()
-  {
+  function logSample() {
     // mouse position in sim coordinates
     var simXpos = Math.floor(Math.abs(mod(mouseXinSim * sim_res_x, sim_res_x)));
     var simYpos = Math.min(Math.max(Math.floor(mouseYinSim * sim_res_y), 0), sim_res_y - 1);
@@ -4557,7 +4430,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   });
 
-  window.addEventListener('wheel', function(event) {
+  window.addEventListener('wheel', function (event) {
     var delta = 0.1;
     if (event.deltaY > 0)
       delta *= -1;
@@ -4581,7 +4454,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   });
 
-  window.addEventListener('mousemove', function(event) {
+  window.addEventListener('mousemove', function (event) {
     var rect = canvas.getBoundingClientRect();
     mouseX = event.clientX - rect.left;
 
@@ -4596,8 +4469,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   });
 
-  canvas.addEventListener('mousedown', function(e) { mouseDownEvent(e); });
-  graphCanvas.addEventListener('mousedown', function(e) { mouseDownEvent(e); });
+  canvas.addEventListener('mousedown', function (e) { mouseDownEvent(e); });
+  graphCanvas.addEventListener('mousedown', function (e) { mouseDownEvent(e); });
 
 
   function findSimYposAboveSurfaceAtMouseX() // find the lowest location that is not underground
@@ -4623,8 +4496,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  function mouseDownEvent(e)
-  {
+  function mouseDownEvent(e) {
     // event.preventDefault(); // caused problems with dat.gui
     // console.log('mousedown');
     if (e.button == 0) { // left
@@ -4647,7 +4519,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  window.addEventListener('mouseup', function(event) {
+  window.addEventListener('mouseup', function (event) {
     if (event.button == 0) {
       leftMousePressed = false;
     } else if (event.button == 1) {
@@ -4662,9 +4534,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   var previousTouches;
 
 
-  canvas.addEventListener('touchstart', function(event) { event.preventDefault(); }, {passive : false});
+  canvas.addEventListener('touchstart', function (event) { event.preventDefault(); }, { passive: false });
 
-  canvas.addEventListener('touchend', function(event) {
+  canvas.addEventListener('touchend', function (event) {
     event.preventDefault();
     if (event.touches.length == 0) { // all fingers released
       leftMousePressed = false;
@@ -4676,9 +4548,9 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         startSimulation();
       }
     }
-  }, {passive : false});
+  }, { passive: false });
 
-  canvas.addEventListener('touchmove', function(event) {
+  canvas.addEventListener('touchmove', function (event) {
     event.preventDefault();
 
     if (event.touches.length == 1) { // single finger
@@ -4718,13 +4590,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
 
     previousTouches = event.touches;
-  }, {passive : false});
+  }, { passive: false });
 
 
   var lastBpressTime;
 
-  function handlePause()
-  {
+  function handlePause() {
     if (guiControls.paused) {
       soundSystem?.mute();
     }
@@ -4953,8 +4824,19 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+  dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
+
+  let globals = { dt: 0.288, cellHeight: cellHeight, dryLapse: dryLapse };
+
+  console.log(globals);
+
+  let globals_str = '';
+  for (const [key, value] of Object.entries(globals)) {
+    globals_str += `const float ${key} = ${value.toFixed(10)};\n`
+  }
+
   // load shaders
-  var commonSource = await loadSourceFile('shaders/common.glsl');
+  var commonSource = globals_str + (await loadSourceFile('shaders/common.glsl'));
   var commonDisplaySource = await loadSourceFile('shaders/commonDisplay.glsl');
 
   const simVertexShader = await loadShader('simShader.vert');
@@ -5057,7 +4939,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindBuffer(gl.ARRAY_BUFFER, fluidVertexBufferObject);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fluidQuadVertices), gl.STATIC_DRAW);
   var positionAttribLocation = gl.getAttribLocation(pressureProgram,
-                                                    'vertPosition'); // 0 these positions are the same for every program,
+    'vertPosition'); // 0 these positions are the same for every program,
   // since they all use the same vertex shader
   var texCoordAttribLocation = gl.getAttribLocation(pressureProgram, 'vertTexCoord'); // 1
   gl.enableVertexAttribArray(positionAttribLocation);
@@ -5110,7 +4992,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.bindBuffer(gl.ARRAY_BUFFER, postProcessingVertexBufferObject);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(postProcessingQuadVertices), gl.STATIC_DRAW);
   positionAttribLocation = gl.getAttribLocation(postProcessingProgram,
-                                                'vertPosition'); // 0 these positions are the same for every program,
+    'vertPosition'); // 0 these positions are the same for every program,
   // since they all use the same vertex shader
   texCoordAttribLocation = gl.getAttribLocation(postProcessingProgram, 'vertTexCoord'); // 1
   gl.enableVertexAttribArray(positionAttribLocation);
@@ -5141,7 +5023,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   const precipitationVertexShader = await loadShader('precipitationShader.vert');
   const precipitationShader = await loadShader('precipitationShader.frag');
-  const precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, [ 'position_out', 'mass_out', 'density_out' ]);
+  const precipitationProgram = createProgram(precipitationVertexShader, precipitationShader, ['position_out', 'mass_out', 'density_out']);
 
   gl.useProgram(precipitationProgram);
 
@@ -5159,8 +5041,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   var rainDrops;
 
-  function initRainDrops()
-  {
+  function initRainDrops() {
     rainDrops = [];
     // generate inactive droplets with random values to be used as seeds for random spawning
     for (var i = 0; i < NUM_DROPLETS; i++) {
@@ -5173,8 +5054,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  function setupPrecipitationBuffers()
-  {
+  function setupPrecipitationBuffers() {
     gl.bindVertexArray(precipitationVao_0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, precipVertexBuffer_0);
@@ -5211,7 +5091,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_0);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
-                      precipVertexBuffer_0); // this binds the default (id = 0)
+      precipVertexBuffer_0); // this binds the default (id = 0)
     // TRANSFORM_FEEBACK buffer
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
@@ -5253,7 +5133,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, precipitationTF_1);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0,
-                      precipVertexBuffer_1); // this binds the default (id = 0)
+      precipVertexBuffer_1); // this binds the default (id = 0)
     // TRANSFORM_FEEBACK buffer
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
     gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
@@ -5263,8 +5143,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  function logDropletsAndToggleFollow()
-  {
+  function logDropletsAndToggleFollow() {
     if (dropletFollowID >= 0) { // disable follow droplet
       dropletFollowID = -1;
       let dropletInfoCanvas = document.getElementById('dropletInfoCanvas');
@@ -5335,8 +5214,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  function readDropletData(n)
-  {
+  function readDropletData(n) {
     let i = n * valsPerDroplet;
     let byteOffset = i * 4; // Convert to byte offset
 
@@ -5445,8 +5323,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const lightningDataFrameBuff = gl.createFramebuffer();
 
   // Set up Textures
-  async function setupTextures()
-  {
+  async function setupTextures() {
     gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -5520,7 +5397,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, curlTexture,
-                          0); // attach the texture as the first color attachment
+    0); // attach the texture as the first color attachment
 
 
   gl.bindTexture(gl.TEXTURE_2D, vortForceTexture);
@@ -5533,11 +5410,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT,
-                null);                                               // HALF_FLOAT before, but problems with acuracy
+    null);                                               // HALF_FLOAT before, but problems with acuracy
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,
-                   gl.CLAMP_TO_EDGE); // prevent light from shining trough at bottem or top
+    gl.CLAMP_TO_EDGE); // prevent light from shining trough at bottem or top
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, lightFrameBuff_0);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lightTexture_0, 0);
@@ -5603,7 +5480,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);            // CLAMP_TO_EDGE
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);            // REPEAT
-                                                                                   // NEAREST_MIPMAP_LINEAR create weird effects
+  // NEAREST_MIPMAP_LINEAR create weird effects
 
   imgElement = await loadImage('resources/img/A380_R.png');
 
@@ -5640,15 +5517,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   gl.bindTexture(gl.TEXTURE_2D, colorScalesTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imgElement.width, imgElement.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgElement);
-  // gl.generateMipmap(gl.TEXTURE_2D);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // horizontal
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // vertical
 
 
-  function downloadImageData(imgData)
-  {
+  function downloadImageData(imgData) {
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
     canvas.width = imgData.width;
@@ -5664,8 +5539,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  function generateLightningTexture(i, imgData)
-  {
+  function generateLightningTexture(i, imgData) {
     lightningTextures[i] = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, lightningTextures[i]);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, imgData.width, imgData.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, imgData);
@@ -5685,7 +5559,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       generateLightningTexture(i, imgElement.data);
     };
 
-    lightningGeneratorWorker.postMessage({width : 2500, height : 5000}); // 10000 5000
+    lightningGeneratorWorker.postMessage({ width: 2500, height: 5000 }); // 10000 5000
   }
 
   await loadingBar.set(90, 'Setting up FBO`s');
@@ -5696,8 +5570,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   var texelSizeX = 1.0 / sim_res_x;
   var texelSizeY = 1.0 / sim_res_y;
-
-  dryLapse = (guiControls.simHeight * guiControls.dryLapseRate) / 1000.0; // total lapse rate from bottem to top of atmosphere
 
 
   // generate sounding data for forcing in sim
@@ -5740,7 +5612,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.useProgram(setupProgram);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform2f(gl.getUniformLocation(setupProgram, 'resolution'), sim_res_x, sim_res_y);
-  gl.uniform1f(gl.getUniformLocation(setupProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(setupProgram, 'simHeight'), guiControls.simHeight);
 
   gl.uniform4fv(gl.getUniformLocation(setupProgram, 'initial_Tv'), initial_T);
@@ -5757,9 +5628,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   // gl.uniform1fv(
   // gl.getUniformLocation(advectionProgram, 'initial_T'), initial_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'initial_Tv'), initial_T);
-  gl.uniform1f(gl.getUniformLocation(advectionProgram, 'dryLapse'), dryLapse);
   gl.uniform1f(gl.getUniformLocation(advectionProgram, 'waterTemperature'),
-               CtoK(guiControls.waterTemperature)); // can be changed by GUI input
+    CtoK(guiControls.waterTemperature)); // can be changed by GUI input
 
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Tv'), realWorldSounding_T);
   gl.uniform4fv(gl.getUniformLocation(advectionProgram, 'realWorldSounding_Wv'), realWorldSounding_W);
@@ -5794,11 +5664,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(gl.getUniformLocation(boundaryProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(boundaryProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'vorticity'),
-               guiControls.vorticity);              // can be changed by GUI input
+    guiControls.vorticity);              // can be changed by GUI input
   gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'waterTemperature'),
-               CtoK(guiControls.waterTemperature)); // can be changed by GUI input
-  gl.uniform1f(gl.getUniformLocation(boundaryProgram, 'dryLapse'), dryLapse);
-  // gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
+    CtoK(guiControls.waterTemperature)); // can be changed by GUI input
+  //  gl.uniform1fv(gl.getUniformLocation(boundaryProgram, 'initial_T'), initial_T);
   gl.uniform4fv(gl.getUniformLocation(boundaryProgram, 'initial_Tv'), initial_T);
   gl.uniform1i(gl.getUniformLocation(boundaryProgram, 'allowCaves'), guiControls.allowCaves ? 1 : 0);
 
@@ -5823,7 +5692,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(lightingProgram, 'lightTex'), 3);
-  gl.uniform1f(gl.getUniformLocation(lightingProgram, 'dryLapse'), dryLapse);
 
   // Display programs:
   gl.useProgram(temperatureDisplayProgram);
@@ -5832,7 +5700,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'baseTex'), 0);
   gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(temperatureDisplayProgram, 'colorScalesTex'), 9);
-  gl.uniform1f(gl.getUniformLocation(temperatureDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(airQualityDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(airQualityDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -5841,7 +5708,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(airQualityDisplayProgram, 'colorScalesTex'), 9);
-  gl.uniform1f(gl.getUniformLocation(airQualityDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(humidityDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(humidityDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -5850,7 +5716,6 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(humidityDisplayProgram, 'waterTex'), 1);
   gl.uniform1i(gl.getUniformLocation(humidityDisplayProgram, 'wallTex'), 2);
   gl.uniform1i(gl.getUniformLocation(humidityDisplayProgram, 'colorScalesTex'), 9);
-  gl.uniform1f(gl.getUniformLocation(humidityDisplayProgram, 'dryLapse'), dryLapse);
 
   gl.useProgram(precipDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(precipDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
@@ -5889,8 +5754,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningTex'), 7);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'lightningDataTex'), 8);
   gl.uniform1i(gl.getUniformLocation(realisticDisplayProgram, 'ambientLightTex'), 9);
-  gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'dryLapse'), dryLapse);
-  gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
+  //  gl.uniform1f(gl.getUniformLocation(realisticDisplayProgram, 'cellHeight'), cellHeight);
 
   gl.useProgram(precipitationProgram);
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'baseTex'), 0);
@@ -5898,12 +5762,12 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(gl.getUniformLocation(precipitationProgram, 'lightningDataTex'), 2);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(precipitationProgram, 'texelSize'), texelSizeX, texelSizeY);
-  gl.uniform1f(gl.getUniformLocation(precipitationProgram, 'dryLapse'), dryLapse);
   gl.useProgram(IRtempDisplayProgram);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(gl.getUniformLocation(IRtempDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'lightTex'), 0);
   gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'wallTex'), 2);
+  gl.uniform1i(gl.getUniformLocation(IRtempDisplayProgram, 'colorScalesTex'), 9);
 
   gl.useProgram(postProcessingProgram);
   gl.uniform1i(gl.getUniformLocation(postProcessingProgram, 'hdrTex'), 0);
@@ -5932,11 +5796,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.useProgram(setupProgram);
     // Render to both framebuffers
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-    gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-    gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
@@ -5964,8 +5828,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     weatherStations[i].measure();
   }
 
-  function clearWeatherStations()
-  {
+  function clearWeatherStations() {
     for (i = 0; i < weatherStations.length; i++) {
       weatherStations[i].clearChart();
     }
@@ -5974,8 +5837,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   setInterval(calcFps, 1000); // log fps
   requestAnimationFrame(draw);
 
-  function draw()
-  { // Runs for every frame
+  function draw() { // Runs for every frame
     let camPanSpeed = guiControls.camSpeed;
 
     if (rightCtrlPressed) {
@@ -6025,11 +5887,11 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1f(gl.getUniformLocation(setupProgram, 'heightMult'), ((canvas.height - mouseY) / canvas.height) * 2.0);
       // Render to both framebuffers
       gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-      gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-      gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     } else {
       // NOT SETUP MODE:
@@ -6132,7 +5994,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calc curl
@@ -6140,7 +6002,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
             gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calculate vorticity
@@ -6148,7 +6010,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, curlTexture);
             gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             gl.useProgram(layerAvgDensProgram);
@@ -6161,7 +6023,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE4);
             gl.bindTexture(gl.TEXTURE_2D, layerAvgDensFBOs[layerAvgDensFBO_new == 1 ? 0 : 1].texture);
             gl.bindFramebuffer(gl.FRAMEBUFFER, layerAvgDensFBOs[layerAvgDensFBO_new].frameBuffer);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // apply vorticity, boundary conditions and user input
@@ -6184,7 +6046,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE7);
             gl.bindTexture(gl.TEXTURE_2D, layerAvgDensFBOs[layerAvgDensFBO_new].texture);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             layerAvgDensFBO_new = layerAvgDensFBO_new == 1 ? 0 : 1
@@ -6198,7 +6060,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE2);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calc and apply pressure
@@ -6208,7 +6070,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
             // calc light
@@ -6238,7 +6100,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             }
             even = !even;
 
-            gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1 ]); // calc light
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]); // calc light
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
 
@@ -6261,7 +6123,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.bindVertexArray(srcVAO);
               gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destTF);
               gl.beginTransformFeedback(gl.POINTS);
-              gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1 ]);
+              gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
               gl.drawArrays(gl.POINTS, 0, NUM_DROPLETS);
               gl.endTransformFeedback();
 
@@ -6291,7 +6153,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
               gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
 
               gl.bindFramebuffer(gl.FRAMEBUFFER, lightningDataFrameBuff);
-              gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+              gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
               gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
               if (guiControls.sound) {
@@ -6493,7 +6355,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'Xmult'), horizontalDisplayMult);
       gl.uniform1f(gl.getUniformLocation(skyBackgroundDisplayProgram, 'iterNum'), iterNum);
 
-      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to hdrFramebuffer
 
@@ -6547,7 +6409,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.clearColor(0.0, 0.0, 0.0, 1.0);                            // background color
       gl.clear(gl.COLOR_BUFFER_BIT);
 
-      gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // render bright parts to seperate texture
 
 
@@ -6617,7 +6479,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       gl.clearColor(0.0, 0.0, 0.0, 1.0);        // background color
       gl.clear(gl.COLOR_BUFFER_BIT);
 
-      gl.drawBuffers([ gl.BACK ]);
+      gl.drawBuffers([gl.BACK]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); // draw to canvas
 
       gl.bindVertexArray(fluidVao);
@@ -6705,68 +6567,68 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'Xmult'), horizontalDisplayMult);
 
         switch (guiControls.displayMode) {
-        case 'DISP_HORIVEL':
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
-          break;
-        case 'DISP_VERTVEL':
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
-          break;
-        case 'DISP_WATER':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), -0.06); // negative number so positive amount is blue
-          break;
-        case 'DISP_IRHEATING':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 50000.0);
-          break;
-        case 'DISP_PRECIPFEEDBACK_MASS':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.3);
-          break;
-        case 'DISP_PRECIPFEEDBACK_HEAT':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
-          break;
-        case 'DISP_PRECIPFEEDBACK_VAPOR':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
-          break;
-        case 'DISP_PRECIPFEEDBACK_RAIN':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
-          break;
-        case 'DISP_PRECIPFEEDBACK_SNOW':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
-          break;
-        case 'DISP_SOIL_MOISTURE':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.02);
-          break;
-        case 'DISP_CURL':
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, curlTexture);
-          gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
-          gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 7.0);
-          break;
+          case 'DISP_HORIVEL':
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
+            break;
+          case 'DISP_VERTVEL':
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 10.0); // 20.0
+            break;
+          case 'DISP_WATER':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), -0.06); // negative number so positive amount is blue
+            break;
+          case 'DISP_IRHEATING':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, lightTexture_0);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 50000.0);
+            break;
+          case 'DISP_PRECIPFEEDBACK_MASS':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.3);
+            break;
+          case 'DISP_PRECIPFEEDBACK_HEAT':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
+            break;
+          case 'DISP_PRECIPFEEDBACK_VAPOR':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 500.0);
+            break;
+          case 'DISP_PRECIPFEEDBACK_RAIN':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
+            break;
+          case 'DISP_PRECIPFEEDBACK_SNOW':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 1);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 1.0);
+            break;
+          case 'DISP_SOIL_MOISTURE':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 2);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 0.02);
+            break;
+          case 'DISP_CURL':
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, curlTexture);
+            gl.uniform1i(gl.getUniformLocation(universalDisplayProgram, 'quantityIndex'), 0);
+            gl.uniform1f(gl.getUniformLocation(universalDisplayProgram, 'dispMultiplier'), 7.0);
+            break;
         }
       }
 
@@ -6785,8 +6647,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   //////////////////////////////////////////////////////// functions:
 
-  function hideOrShowGraph()
-  {
+  function hideOrShowGraph() {
     if (guiControls.showGraph) {
       soundingGraph.graphCanvas.style.display = 'block';
     } else {
@@ -6794,44 +6655,39 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  function pad(num, size)
-  {
+  function pad(num, size) {
     num = num.toString();
     while (num.length < size)
       num = '0' + num;
     return num;
   }
 
-  function dateTimeStr()
-  {
+  function dateTimeStr() {
     var timeStr;
     if (guiControls.twelveHourClock) { // 12 hour clock for Americans
-      timeStr = simDateTime.toLocaleString('en-US', {hour12 : true, hour : 'numeric', minute : 'numeric'});
+      timeStr = simDateTime.toLocaleString('en-US', { hour12: true, hour: 'numeric', minute: 'numeric' });
     } else {                           // 24 hour clock
-      timeStr = simDateTime.toLocaleString('nl-NL', {hour12 : false, hour : 'numeric', minute : 'numeric'});
+      timeStr = simDateTime.toLocaleString('nl-NL', { hour12: false, hour: 'numeric', minute: 'numeric' });
     }
 
-    const monthStr = simDateTime.toLocaleString('en-us', {month : 'short', day : 'numeric'});
+    const monthStr = simDateTime.toLocaleString('en-us', { month: 'short', day: 'numeric' });
     return timeStr + '&nbsp; ' + monthStr;
   }
 
-  function onUpdateTimeOfDaySlider()
-  {
+  function onUpdateTimeOfDaySlider() {
     let minutes = (guiControls.timeOfDay % 1) * 60;
     simDateTime.setHours(guiControls.timeOfDay, minutes);
     updateSunlight();
   }
 
-  function onUpdateMonthSlider()
-  {
+  function onUpdateMonthSlider() {
     let month = guiControls.month - 0.96;
     let date = (month % 1) * 30;
     simDateTime.setMonth(month, date);
     updateSunlight();
   }
 
-  function updateSunlight(deltaT_hours)
-  {
+  function updateSunlight(deltaT_hours) {
     if (deltaT_hours != 'MANUAL_ANGLE') {
       if (deltaT_hours != null) {                                                   // increment time
         simDateTime = new Date(simDateTime.getTime() + deltaT_hours * 3600 * 1000); // convert hours to ms and add to current date
@@ -6894,8 +6750,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   }
 
 
-  async function prepareDownload()
-  {
+  async function prepareDownload() {
     let prevIterPerFrame = guiControls.IterPerFrame;
     var newFileName = prompt('Please enter a file name. Can not include \'.\'', saveFileName);
 
@@ -6937,8 +6792,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
         let arrBuff = await blob.arrayBuffer();    // turn into array for pako
         let arr = new Uint8Array(arrBuff);
         let compressed = window.pako.deflate(arr); // compress
-        let compressedBlob = new Blob([ Uint32Array.of(saveFileVersionID), compressed ], {
-          type : 'application/x-binary',
+        let compressedBlob = new Blob([Uint32Array.of(saveFileVersionID), compressed], {
+          type: 'application/x-binary',
         }); // turn back into blob and add version id in front
         download(saveFileName + '.weathersandbox', compressedBlob);
       } else {
@@ -6949,8 +6804,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     lastSaveTime = new Date(); // reset timer
   }
 
-  function createProgram(vertexShader, fragmentShader, transform_feedback_varyings)
-  {
+  function createProgram(vertexShader, fragmentShader, transform_feedback_varyings) {
     var program = gl.createProgram();
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
@@ -6968,8 +6822,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     }
   }
 
-  async function loadSourceFile(fileName)
-  {
+  async function loadSourceFile(fileName) {
     try {
       var request = new XMLHttpRequest();
       request.open('GET', fileName, false);
@@ -6987,8 +6840,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       throw 'File loading error' + request.status;
   }
 
-  async function loadShader(nameIn)
-  {
+  async function loadShader(nameIn) {
     const re = /(?:\.([^.]+))?$/;
 
     let extension = re.exec(nameIn)[1]; // extract file extension
@@ -7037,8 +6889,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   function isPageHidden() { return document.hidden || document.msHidden || document.webkitHidden || document.mozHidden; }
 
-  function calcFps()
-  {
+  function calcFps() {
     if (!isPageHidden()) {
       FPS = frameNum - lastFrameNum;
       lastFrameNum = frameNum;

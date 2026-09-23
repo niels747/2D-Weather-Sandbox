@@ -26,7 +26,6 @@ uniform sampler2D lightningDataTex;
 
 uniform vec2 resolution;
 uniform vec2 texelSize;
-uniform float dryLapse;
 
 uniform float iterNum;          // used as seed for random function
 uniform float numDroplets;      // total number of droplets

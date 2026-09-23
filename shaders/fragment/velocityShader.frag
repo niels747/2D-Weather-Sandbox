@@ -25,7 +25,6 @@ float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
 layout(location = 0) out vec4 base;
 layout(location = 2) out ivec4 wall;
 
-float dryLapse; // NOT USED needs to be declared for common.glsl
 vec2 resolution;
 #include "common.glsl"
 
@@ -43,13 +42,39 @@ void main()
   // set boundaries: no flow in or out of wall cells
   if (wall[DISTANCE] == 0) // is wall
   {
-    base[VX] = 0.0;        // velocities in wall are 0
-    base[VY] = 0.0;        // this will make a wall not let any pressure trough and
-                           // thereby reflect any pressure waves back
-  } else {
+    if (wall[TYPE] == WALLTYPE_WATER) { // water flow
 
-    if (wallXpY0[DISTANCE] == 0) {
-      base[VX] = 0.0;                                  // Since X velocity is defined at the right of the cell, it has to be done in the cell to the left of the wall
+      // base[VX] *= 1. - dragMultiplier * 0.0002;        // linear drag
+
+      // base[VY] *= 1. - (dragMultiplier + 10.) * 0.0002;
+
+      if (wall[VERT_DISTANCE] == 0) { // surface layer
+        base[VY] = 0.0;               // stop vertical movement at water-air boundary
+        //  base[VX] = 0.0;
+        // base[VY] *= 0.5;
+      } else {
+        base[VY] += base[PRESSURE] - baseX0Yp[PRESSURE];
+      }
+
+      if (wallXpY0[DISTANCE] == 0 && wallXpY0[TYPE] != WALLTYPE_WATER) { // is wall to the right
+        base[VX] = 0.0;                                                  // Since X velocity is defined at the right of the cell, it has to be done in the cell to the left of the wall
+      } else {
+        base[VX] += base[PRESSURE] - baseXpY0[PRESSURE]; // The velocity through the cell changes proportionally to the pressure gradient across the cell. It's basically just newtons 2nd law.
+      }
+
+      base[VX] *= 0.999; // linear drag
+      base[VY] *= 0.999; // linear drag
+
+      // base[VX] = 0.0;
+    } else {          // solid wall
+      base[VX] = 0.0; // velocities in wall are 0
+      base[VY] = 0.0; // this will make a wall not let any pressure trough and
+                      // thereby reflect any pressure waves back
+    }
+  } else { // air
+
+    if (wallXpY0[DISTANCE] == 0) { // is wall to the right
+      base[VX] = 0.0;              // Since X velocity is defined at the right of the cell, it has to be done in the cell to the left of the wall
     } else {
       base[VX] += base[PRESSURE] - baseXpY0[PRESSURE]; // The velocity through the cell changes proportionally to the pressure gradient across the cell. It's basically just newtons 2nd law.
       base[VX] *= 1. - dragMultiplier * 0.0002;        // linear drag

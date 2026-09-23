@@ -37,9 +37,6 @@ uniform vec2 aspectRatios; // [0] Sim       [1] canvas
 uniform vec2 resolution; // sim resolution
 uniform vec2 texelSize;
 
-uniform float cellHeight; // in meters
-
-uniform float dryLapse;
 uniform float sunAngle;
 
 uniform float minShadowLight;
@@ -233,12 +230,12 @@ vec4 getAirColor(vec2 fragCoordIn)
   // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
   float cloudOpacity = clamp(1.0 - (1.0 / (1. + totalDensity)), 0.0, 1.0);
 
-  const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
+  const vec3 smokeThinCol = vec3(0.99); // vec3(0.8, 0.51, 0.26);
   const vec3 smokeThickCol = vec3(0., 0., 0.);
 
 
   float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
-  float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
+  float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);    // -0.8
 
   vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
 
@@ -344,7 +341,8 @@ void main()
     case WALLTYPE_LAND:
 
       // horizontally interpolate depth value
-      float interpDepth = mix(mix(float(-wallXmY0[VERT_DISTANCE]), float(-wall[VERT_DISTANCE]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[VERT_DISTANCE]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
+      float interpDepth =
+        mix(mix(float(-wallXmY0[VERT_DISTANCE]), float(-wall[VERT_DISTANCE]), clamp(fract(fragCoord.x) + 0.5, 0.5, 1.)), float(-wallXpY0[VERT_DISTANCE]), clamp(fract(fragCoord.x) - 0.5, 0., 0.5));
       float depth = interpDepth - fract(fragCoord.y); // - 1.0 ?
 
       color = getWallColor(depth);

@@ -32,7 +32,6 @@ float light;
 
 vec3 ambientLight;
 
-const float dryLapse = 0.; // definition needed for common.glsl
 #include "common.glsl"
 
 #include "commonDisplay.glsl"
