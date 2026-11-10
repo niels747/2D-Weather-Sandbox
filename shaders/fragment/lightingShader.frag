@@ -37,53 +37,67 @@ uniform float dryLapse;
 
 void main()
 {
+  reflectedLight = vec4(0.0, 0.0, 0.0, 1.0);
   if (fragCoord.y >= resolution.y - 1.)
     light = vec4(sunIntensity, 0, 0, 0); // at top: full sun, no IR
   else {
 
     float cellHeightCompensation = 300. / resolution.y; // 300 cells = 1.0     100 cells = 3.0
 
-    // sunlight calculation
-
-    vec2 sunRay = vec2(sin(sunAngle) * texelSize.x, cos(sunAngle) * texelSize.y);
-    float sunlight = texture(lightTex, texCoord + sunRay)[SUNLIGHT];
-    // float sunlight = bilerp(lightTex, fragCoord + vec2(sin(sunAngle) ,
+    // Sunlight ray propagation:
+    // Step at least 1 full texel along the dominant axis so low sun angles (golden hour / sunset) never self-sample
+    float sunlight = 0.0;
+    float rayStepLen = 1.0;
+    if (sunIntensity > 0.0001 && abs(sunAngle) < 90.0 * deg2rad) {
+      vec2 rayDir = vec2(sin(sunAngle), max(cos(sunAngle), 0.04));
+      vec2 stepCells = rayDir / max(abs(rayDir.x), abs(rayDir.y));
+      rayStepLen = length(stepCells);
+      vec2 sampleUV = vec2(
+        texCoord.x + stepCells.x * texelSize.x,
+        min(texCoord.y + stepCells.y * texelSize.y, 1.0 - texelSize.y * 0.5)
+      );
+      sunlight = texture(lightTex, sampleUV)[SUNLIGHT];
+    }
 
     float realTemp = potentialToRealT(texture(baseTex, texCoord)[TEMPERATURE]);
     vec4 water = texture(waterTex, texCoord);
     ivec4 wall = texture(wallTex, texCoord);
 
-    float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
+    float scatering = clamp(map_range(abs(sunAngle), 68. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // atmospheric reddening toward sunset
     vec3 sunlightColor = sunColor(scatering);
 
-    if (wall[DISTANCE] != 0) {                                                                          // is not wall
+    if (wall[DISTANCE] != 0) { // is fluid, not wall
 
-      reflectedLight.rgb += sunlightColor * sunlight * (1. - texCoord.y) * 2.0 / standardSunBrightness; // scatering in air
+      reflectedLight.rgb += sunlightColor * sunlight * (1. - texCoord.y) * 2.0 / standardSunBrightness; // Rayleigh/aerosol airlight
 
       float net_heating = 0.0;
+      float iceFrac = cloudIceFraction(realTemp);
+      float vapor = max(water[TOTAL] - water[CLOUD], 0.0);
 
-      if (fragCoord.y < resolution.y - 2.) {                                                                                   // prevent shadow bug above simulation area
-        float reflection = min(pow(water[CLOUD] * 0.0010 + water[PRECIPITATION] * 0.00020, 0.5) * cellHeightCompensation, 1.); // 0.035 cloud + 0.35 precipitation
-        reflection += 0.0002;                                                                                                  // clear air scattering
-        float absorbtion = min(water[SMOKE] * 0.020 * cellHeightCompensation, 1.);                                             // 0.025 dust/smoke
+      if (fragCoord.y < resolution.y - 2.) { // prevent shadow artifact at top lid
+        float pathScale = cellHeightCompensation * rayStepLen;
 
-        float lightReflected = sunlight * reflection;
-        float lightAbsorbed = sunlight * absorbtion;
+        // Beer-Lambert shortwave scattering & absorption:
+        // Warm liquid clouds have higher scattering optical depth; high ice clouds (cirrus/anvils) are more translucent
+        float cloudScatter = pow(max(water[CLOUD], 0.0), 0.80) * mix(0.028, 0.015, iceFrac);
+        float precipScatter = pow(max(water[PRECIPITATION], 0.0), 0.75) * 0.006;
+        float tauScatter = (0.00022 + cloudScatter + precipScatter) * pathScale;
 
-        sunlight = max(0., sunlight - lightReflected - lightAbsorbed);
+        float smokeMass = (water[SMOKE] < 3.5) ? water[SMOKE] : 0.25; // exclude glowing fire core
+        float tauAbsorb = (smokeMass * 0.020 + water[CLOUD] * 0.00035) * pathScale;
 
+        float tauTotal = tauScatter + tauAbsorb;
+        float attenuated = sunlight * (1.0 - exp(-tauTotal));
+        float scatterFrac = (tauTotal > 1e-6) ? (tauScatter / tauTotal) : 1.0;
 
-        // vec3 finalLight = sunColor(scatering)
+        float lightReflected = attenuated * scatterFrac;
+        float lightAbsorbed = attenuated * (1.0 - scatterFrac);
 
-        reflectedLight.rgb = sunlightColor * lightReflected / standardSunBrightness; // sunlight reflected by clouds and precipitation
+        sunlight = max(0.0, sunlight - attenuated);
 
+        reflectedLight.rgb = sunlightColor * lightReflected / standardSunBrightness; // sunlight scattered by clouds and precipitation
 
-        // float avgSunlight = (texture(lightTex, texCoordX0Ym)[SUNLIGHT] + texture(lightTex, texCoordX0Yp)[SUNLIGHT] + texture(lightTex, texCoordXmY0)[SUNLIGHT] + texture(lightTex,
-        // texCoordXpY0)[SUNLIGHT]) / 4.0;
-
-        // sunlight -= (sunlight - avgSunlight) * 0.8; // smooth
-
-        net_heating += lightAbsorbed * lightHeatingConst; // dust/smoke being heated
+        net_heating += lightAbsorbed * lightHeatingConst; // solar heating of smoke/aerosols & subtle near-IR cloud absorption
       }
 
       // longwave / IR calculation
@@ -122,16 +136,15 @@ void main()
           net_heating += (IR_up - IR_down) * lightHeatingConst;
         } else {
 
-          float emissivity;                                   // how opage it is too ir, the rest is let trough, no
-                                                              // reflection
-          emissivity = greenhouseGases;                       // greenhouse gasses
-          emissivity += water[TOTAL] * waterGreenHouseEffect; // water vapor
-          emissivity += water[CLOUD] * 5.0;                   // cloud water blocks all IR
-                                                              // emissivity += water[SMOKE] * 0.0001;                // 0.0001 smoke Should be prettymuch transparent to IR
+          // Beer-Lambert longwave IR emissivity (smooth transition at cloud tops, semi-transparent high cirrus)
+          float tauIR = (
+            greenhouseGases +
+            vapor * waterGreenHouseEffect +
+            water[CLOUD] * mix(1.6, 0.65, iceFrac) +
+            water[PRECIPITATION] * 0.15
+          ) * cellHeightCompensation;
 
-          emissivity *= cellHeightCompensation;               // compensate for the height of the cell
-
-          emissivity = min(emissivity, 1.0);                  // limit to 1.0
+          float emissivity = 1.0 - exp(-max(tauIR, 0.0));
 
           float absorbedDown = IR_down * emissivity;
           float absorbedUp = IR_up * emissivity;

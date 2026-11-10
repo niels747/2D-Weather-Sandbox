@@ -50,21 +50,22 @@ void main()
     case WALLTYPE_FIRE:
       fragmentColor = vec4(1.0, 0.5, 0.0, 1.);
       break;
+    default: // Urban / Runway / Industrial wall
+      fragmentColor = vec4(vec3(0.20), 1.0);
+      break;
     }
   } else { // fluid
 
-    float relativeHumidity = relativeHumd(realTemp, water[TOTAL]);
+    float relativeHumidity = water[TOTAL] / max(maxWaterMixed(realTemp), 1e-6);
 
-    if (relativeHumidity < 1.0) {
+    if (water[CLOUD] <= 0.002 && relativeHumidity < 1.0) {
 
       float pallettePos = map_range(relativeHumidity, 0.0, 1.0, 0., 10. / 131.);
 
       fragmentColor = texture(colorScalesTex, vec2(2. / 4. + (1. / 8.), pallettePos)); // sample 3rd column (2)
     } else {
-      // float cloudDens = relativeHumidity;
       float cloudDens = water[CLOUD];
       fragmentColor = texture(colorScalesTex, vec2(1.0, map_range(cloudDens, 0.0, 10.0, 0.5 / 131., 15. / 131.)));
-      //   fragmentColor = vec4(vec3(1.-cloudDens* 0.20), 1.); // simple grayscale
     }
 
     drawVectorField(base.xy, displayVectorField);

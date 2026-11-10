@@ -18,6 +18,7 @@ uniform isampler2D wallTex;
 uniform sampler2D lightTex;
 uniform sampler2D precipFeedbackTex;
 uniform sampler2D precipDepositionTex;
+uniform sampler2D envProfileTex;
 
 uniform float dryLapse;
 uniform float evapHeat;
@@ -30,7 +31,11 @@ uniform float waterWeight;
 uniform vec4 initial_Tv[126];
 uniform bool allowCaves;
 
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
+float getInitialT(int y)
+{
+  int yc = clamp(y, 0, 503);
+  return initial_Tv[yc >> 2][yc & 3];
+}
 
 uniform float sunAngle;
 
@@ -51,15 +56,31 @@ layout(location = 2) out ivec4 wall;
 #define wallVerticalInfluence 1 // 2 How many cells above the wall surface effects like heating and evaporation are applied
 
 
-// #define wallManhattanInfluence 2 // 2 How many cells from the nearest wall effects like smoothing and drag are applied
-#define exchangeRate 0.015       // Rate of smoothing near surface
+#define exchangeRate 0.018 // Rate of momentum smoothing near surface
 
-void exchangeWith(vec2 texCoord) // exchange temperature and water
+// Stability-dependent Monin-Obukhov surface-layer eddy exchange:
+// Mixes heat & moisture across the lowest 5 cells during daytime convective heating (preventing 1-pixel boiling pinheads),
+// while suppressing mixing during stable nocturnal inversions so valley radiation fog can form naturally!
+void exchangeWith(vec2 otherUV, bool otherIsAbove)
 {
-  // base[TEMPERATURE] -= (base[TEMPERATURE] - texture(baseTex, texCoord)[TEMPERATURE]) * exchangeRate;
-  // water[0] -= (water[0] - texture(waterTex, texCoord)[0]) * exchangeRate;
+  ivec4 wOther = texture(wallTex, otherUV);
+  if (wOther[DISTANCE] <= 0)
+    return;
 
-  base[VX] -= (base[VX] - texture(baseTex, texCoord)[VX]) * exchangeRate;
+  vec4 bOther = texture(baseTex, otherUV);
+  if (bOther[TEMPERATURE] > 500.0)
+    return;
+
+  vec4 watOther = texture(waterTex, otherUV);
+
+  base[VX] -= (base[VX] - bOther[VX]) * exchangeRate;
+
+  // Check convective instability (warmer potential temperature below than above)
+  float dThetaUnstable = otherIsAbove ? (base[TEMPERATURE] - bOther[TEMPERATURE]) : (bOther[TEMPERATURE] - base[TEMPERATURE]);
+  float scalarMixRate = (dThetaUnstable > 0.0) ? 0.048 : 0.003;
+
+  base[TEMPERATURE] -= (base[TEMPERATURE] - bOther[TEMPERATURE]) * scalarMixRate;
+  water[TOTAL] = max(water[TOTAL] - (water[TOTAL] - watOther[TOTAL]) * scalarMixRate, water[CLOUD]);
 }
 
 
@@ -90,36 +111,37 @@ void main()
 
   bool nextToWall = false;
 
-  wall[VERT_DISTANCE] = wallX0Ym[VERT_DISTANCE] + 1; // height above ground is counted
+  wall[VERT_DISTANCE] = min(wallX0Ym[VERT_DISTANCE] + 1, 127); // height above ground is counted
 
-  if (wall[DISTANCE] != 0) {                         // is fluid, not wall
+  if (wall[DISTANCE] != 0) {                                   // is fluid, not wall
 
-    wall[TYPE] = wallX0Ym[TYPE];                     // copy wall type from wall below
+    wall[TYPE] = wallX0Ym[TYPE];                               // copy underlying surface type up the column
 
-    if (wall[TYPE] != WALLTYPE_WATER)
-      base[TEMPERATURE] += light[NET_HEATING]; // IR heating/cooling effect
+    // Apply atmospheric & cloud radiative heating/cooling everywhere except the single surface-flux cell directly above water
+    // (for VERT_DISTANCE == 1 over water, surface IR exchange is applied directly to the water body below)
+    if (!(wall[TYPE] == WALLTYPE_WATER && wall[VERT_DISTANCE] == 1))
+      base[TEMPERATURE] += light[NET_HEATING];
 
-    base[TEMPERATURE] += precipFeedback[HEAT]; // rain cools air and riming heats air
+    base[TEMPERATURE] += precipFeedback[HEAT]; // rain evaporation cools air, freezing/riming heats air
 
 
-    float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water turns into rain
+    float precipCoalescence = max(-precipFeedback[VAPOR], 0.); // how much cloud water accretes into precipitation
 
-    water[CLOUD] -= precipCoalescence;
-    water[TOTAL] -= precipCoalescence;
+    water[CLOUD] = max(water[CLOUD] - precipCoalescence, 0.0);
+    water[TOTAL] = max(water[TOTAL] - precipCoalescence, water[CLOUD]);
 
     float precipEvaporation = max(precipFeedback[VAPOR], 0.);
 
-    water[TOTAL] += precipEvaporation; // evaporating rain adds water vapor to air
+    water[TOTAL] += precipEvaporation; // evaporating precipitation adds water vapor to air
 
 
-    //  0.004 for rain visualisation
+    // Precipitation shaft field for optical & radar-like visualization
     water[PRECIPITATION] = max(water[PRECIPITATION] * 0.997 - 0.00001 + precipFeedback[MASS] * 0.005, 0.0);
 
 
-    // rain removes smoke from air
-    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.1, 0.0) + precipFeedback[MASS] * 0.000; // rain formation in clouds removes smoke
-                                                                                                // quickly , falling rain slower
-    water[SMOKE] -= precipFeedback[MASS] * 0.0001;                                              // linearly to remove last little bit
+    // Wet scavenging: cloud condensation & falling rain wash out smoke/aerosols
+    water[SMOKE] /= 1. + max(-precipFeedback[VAPOR] * 0.1, 0.0) + precipFeedback[MASS] * 0.0002;
+    water[SMOKE] -= precipFeedback[MASS] * 0.0001;
 
 
     water[SMOKE] -= max((water[SMOKE] - 4.0) * 0.01, 0.); // dissipate fire color to smoke
@@ -130,23 +152,47 @@ void main()
       water[SMOKE] -= water[PRECIPITATION] * 0.02; // falling precipitation extinguishes flames
     }
 
-    // GRAVITY
-    // temperature is calculated for Vy location
-    vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
+    // ARCHIMEDES BUOYANCY & HYDROMETEOR LOADING (evaluated on staggered top Vy cell face)
+    // Referenced to live horizontal-mean ambient virtual potential temperature envProfileTex(y, t)
+    // so thermals rise, clear-sky air gently subsides, cold-pool downdrafts sink, and anvils spread at inversions!
+#define gravMult 0.00011
 
-#define gravMult 0.0001 // 0.0001 0.0005
+    float buoyancyAnomaly = 0.0;
+    if (wallX0Yp[DISTANCE] == 0 || texCoord.y >= 1.0 - texelSize.y * 1.1) {
+      base[VY] = 0.0; // No vertical flow into ceiling overhangs or domain top lid
+    } else {
+      vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
+      vec4 waterX0Yp = texture(waterTex, texCoordX0Yp);
+      vec4 precipX0Yp = texture(precipFeedbackTex, texCoordX0Yp);
 
-    // gravity for convection interpolated between this and above cell to fix wierd waves
-    // Because vertical velocity is defined at the top of the cell while temperature is defined in it's center.
-    float gravityForce = ((base[TEMPERATURE] + baseX0Yp[TEMPERATURE]) * 0.5 - (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5) * gravMult;
+      float thetaFace = (base[TEMPERATURE] + baseX0Yp[TEMPERATURE]) * 0.5;
 
-    // float gravityForce = (base[3] - initial_T[int(fragCoord.y)]) * gravMult;
+      // Virtual potential temperature includes water-vapor lightness (M_v / M_d = 0.622)
+      float vapor0 = max(water[TOTAL] - water[CLOUD], 0.0);
+      float vaporYp = max(waterX0Yp[TOTAL] - waterX0Yp[CLOUD], 0.0);
+      float localThetaV = thetaFace + (vapor0 + vaporYp) * 0.5 * 0.11;
 
-    gravityForce -= water[CLOUD] * gravMult * waterWeight;         // cloud water weight added to gravity force
+      float envThetaV0 = texture(envProfileTex, vec2(0.5, texCoord.y)).x;
+      float envThetaVYp = texture(envProfileTex, vec2(0.5, texCoordX0Yp.y)).x;
+      float envThetaV = (envThetaV0 + envThetaVYp) * 0.5;
 
-    gravityForce -= precipFeedback[MASS] * gravMult * waterWeight; // precipitation weigth added to gravity force
+      // Fallback safety if envProfileTex has not yet rendered on very first setup step
+      if (envThetaV < 100.0) {
+        float initTFace = (getInitialT(int(fragCoord.y)) + getInitialT(int(fragCoord.y) + 1)) * 0.5;
+        float refRealT = potentialToRealT(initTFace, texCoord.y + 0.5 * texelSize.y);
+        envThetaV = initTFace + maxWater(refRealT - 12.0) * 0.11;
+      }
 
-    base[VY] += gravityForce;
+      buoyancyAnomaly = localThetaV - envThetaV;
+
+      float cloudFace = (water[CLOUD] + waterX0Yp[CLOUD]) * 0.5;
+      float precipFace = (precipFeedback[MASS] + precipX0Yp[MASS]) * 0.5;
+
+      float gravityForce = buoyancyAnomaly * gravMult;
+      gravityForce -= (cloudFace + precipFace) * gravMult * waterWeight; // condensate & precipitation weight drag
+
+      base[VY] += gravityForce;
+    }
 
     // base.x += sin(texCoord.x * PI * 2.0 + iterNum * 0.000005) * (1. - texCoord.y) * 0.00015; // phantom force to simulate high and low pressure areas
 
@@ -194,17 +240,27 @@ void main()
     }
 
 
-    // if(abs(base.x) > 0.0040 && abs(base.y) > 0.0040){
-    //  sample vorticity force
+    // Regime-selective vorticity confinement:
+    // - Calm laminar flow in clear ambient air (avoids unnatural clear-air whirlpools)
+    // - Vigorous cauliflower billowing in warm convective cumulus & buoyant thermals
+    // - Smooth horizontal spreading in high glaciated cumulonimbus anvils & cirrus
     vec2 vortForceX0Y0 = texture(vortForceTex, texCoord).xy;
     vec2 vortForceXmY0 = texture(vortForceTex, texCoordXmY0).xy;
     vec2 vortForceX0Ym = texture(vortForceTex, texCoordX0Ym).xy;
 
-    float velocityFactor = length(base.xy) * 0.1; // 0.2
+    float wallVortMask = smoothstep(1.5, 4.5, float(wall[DISTANCE]));
+    float iceFrac = cloudIceFraction(realTemp);
+    float cloudActive = smoothstep(0.002, 0.12, water[CLOUD]);
+    float smokeActive = smoothstep(0.02, 0.35, water[SMOKE]);
+    float thermalActive = smoothstep(0.25, 1.5, abs(buoyancyAnomaly));
+    float convectiveActivity = max(max(cloudActive, smokeActive), thermalActive * 0.65);
 
-    // apply vorticity force
-    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * (vorticity + velocityFactor);
-    //}
+    // Warm liquid cumulus turrets billow strongly; glaciated ice anvils spread smoothly
+    float phaseBillowScale = mix(1.85, 0.45, iceFrac);
+    float effVorticity = vorticity * mix(0.32, phaseBillowScale, convectiveActivity);
+    float velocityFactor = min(length(base.xy) * 0.035, 0.006) * mix(0.35, 1.15, convectiveActivity);
+
+    base.xy += vec2(vortForceX0Y0.x + vortForceX0Ym.x, vortForceX0Y0.y + vortForceXmY0.y) * (effVorticity + velocityFactor) * wallVortMask;
 
     if (nextToWall) {
       if (wall[TYPE] != WALLTYPE_WATER) { // any land
@@ -234,7 +290,10 @@ void main()
           albedoTotal = ALBEDO_RUNWAY;
         }
 
-        lightPower *= (1. - albedoTotal);
+        // Natural mesoscale landscape heterogeneity (~1.2-3.5 km thermal organization instead of 2-pixel grid noise)
+        float mesoHeterogeneity = 1.0 + 0.16 * sin(fragCoord.x * 0.085 + 1.3) * cos(fragCoord.x * 0.031 - 0.7);
+
+        lightPower *= (1. - albedoTotal) * mesoHeterogeneity;
         lightPower *= lightHeatingConst;
         base[TEMPERATURE] += lightPower; // sun heating land
       }
@@ -262,8 +321,7 @@ void main()
         //   nearestType = wallXpY0[TYPE];
       }
 
-      wall[DISTANCE] = nearest + 1; // add one to dist to wall
-                                    // wall[TYPE] = nearestType;     // type = type of nearest wall
+      wall[DISTANCE] = min(nearest + 1, 127); // add one to dist to wall
     }
 
 #define surfaceWindSmootingDist 5
@@ -281,14 +339,14 @@ void main()
         base[VX] -= abs(base[VX]) * base[VX] * surfaceDrag * 50.; // quadratic surface drag
       }
 
-      // Smoothing near surface
+      // Turbulent Monin-Obukhov mixing across the lowest 5 surface-layer cells
 
-      if (/*wallX0Yp[VERT_DISTANCE] != 0 && */ wallX0Yp[VERT_DISTANCE] <= surfaceWindSmootingDist) { // above
-        exchangeWith(texCoordX0Yp);
+      if (wallX0Yp[DISTANCE] > 0 && wallX0Yp[VERT_DISTANCE] <= surfaceWindSmootingDist) { // above
+        exchangeWith(texCoordX0Yp, true);
       }
 
-      if (wallX0Ym[VERT_DISTANCE] > 0 /* && wallX0Ym[1] <= wallManhattanInfluence*/) { // below
-        exchangeWith(texCoordX0Ym);
+      if (wallX0Ym[DISTANCE] > 0 && wallX0Ym[VERT_DISTANCE] > 0) { // below
+        exchangeWith(texCoordX0Ym, false);
       }
       /*
             if (wallXmY0[1] != 0 && wallXmY0[1] <= wallManhattanInfluence) { // left
@@ -353,24 +411,26 @@ void main()
           water[TOTAL] += evaporation;
           base[TEMPERATURE] -= evaporation * evapHeat * 0.5;                                // evaporative cooling (half the real value, to prevent boring non convective conditions)
 
-          if (wall[VEGETATION] < 10 && water[SOIL_MOISTURE] < 5.0) {                        // Dry desert area
+          if (wall[VEGETATION] < 10 && waterInSurface[SOIL_MOISTURE] < 5.0) {               // Dry desert area (check actual surface soil moisture!)
             water[SMOKE] = min(water[SMOKE] + (max(abs(base[VX]) - 0.12, 0.) * 0.15), 2.4); // Dust blowing up with wind
           }
         }
         break;
       case WALLTYPE_WATER:
         if (wall[VERT_DISTANCE] <= wallVerticalInfluence) {
-          float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];                                       // water temperature
-          base[TEMPERATURE] += (LocalWaterTemperature - realTemp - 1.0) / influenceDevider * waterHeatExchangeRate;        // air heated or cooled by water
+          float LocalWaterTemperature = texture(baseTex, texCoordX0Ym)[TEMPERATURE];
+          float windTransferMult = 1.0 + min(abs(base[VX]) * 6.0, 2.2); // Dalton / Monin-Obukhov wind-enhanced surface flux
+          float marineMesoPatch = 1.0 + 0.14 * sin(fragCoord.x * 0.073 + iterNum * 0.0004) * cos(fragCoord.x * 0.029 - 1.1);
+          base[TEMPERATURE] += (LocalWaterTemperature - realTemp) / influenceDevider * waterHeatExchangeRate * windTransferMult * marineMesoPatch;
 
-          water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation / influenceDevider, 0.); // water evaporating
+          water[TOTAL] += max((maxWater(LocalWaterTemperature) - water[TOTAL]) * waterEvaporation * windTransferMult * marineMesoPatch / influenceDevider, 0.);
         }
         break;
       }
     }
-  } else {                                                                 // this is wall
+  } else {                                                      // this is wall
 
-    wall[VERT_DISTANCE] = wallX0Yp[VERT_DISTANCE] - 1;                     // height below ground is counted
+    wall[VERT_DISTANCE] = max(wallX0Yp[VERT_DISTANCE] - 1, -127); // height below ground is counted
 
     if (wall[VERT_DISTANCE] < 0) {                                         // below surface
       water.ba = texture(waterTex, texCoordX0Yp).ba;                       // soil moisture and snow is copied from above

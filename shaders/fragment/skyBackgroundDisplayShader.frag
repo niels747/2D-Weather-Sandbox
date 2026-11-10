@@ -18,6 +18,8 @@ uniform sampler2D ambientLightTex;
 
 uniform float minShadowLight;
 
+uniform float sunAngle;
+
 uniform float iterNum;
 
 uniform float simHeight;
@@ -39,6 +41,8 @@ const float dryLapse = 0.; // definition needed for common.glsl
 
 vec4 displayA380(vec2 pos, float angle, out vec3 emittedLight, out vec3 onLight)
 {
+  emittedLight = vec3(0.0);
+  onLight = vec3(0.0);
   vec2 planeTexCoord = texCoord;
 
   bool planeDir = planeDirectionAndGearPos[0] == 1.; // true = left, false = right
@@ -119,40 +123,48 @@ vec4 displayA380(vec2 pos, float angle, out vec3 emittedLight, out vec3 onLight)
 
 void main()
 {
-  vec2 lightTexCoord = vec2(texCoord.x, min(texCoord.y + texelSize.y * 0.5, 1.0 - texelSize.y)); // limit vertical sample position to top of simulation
+  vec2 clampedUV = vec2(texCoord.x, clamp(texCoord.y + texelSize.y * 0.5, texelSize.y * 0.5, 1.0 - texelSize.y * 0.5));
 
-  light = texture(lightTex, lightTexCoord)[0] / standardSunBrightness;
+  // Smoothly sample sunlight field so crepuscular rays ("god rays") through cloud breaks are silky and free of grid steps
+  light = bilerp(lightTex, clampedUV * resolution)[0] / standardSunBrightness;
   ambientLight = texture(ambientLightTex, texCoord).rgb;
 
-  // vec3 topBackgroundCol = vec3(0.0, 0.0, 0.0);      // 0.15 dark blue
-  // vec3 bottemBackgroundCol = vec3(0.20, 0.66, 1.0); // vec3(0.35, 0.58, 0.80) milky white blue
-  // vec3 bottemBackgroundCol = vec3(0.40, 0.76, 1.0); // vec3(0.35, 0.58, 0.80) milky white blue
+  float alt = max(texCoord.y, 0.0);
 
-  // vec3 mixedCol = mix(bottemBackgroundCol, topBackgroundCol, clamp(pow(texCoord.y * 0.35, 0.5), 0., 1.)); // 0.2
+  // Base Rayleigh molecular sky profile (horizon azure to upper-troposphere / stratospheric deep sapphire)
+  float hue = 0.595;
+  float sat = map_rangeC(alt, 0.0, 2.4, 0.68, 0.98);
+  float val = pow(map_rangeC(alt, 0.0, 3.2, 1.0, 0.05), 5.0);
+  vec3 rayleighSky = hsv2rgb(vec3(hue, sat, val));
 
-  // vec3 mixedCol = mix(bottemBackgroundCol, topBackgroundCol, clamp(texCoord.y, 0., 1.)); // 0.2
+  // Golden-hour & twilight Rayleigh-Mie reddening near sunrise/sunset (68..94 deg)
+  float absSunDeg = abs(sunAngle) * rad2deg;
+  float twilightAmt = smoothstep(66.0, 86.0, absSunDeg) * (1.0 - smoothstep(91.0, 98.0, absSunDeg));
+  float horizonBand = exp(-alt * 3.4);
+  float midBand = exp(-max(alt - 0.14, 0.0) * 5.0) * smoothstep(0.0, 0.16, alt);
 
+  // Directional warm glow toward the sun side of the horizon, with dusty rose-violet Belt of Venus opposite
+  float sunSide = clamp(0.5 + 0.5 * sign(sunAngle) * (texCoord.x - 0.5) * 1.4, 0.0, 1.0);
+  vec3 warmHorizon = mix(vec3(0.58, 0.34, 0.48), vec3(1.05, 0.48, 0.18), sunSide); // anti-twilight rose vs. solar amber-coral
+  vec3 twilightZenith = vec3(0.06, 0.12, 0.36);
+  vec3 twilightSky = mix(twilightZenith, warmHorizon, clamp(horizonBand * 0.92 + midBand * 0.25, 0.0, 1.0));
 
-  float hue = 0.6;
-  float sat = map_rangeC(texCoord.y, 0., 2.5, 0.7, 1.0); // more blue at the top
+  vec3 mixedCol = mix(rayleighSky, twilightSky, twilightAmt * 0.82);
 
-
-  float val = pow(map_rangeC(texCoord.y, 0., 3.2, 1.0, 0.05), 5.0); // pow 5 map 1.0 to 0.1
-
-  vec3 mixedCol = hsv2rgb(vec3(hue, sat, val));                     // blue air
-
-  vec3 airplaneLights;
-
-  vec3 airplaneOnLight;
+  vec3 airplaneLights = vec3(0.0);
+  vec3 airplaneOnLight = vec3(0.0);
 
   vec4 A380Col = displayA380(planePos.xy, planePos.z, airplaneLights, airplaneOnLight);
 
   mixedCol *= 1.0 - A380Col.a;
   mixedCol += A380Col.rgb * A380Col.a;
 
-  vec3 finalColor = mixedCol * (light + minShadowLight + airplaneOnLight);
+  // Volumetric crepuscular sunbeams (Mie forward haze illuminated by cloud-filtered sunlight shafts)
+  float airDensityFactor = clamp(1.0 - alt, 0.0, 1.0);
+  float scatering = clamp(map_range(abs(sunAngle), 68. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.);
+  vec3 mieShaftGlow = sunColor(scatering) * light * pow(airDensityFactor, 1.8) * mix(0.05, 0.14, twilightAmt) * (1.0 - A380Col.a);
 
-  float airDensityFactor = clamp(1.0 - texCoord.y, 0., 1.);
+  vec3 finalColor = mixedCol * (light + minShadowLight + airplaneOnLight) + mieShaftGlow;
 
   finalColor += ambientLight * 0.1 * airDensityFactor / standardSunBrightness;
 

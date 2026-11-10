@@ -2,9 +2,9 @@
 precision highp float;
 
 
-in vec2 dropPosition;
-in vec2 mass; //[0] water   [1] ice
-in float density;
+layout(location = 0) in vec2 dropPosition;
+layout(location = 1) in vec2 mass; //[0] water   [1] ice
+layout(location = 2) in float density;
 
 // transform feedback varyings:
 out vec2 position_out;
@@ -65,6 +65,8 @@ void disableDroplet()
 
 void main()
 {
+  feedback = vec4(0.0);
+  deposition = vec2(0.0);
   newPos = dropPosition;
   newMass = mass;         // amount of water and ice carried
   newDensity = density;   // determines fall speed
@@ -79,8 +81,10 @@ void main()
     // texCoord = vec2(random(mass[WATER] + iterNum), random(mass[ICE] + iterNum)); func2D
     // texCoord = vec2(func2D(vec2(mass[WATER], dropPosition.x), iterNum * 0.3754), func2D(vec2(mass[ICE], dropPosition.x), iterNum * 0.073162));
 
-    texCoord = vec2(random2d(vec2(mass[WATER], dropPosition.x + iterNum * 0.3754)), random2d(vec2(mass[ICE], dropPosition.x + iterNum * 0.073162)));
-
+    texCoord = vec2(
+      random2d(vec2(mass[WATER] + float(gl_VertexID) * 0.00073, dropPosition.x + iterNum * 0.3754)),
+      random2d(vec2(mass[ICE] + float(gl_VertexID) * 0.00119, dropPosition.x + iterNum * 0.073162))
+    );
 
     // sample fluid at generated position
     base = texture(baseTex, texCoord);
@@ -89,24 +93,17 @@ void main()
     // check if position is okay to spawn
     realTemp = potentialToRealT(base[TEMPERATURE]); // in Kelvin
 
-#define initalMass 0.15                             // 0.05 initial droplet mass
-    float threshold;                                // minimal cloudwater before precipitation develops
-    if (realTemp > CtoK(0.0))
-      threshold = aboveZeroThreshold;               // in above freezing conditions coalescence only happens in really dense clouds
-    else                                            // the colder it gets, the faster ice starts to form
-      //  treshHold = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), subZeroThreshold, initalMass), initalMass);
-      threshold = subZeroThreshold;
+#define initalMass 0.15                             // initial hydrometeor parcel mass
+    // Smooth ice-nucleation threshold transition from warm collision-coalescence (> -2 C) to heterogeneous ice activation (< -22 C)
+    float iceNucFactor = smoothstep(CtoK(-2.0), CtoK(-22.0), realTemp);
+    float threshold = mix(aboveZeroThreshold, subZeroThreshold, iceNucFactor);
 
     if (water[CLOUD] > threshold && base[TEMPERATURE] < 500.) { // if cloudwater above threshold and not wall
-                                                                // float spawnChance = (water[1] - threshold) * 1000.0 / inactiveDroplets;
-                                                                // if (spawnChance > rand2d(mass.xy)) {
-                                                                //  float spawnChance = (water[CLOUD] - threshold) / inactiveDroplets * resolution.x * resolution.y * spawnChanceMult;
 
-      float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult; // 20.0  50.0
+      float spawnChance = ((water[CLOUD] - threshold) / (inactiveDroplets + 10.0)) * resolution.x * resolution.y * spawnChanceMult;
 
-      //    float nrmRand = random2d(vec2(mass[WATER] * 0.2324, iterNum * 0.1783 + random(mass[ICE]))); // normalized random value
-
-      float nrmRand = fract(pow(water[CLOUD] * 10.0, 2.0));
+      // Decorrelated per-particle, per-iteration random draw (fixes synchronous contour-band rain bursts)
+      float nrmRand = random2d(vec2(mass[WATER] * 0.2324 + float(gl_VertexID) * 0.00137, iterNum * 0.1783 + mass[ICE] * 0.713));
 
       if (spawnChance > nrmRand) {                                       // spawn precipitation particle
         spawned = true;
@@ -114,37 +111,43 @@ void main()
 
         if (realTemp < CtoK(0.0)) {                                      // below 0 C
           newMass[WATER] = 0.0;                                          // enable
-          newMass[ICE] = initalMass;                                     // snow
-          feedback[HEAT] += newMass[ICE] * meltingHeat;                  // add heat of freezing
+          newMass[ICE] = initalMass;                                     // ice crystal / snow aggregate
+          feedback[HEAT] += newMass[ICE] * meltingHeat;                  // latent heat of freezing
           newDensity = snowDensity;
 
           vec4 lightningData = texture(lightningDataTex, vec2(0.5)); // data from last lightning bolt
 
-          const float lightningCloudDensityThreshold = 2.5;          // 3.0
-          const float lightningChanceMultiplier = 0.0033;            // 0.0011
+          const float lightningCloudDensityThreshold = 2.4;
+          const float lightningChanceMultiplier = 0.0035;
 
+          // Non-inductive graupel-ice charging peaks in the mixed-phase updraft zone (-5 C to -35 C)
+          float mixedPhaseZone = smoothstep(CtoK(-1.0), CtoK(-7.0), realTemp) * smoothstep(CtoK(-44.0), CtoK(-28.0), realTemp);
+          float updraftFactor = 1.0 + min(abs(base[VY]) * 8.0, 2.5);
           float cloudPlusPrecipDensity = water[CLOUD] + water[PRECIPITATION];
 
-          float lightningSpawnChance = max((cloudPlusPrecipDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.);
+          float lightningSpawnChance = max((cloudPlusPrecipDensity - lightningCloudDensityThreshold) * lightningChanceMultiplier, 0.) * mixedPhaseZone * updraftFactor;
 
-          const float minIterationsSinceLastLightningBolt = 30.; // 50.
+          const float minIterationsSinceLastLightningBolt = 30.;
 
+          float lightningRand = random2d(vec2(float(gl_VertexID) * 0.0173 + base[TEMPERATURE] * 0.2324, iterNum * 0.317 + water[TOTAL] * 7.7));
           if (lightningData[START_ITERNUM] < iterNum - minIterationsSinceLastLightningBolt &&
-              random2d(vec2(base[TEMPERATURE] * 0.2324, water[TOTAL] * 7.7)) < lightningSpawnChance) { // Spawn lightning
+              lightningRand < lightningSpawnChance) { // Spawn lightning
             lightningSpawned = true;
             isActive = false;
             gl_PointSize = 1.0;
             feedback.xy = texCoord;
             feedback[START_ITERNUM] = iterNum;
-            feedback[INTENSITY] = clamp(cloudPlusPrecipDensity / 10.0 + (random2d(texCoord) - 0.5), 0.01, 4.0);
-            gl_Position = vec4(vec2(-1. + texelSize.x * 3., -1. + texelSize.y), 0.0, 1.0); // render to bottem left corner (1, 0)
+            feedback[INTENSITY] = clamp(cloudPlusPrecipDensity / 10.0 + (random2d(texCoord + vec2(iterNum * 0.01)) - 0.5), 0.05, 4.0);
+            gl_Position = vec4(vec2(-1. + texelSize.x * 3., -1. + texelSize.y), 0.0, 1.0); // render to bottom-left corner (1, 0)
           }
         } else {
-          newMass[WATER] = initalMass; // rain
+          newMass[WATER] = initalMass; // warm-cloud raindrop
           newMass[ICE] = 0.0;
           newDensity = 1.0;
         }
-        feedback[VAPOR] -= initalMass;
+        if (!lightningSpawned) {
+          feedback[VAPOR] -= initalMass;
+        }
       }
     }
 
@@ -194,25 +197,35 @@ void main()
 
     } else { // update droplet
 
-      // float surfaceArea = sqrt(totalMass); // As if droplet is a circle (2D)
-      float surfaceArea = pow(totalMass, 1. / 3.); // As if droplet is a sphere (3D)
+      float surfaceArea = pow(totalMass, 1. / 3.); // 3D spherical/equivalent-volume cross-section
 
-      // float growthRate = clamp(map_range(realTemp, CtoK(0.0), CtoK(-30.0), growthRate0C, growthRate_30C), growthRate0C, growthRate_30C); // the colder it gets the faster ice forms
-      float growthRate = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), growthRate0C, growthRate_30C), growthRate0C); // the colder it gets the faster ice forms
+      float tempC = KtoC(realTemp);
+      float growthRate = max(map_range(realTemp, CtoK(0.0), CtoK(-30.0), growthRate0C, growthRate_30C), growthRate0C);
 
-      // growthRate = 0.0;                                                                                                                  // for debug
+      // Bergeron-Findeisen dendritic crystal growth peak around -15 C (-12 C to -18 C)
+      float dendriticPeak = 1.0 + 0.40 * exp(-pow((tempC + 15.0) / 5.5, 2.0));
+      if (realTemp < CtoK(0.0)) {
+        growthRate *= dendriticPeak;
+      }
 
       float growth = water[CLOUD] * growthRate * surfaceArea;
 
-      growth += max(relativeHumidity - 1.0, 0.) * max(-30.0 - KtoC(realTemp), 0.) * 0.0001; // increase growthrate below -30 C and above 100% relative humidity
+      growth += max(relativeHumidity - 1.0, 0.) * max(-30.0 - tempC, 0.) * 0.0001; // homogeneous ice deposition below -30 C
 
-
-      // Hail growth enhancement:
-      if (realTemp < CtoK(0.0) && water[CLOUD] > 0.0 && density == 1.0) { // below freezing
-        growth += surfaceArea * water[PRECIPITATION] * 0.0030;            // rain freezing onto hail
+      // Riming & Graupel / Hail growth in supercooled liquid updrafts:
+      // Snow aggregates encountering supercooled droplets rime into denser graupel and eventually solid hailstones
+      float supercooledLiquid = water[CLOUD] * (1.0 - cloudIceFraction(realTemp));
+      if (realTemp < CtoK(0.0) && supercooledLiquid > 0.25) {
+        float rimeDensification = (supercooledLiquid - 0.25) * 0.0022 * surfaceArea;
+        newDensity = min(newDensity + rimeDensification, 1.0);
+        if (newDensity > 0.65) {
+          growth += surfaceArea * (supercooledLiquid * 0.0010 + water[PRECIPITATION] * 0.0022);
+        }
       }
 
-      feedback[VAPOR] -= growth * 1.0; // takes water from the air
+      growth = min(growth, max(water[CLOUD] * 0.45, 0.0)); // never deplete more than local available cloud condensate
+
+      feedback[VAPOR] -= growth; // accretes cloud water
 
 
       if (realTemp < CtoK(0.0)) { // below freezing
@@ -220,48 +233,58 @@ void main()
         newMass[ICE] += growth;   // ice growth
         feedback[HEAT] += growth * meltingHeat;
 
-        float freezing = min((CtoK(0.0) - realTemp) * freezingRate * surfaceArea, newMass[WATER]); // rain freezing
+        float freezing = min((CtoK(0.0) - realTemp) * freezingRate * surfaceArea, newMass[WATER]); // supercooled rain freezing
         newMass[WATER] -= freezing;
         newMass[ICE] += freezing;
+        if (freezing > 0.0) {
+          newDensity = mix(newDensity, 0.92, clamp(freezing / max(totalMass, 0.05), 0.0, 1.0)); // frozen raindrops form dense sleet/hail embryos
+        }
         feedback[HEAT] += freezing * meltingHeat;
 
-      } else {                                                                                                    // above freezing
-        newMass[WATER] += growth;                                                                                 // water growth
+      } else {                                                                                   // above freezing
+        newMass[WATER] += growth;                                                                // warm collision-coalescence growth
 
-        float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea /* / newDensity */, newMass[ICE]); // 0.0002 snow / hail melting
+        float melting = min((realTemp - CtoK(0.0)) * meltingRate * surfaceArea, newMass[ICE]);   // snow / graupel / hail melting
         newMass[ICE] -= melting;
         newMass[WATER] += melting;
         feedback[HEAT] -= melting * meltingHeat;
 
         newDensity = min(newDensity + (melting / totalMass) * 1.00,
-                         1.0); // density increases upto 1.0 as snow melts
+                         1.0); // density increases toward liquid water (1.0) as snow melts
       }
 
-      float dropletTemp = potentialToRealT(base[TEMPERATURE]);                                       // should be wetbulb temperature...
+      float dropletTemp = realTemp;
 
-      if (newMass[ICE] > 0.0)                                                                        // if any ice
-        dropletTemp = min(dropletTemp, CtoK(0.0));                                                   // temp can not be more than 0 C
+      if (newMass[ICE] > 0.0)                      // melting ice surface stays pinned at 0 C
+        dropletTemp = min(dropletTemp, CtoK(0.0));
 
-      float evapAndSubli = max((maxWater(dropletTemp) - water[TOTAL]) * surfaceArea * evapRate, 0.); // 0.0005 evaporation and sublimation only positive
+      // Sub-cloud evaporation & sublimation with Beard-Pruppacher fall-ventilation enhancement (produces virga & cold-pool downdrafts)
+      float ambientVapor = max(water[TOTAL] - water[CLOUD], 0.0);
+      float satAtDrop = (newMass[ICE] > newMass[WATER]) ? maxWaterMixed(dropletTemp) : maxWater(dropletTemp);
+      float ventilation = 1.0 + 0.30 * pow(totalMass, 0.25) * newDensity;
+      float evapAndSubli = max((satAtDrop - ambientVapor) * surfaceArea * evapRate * ventilation, 0.);
 
-      // evapAndSubli = 0.0000;                                                                         // remove quickly for DEBUG
+      float evap = min(newMass[WATER], evapAndSubli);       // evaporate liquid coat first
+      float subli = min(newMass[ICE], (evapAndSubli - evap) * 0.65); // ice sublimates slightly slower due to higher latent heat
 
-      float evap = min(newMass[WATER], evapAndSubli);       // can only evaporate as much water as it contains
-      float subli = min(newMass[ICE], evapAndSubli - evap); // the rest is ice sublimation, upto the amount of ice it contains
+      newMass[WATER] -= evap;
+      newMass[ICE] -= subli;
 
-      newMass[WATER] -= evap;                               // water evaporation
-      newMass[ICE] -= subli;                                // ice sublimation
+      feedback[VAPOR] += evap + subli;
+      feedback[HEAT] -= evap * evapHeat;
+      feedback[HEAT] -= subli * (evapHeat + meltingHeat);
 
-      feedback[VAPOR] += evap;                              // added to water vapor in air
-      feedback[VAPOR] += subli;
-      feedback[HEAT] -= evap * evapHeat;                    // heat cost extracted from air
-      feedback[HEAT] -= subli * evapHeat;
-      feedback[HEAT] -= subli * meltingHeat;
+      // Update position with smooth bilinear wind interpolation and physical terminal-velocity asymptotes
+      vec2 smoothWind = bilerp(baseTex, texCoord * resolution).xy;
+      newPos += smoothWind / resolution * 2.;
 
-      // Update position
-      // move with air    * 2. because droplet position goes from -1. to 1
-      newPos += base.xy / resolution * 2.;
-      newPos.y -= fallSpeed * newDensity * sqrt(totalMass / surfaceArea); // fall speed relative to air
+      // Liquid raindrops flatten aerodynamically and asymptote around ~9 m/s; solid hailstones continue accelerating with sqrt(D)
+      float rawSizeSpeed = sqrt(max(totalMass, 0.01) / max(surfaceArea, 0.01));
+      float iceMassRatio = newMass[ICE] / max(newMass[WATER] + newMass[ICE], 0.001);
+      float maxTermFactor = mix(1.45, 2.35, iceMassRatio);
+      float termFactor = min(rawSizeSpeed, maxTermFactor);
+
+      newPos.y -= fallSpeed * newDensity * termFactor;
       /*
        // falling at fixed speed:
       float cellHeight = texelSize.y * 12000.0; // in meters

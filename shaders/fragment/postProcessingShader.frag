@@ -22,6 +22,24 @@ out vec4 fragmentColor;
 
 #include "commonDisplay.glsl"
 
+// Smooth C1 highlight shoulder above knee = 0.68:
+// Preserves exact linear colors/brightness in [0, 0.68] while preventing harsh RGB clipping on sunlit cloud crowns & sunset glow
+vec3 softHighlightShoulder(vec3 x)
+{
+  const float knee = 0.68;
+  const float head = 1.0 - knee;
+  vec3 over = max(x - vec3(knee), vec3(0.0));
+  vec3 perChan = min(x, vec3(knee)) + head * (over / (over + vec3(head)));
+
+  float peak = max(max(x.r, x.g), x.b);
+  if (peak > knee) {
+    float mappedPeak = knee + head * ((peak - knee) / ((peak - knee) + head));
+    vec3 chromaPreserved = x * (mappedPeak / peak);
+    return mix(perChan, chromaPreserved, 0.45);
+  }
+  return perChan;
+}
+
 void main()
 {
   vec3 outputCol = texture(hdrTex, texCoord).rgb;
@@ -30,9 +48,9 @@ void main()
 
   outputCol += bloom * 0.990; // apply bloom
 
-  // outputCol = outputCol / (outputCol + vec3(1.0)) * 1.1; // Tone mapping
+  outputCol = max(outputCol * exposure, vec3(0.0));
 
-  outputCol *= exposure;
+  outputCol = softHighlightShoulder(outputCol);
 
   outputCol = pow(outputCol, ONE_OVER_GAMMA); // gamma correction
 
