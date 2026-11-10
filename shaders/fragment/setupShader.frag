@@ -80,17 +80,28 @@ void main()
       water[SNOW] = max(map_rangeC(height_m, 2000.0, 5000.0, 0.0, 100.0), 0.);                                // set snow
     }
   } else {                                                                                                    // air, not wall
-    wall[DISTANCE] = 255;                                                                                     // reset distance to wall
-    base[TEMPERATURE] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                   // set temperature
+    wall[DISTANCE] = 127;                                                                                     // reset distance to wall
+    base[TEMPERATURE] = getInitialT(int(texCoord.y * (1.0 / texelSize.y)));                                   // set base potential temperature
+
+    // Realistic Convective Boundary Layer (CBL) initial perturbations:
+    // Gentle multi-scale mesoscale moisture & thermal eddies prevent uniform slab boiling and organize natural cumulus streets
+    float pblMask = 1.0 - smoothstep(0.12, 0.24, texCoord.y);
+    float eddyWave = (
+      noise(fragCoord.x * 0.018 + seed * 3.1) * 0.55 +
+      noise(fragCoord.x * 0.047 + texCoord.y * 6.0 + seed * 7.3) * 0.30 +
+      noise(fragCoord.x * 0.11 - texCoord.y * 11.0 + seed * 13.7) * 0.15
+    );
+    base[TEMPERATURE] += eddyWave * 0.45 * pblMask;
 
     float realTemp = potentialToRealT(base[TEMPERATURE]);
 
-    if (texCoord.y < 0.20) // set dew point
-      water[TOTAL] = maxWater(realTemp - 2.0);
-    else
-      water[TOTAL] = maxWater(realTemp - 20.0);
+    // Smooth boundary-layer moisture profile with natural entrainment transition zone around 1.8 - 2.6 km
+    float pblTop = 0.18 + noise(fragCoord.x * 0.012 + seed * 5.7) * 0.035;
+    float freeTropBlend = smoothstep(pblTop - 0.035, pblTop + 0.045, texCoord.y);
+    float dewDepression = mix(2.2 - eddyWave * 1.4, 18.0 - noise(fragCoord.x * 0.01 + texCoord.y * 8.0) * 4.0, freeTropBlend);
+    water[TOTAL] = maxWater(max(realTemp - max(dewDepression, 0.3), 150.0));
 
-    water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate cloud water
+    water[CLOUD] = max(water[TOTAL] - maxWaterMixed(realTemp), 0.0); // calculate initial cloud water
   }
   wall[VERT_DISTANCE] = 100;                                    // preset height above ground to prevent water being deleted in boundaryshader ln 250*`
 }

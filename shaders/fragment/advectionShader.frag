@@ -149,22 +149,34 @@ void main()
     // Precipitation curtain field advected with flow and terminal fall drift
     water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0.0, 0.05))[PRECIPITATION];
 
-    // Subgrid Smagorinsky turbulent entrainment (conservative mixing in high-shear zones such as cumulus flanks)
+    // Subgrid Smagorinsky & Cloud-Margin Inhomogeneous Turbulent Entrainment:
+    // Symmetrically mixes heat & moisture across high-shear zones and active cloud-clear interfaces,
+    // generating authentic evaporatively cooled subsiding shells (cauliflower roll) and natural cumulus lifecycles!
     if (wall[DISTANCE] >= 3 && fragCoord.y > 1.5 && fragCoord.y < resolution.y - 1.5) {
       float du_dx = cellX0Y0.x - cellXmY0.x;
       float dv_dy = cellX0Y0.y - cellX0Ym.y;
       float shear = 0.5 * (cellX0Yp.x - cellX0Ym.x + cellXpY0.y - cellXmY0.y);
       float strainMag = sqrt(2.0 * (du_dx * du_dx + dv_dy * dv_dy) + shear * shear);
-      float eddyDiff = min(strainMag * 0.055, 0.012);
+
+      vec4 wL = texture(waterTex, texCoordXmY0);
+      vec4 wR = texture(waterTex, texCoordXpY0);
+      vec4 wD = texture(waterTex, texCoordX0Ym);
+      vec4 wU = texture(waterTex, texCoordX0Yp);
+
+      float maxNeighborC = max(max(max(wL[CLOUD], wR[CLOUD]), max(wD[CLOUD], wU[CLOUD])), water[CLOUD]);
+      float minNeighborC = min(min(min(wL[CLOUD], wR[CLOUD]), min(wD[CLOUD], wU[CLOUD])), water[CLOUD]);
+
+      // Detect active cloud-environment margin (symmetric across cloudy cell and adjacent clear cell -> 100% conservative!)
+      float localTempApprox = potentialToRealT(base[TEMPERATURE]);
+      float localIce = cloudIceFraction(localTempApprox);
+      bool atCloudInterface = (maxNeighborC > 0.008) && (minNeighborC < 0.002);
+      float interfaceEntrain = atCloudInterface ? mix(0.015, 0.0025, localIce) : 0.0;
+
+      float eddyDiff = clamp(strainMag * 0.065 + interfaceEntrain, 0.0, 0.028);
 
       if (eddyDiff > 0.0001) {
         float avgNeighborT = 0.25 * (cellXmY0[TEMPERATURE] + cellXpY0[TEMPERATURE] + cellX0Ym[TEMPERATURE] + cellX0Yp[TEMPERATURE]);
-        vec4 wAvg = 0.25 * (
-          texture(waterTex, texCoordXmY0) +
-          texture(waterTex, texCoordXpY0) +
-          texture(waterTex, texCoordX0Ym) +
-          texture(waterTex, texCoordX0Yp)
-        );
+        vec4 wAvg = 0.25 * (wL + wR + wD + wU);
         base[TEMPERATURE] = mix(base[TEMPERATURE], avgNeighborT, eddyDiff);
         water.xyw = mix(water.xyw, wAvg.xyw, eddyDiff);
       }
@@ -189,10 +201,12 @@ void main()
     float condensation;
     if (eqDeltaCloud < 0.0) {
       // Warm liquid cloud droplets evaporate crisply in dry air; high ice clouds (anvils/cirrus) sublimate slowly
-      float evapRelax = mix(0.38, 0.055, iceFrac);
+      float evapRelax = mix(0.45, 0.045, iceFrac);
       condensation = eqDeltaCloud * evapRelax;
     } else {
-      float condRelax = min(condensationRate * min(psychroFactor, 3.0), 0.85);
+      // Physical CCN droplet activation (~1.5-2s phase relaxation at default condensationRate = 0.005):
+      // Produces razor-sharp flat Lifting Condensation Level (LCL) cloud bases and immediate latent-heat buoyancy!
+      float condRelax = clamp(condensationRate * 32.0, 0.025, 0.68);
       condensation = eqDeltaCloud * condRelax;
     }
     condensation = clamp(condensation, -water[CLOUD], max(water[TOTAL] - water[CLOUD], 0.0));

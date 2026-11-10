@@ -5,8 +5,12 @@ precision highp isampler2D;
 
 in vec2 fragCoord;
 in vec2 texCoord;     // this
+in vec2 texCoordXmY0; // left
 in vec2 texCoordXpY0; // right
 in vec2 texCoordX0Yp; // up
+in vec2 texCoordX0Ym; // down
+in vec2 texCoordXmYp; // left-up
+in vec2 texCoordXpYm; // right-down
 
 uniform sampler2D baseTex;
 uniform isampler2D wallTex;
@@ -36,8 +40,12 @@ vec2 resolution;
 void main()
 {
   base = texture(baseTex, texCoord);
+  vec4 baseXmY0 = texture(baseTex, texCoordXmY0);
   vec4 baseXpY0 = texture(baseTex, texCoordXpY0);
   vec4 baseX0Yp = texture(baseTex, texCoordX0Yp);
+  vec4 baseX0Ym = texture(baseTex, texCoordX0Ym);
+  vec4 baseXmYp = texture(baseTex, texCoordXmYp);
+  vec4 baseXpYm = texture(baseTex, texCoordXpYm);
 
   wall = texture(wallTex, texCoord);
   ivec4 wallX0Yp = texture(wallTex, texCoordX0Yp);
@@ -50,26 +58,34 @@ void main()
     base[VX] = 0.0;        // velocities in wall are 0
     base[VY] = 0.0;        // reflect pressure waves cleanly at solid boundaries
   } else {
+    // Scaled by 0.2 because 5 split-explicit pressure-velocity substeps run per advection iteration
+    const float substepScale = 0.2;
+    const float divDamp = 0.08; // Klemp-Wilhelmson 3D/2D acoustic divergence damper (damps jello sound waves without touching curl/vortices!)
+
     float speed = length(base.xy);
-    float totalDrag = dragMultiplier * (0.0002 + 0.0012 * speed); // linear + high-speed quadratic turbulent drag
+    float totalDrag = dragMultiplier * (0.0002 + 0.0012 * speed) * substepScale;
+
+    float div0 = (base[VX] - baseXmY0[VX]) + (base[VY] - baseX0Ym[VY]);
 
     if (wallXpY0[DISTANCE] == 0) {
       base[VX] = 0.0;                                  // X velocity is defined on right cell face
     } else {
-      base[VX] += base[PRESSURE] - baseXpY0[PRESSURE]; // Pressure-gradient force (Newton's 2nd law)
+      float divXp = (baseXpY0[VX] - base[VX]) + (baseXpY0[VY] - baseXpYm[VY]);
+      base[VX] += (base[PRESSURE] - baseXpY0[PRESSURE]) + (divXp - div0) * divDamp;
       base[VX] *= 1.0 - totalDrag;
-      base[VX] += wind * 0.000001;
+      base[VX] += wind * 0.000001 * substepScale;
     }
 
     if (wallX0Yp[DISTANCE] == 0 || texCoord.y >= 1.0 - texelSize.y * 1.1) {
       base[VY] = 0.0; // No vertical penetration into ceiling walls or above domain top lid
     } else {
-      base[VY] += base[PRESSURE] - baseX0Yp[PRESSURE];
+      float divYp = (baseX0Yp[VX] - baseXmYp[VX]) + (baseX0Yp[VY] - base[VY]);
+      base[VY] += (base[PRESSURE] - baseX0Yp[PRESSURE]) + (divYp - div0) * divDamp;
       base[VY] *= 1.0 - totalDrag;
 
       // Upper-troposphere / stratospheric Rayleigh gravity-wave sponge to prevent lid reflections
-      float lidSponge = smoothstep(0.93, 1.0, texCoord.y);
-      base[VY] *= 1.0 - lidSponge * 0.012;
+      float lidSponge = smoothstep(0.92, 1.0, texCoord.y);
+      base[VY] *= 1.0 - lidSponge * 0.004;
     }
 
     base.xy = clamp(base.xy, vec2(-0.85), vec2(0.85));

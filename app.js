@@ -5204,6 +5204,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     bloomBlurShader,
     precipitationVertexShader,
     precipitationShader,
+    envProfileShader,
   ] = await Promise.all([
     loadShader('simShader.vert'),
     loadShader('dispShader.vert'),
@@ -5232,6 +5233,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     loadShader('bloomBlurShader.frag'),
     loadShader('precipitationShader.vert'),
     loadShader('precipitationShader.frag'),
+    loadShader('envProfileShader.frag'),
   ]);
 
 
@@ -5242,6 +5244,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   const curlProgram = createProgram(simVertexShader, curlShader);
   const vorticityProgram = createProgram(simVertexShader, vorticityShader);
   const boundaryProgram = createProgram(simVertexShader, boundaryShader);
+  const envProfileProgram = createProgram(simVertexShader, envProfileShader);
 
   const lightingProgram = createProgram(simVertexShader, lightingShader);
 
@@ -5715,6 +5718,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
   createAmbientLightFBOs();
 
+  const envProfileFBO_0 = new FBO(1, sim_res_y, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.LINEAR, gl.CLAMP_TO_EDGE);
+  const envProfileFBO_1 = new FBO(1, sim_res_y, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.LINEAR, gl.CLAMP_TO_EDGE);
+  let envEven = false;
+
   // Set up Framebuffers
 
 
@@ -6005,6 +6012,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1i(getUniformLoc(boundaryProgram, 'lightTex'), 4);
   gl.uniform1i(getUniformLoc(boundaryProgram, 'precipFeedbackTex'), 5);
   gl.uniform1i(getUniformLoc(boundaryProgram, 'precipDepositionTex'), 6);
+  gl.uniform1i(getUniformLoc(boundaryProgram, 'envProfileTex'), 7);
   gl.uniform2f(getUniformLoc(boundaryProgram, 'resolution'), sim_res_x, sim_res_y);
   gl.uniform2f(getUniformLoc(boundaryProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(getUniformLoc(boundaryProgram, 'vorticity'),
@@ -6014,6 +6022,16 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform1f(getUniformLoc(boundaryProgram, 'dryLapse'), dryLapse);
   gl.uniform4fv(getUniformLoc(boundaryProgram, 'initial_Tv'), initial_T);
   gl.uniform1i(getUniformLoc(boundaryProgram, 'allowCaves'), guiControls.allowCaves ? 1 : 0);
+
+  gl.useProgram(envProfileProgram);
+  gl.uniform1i(getUniformLoc(envProfileProgram, 'baseTex'), 0);
+  gl.uniform1i(getUniformLoc(envProfileProgram, 'waterTex'), 1);
+  gl.uniform1i(getUniformLoc(envProfileProgram, 'wallTex'), 2);
+  gl.uniform1i(getUniformLoc(envProfileProgram, 'prevEnvTex'), 3);
+  gl.uniform2f(getUniformLoc(envProfileProgram, 'resolution'), sim_res_x, sim_res_y);
+  gl.uniform2f(getUniformLoc(envProfileProgram, 'texelSize'), texelSizeX, texelSizeY);
+  gl.uniform1f(getUniformLoc(envProfileProgram, 'dryLapse'), dryLapse);
+  gl.uniform4fv(getUniformLoc(envProfileProgram, 'initial_Tv'), initial_T);
 
   gl.useProgram(curlProgram);
   gl.uniform2f(getUniformLoc(curlProgram, 'texelSize'), texelSizeX, texelSizeY);
@@ -6166,6 +6184,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   let lastThunderStrikeIter = -1;
 
   var uniformLocation_boundaryProgram_iterNum = getUniformLoc(boundaryProgram, 'iterNum');
+  var uniformLocation_envProfileProgram_iterNum = getUniformLoc(envProfileProgram, 'iterNum');
 
 
   for (let s = 0; s < weatherStations.length; s++) { // initial measurement at weather stations
@@ -6369,6 +6388,28 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
+            // Update live horizontal-mean ambient virtual potential temperature profile envProfileFBO (1 x sim_res_y)
+            const prevEnvFBO = envEven ? envProfileFBO_1 : envProfileFBO_0;
+            const nextEnvFBO = envEven ? envProfileFBO_0 : envProfileFBO_1;
+            envEven = !envEven;
+
+            gl.viewport(0, 0, 1, sim_res_y);
+            gl.useProgram(envProfileProgram);
+            gl.uniform1f(uniformLocation_envProfileProgram_iterNum, iterNum);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, prevEnvFBO.texture);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, nextEnvFBO.frameBuffer);
+            gl.drawBuffers([ gl.COLOR_ATTACHMENT0 ]);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            gl.viewport(0, 0, sim_res_x, sim_res_y);
+
             // apply vorticity, boundary conditions and user input
             gl.useProgram(boundaryProgram);
             gl.uniform1f(uniformLocation_boundaryProgram_iterNum, iterNum);
@@ -6386,6 +6427,8 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.bindTexture(gl.TEXTURE_2D, precipitationFeedbackTexture);
             gl.activeTexture(gl.TEXTURE6);
             gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
+            gl.activeTexture(gl.TEXTURE7);
+            gl.bindTexture(gl.TEXTURE_2D, nextEnvFBO.texture);
 
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
@@ -6404,7 +6447,29 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
             gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2 ]);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-            // calc and apply pressure
+            // Split-explicit 5-substep pressure-velocity projection (Klemp-Wilhelmson anelastic acoustic damping):
+            // Eliminates compressible jello sloshing so rising cumulus towers push air smoothly aside and draw flat LCL bases!
+            for (let acStep = 0; acStep < 4; acStep++) {
+              gl.useProgram(pressureProgram);
+              gl.activeTexture(gl.TEXTURE0);
+              gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
+              gl.activeTexture(gl.TEXTURE1);
+              gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_0);
+              gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+              gl.useProgram(velocityProgram);
+              gl.activeTexture(gl.TEXTURE0);
+              gl.bindTexture(gl.TEXTURE_2D, baseTexture_0);
+              gl.activeTexture(gl.TEXTURE1);
+              gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuff_1);
+              gl.drawBuffers([ gl.COLOR_ATTACHMENT0, gl.NONE, gl.COLOR_ATTACHMENT2 ]);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            }
+
+            // Final pressure substep into frameBuff_0
             gl.useProgram(pressureProgram);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
@@ -7158,7 +7223,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
       pending = (async () => {
         let resp;
         try {
-          resp = await fetch(fileName);
+          resp = await fetch(fileName, {cache : 'no-cache'});
         } catch (error) {
           await loadingBar.showError('ERROR loading shader files! If you just opened index.html, try again using a local server!');
           throw error;

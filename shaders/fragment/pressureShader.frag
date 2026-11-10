@@ -24,16 +24,16 @@ void main()
   if (wall[1] != 0) {
     ivec2 wallX0Ym = texture(wallTex, texCoordX0Ym).xy;
     if (wallX0Ym[1] == 0 && wallX0Ym[0] == 1) { // cell below is land wall
-      base[3] -= baseX0Ym[3] - 1000.0;          // Snow melting cools air
+      base[3] -= (baseX0Ym[3] - 1000.0) * 0.2;  // Snow melting cools air (scaled across 5 acoustic substeps)
     }
 
-    // Pressure changes proportionally to negative velocity divergence (-div u)
+    // Split-explicit acoustic substep pressure update (Klemp-Wilhelmson anelastic-style projection)
     float div = (base[0] - baseXmY0[0]) + (base[1] - baseX0Ym[1]);
-    base[2] -= div * 0.45;
+    base[2] -= div * 0.24;
 
     // Gentle acoustic wave absorption at the stratospheric top lid
-    if (texCoord.y > 0.96) {
-      base[2] *= 1.0 - smoothstep(0.96, 1.0, texCoord.y) * 0.003;
+    if (texCoord.y > 0.95) {
+      base[2] *= 1.0 - smoothstep(0.95, 1.0, texCoord.y) * 0.002;
     }
   }
 }

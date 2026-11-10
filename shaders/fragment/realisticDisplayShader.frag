@@ -93,57 +93,59 @@ float valueNoise(vec2 p)
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-// Billowing cauliflower fBm (rounded convective lobes for warm liquid cumulus)
+// Billowing cauliflower fBm (rounded convective lobes & sharp crevices for warm liquid cumulus)
 float cumulusBillowFbm(vec2 p)
 {
   float sum = 0.0;
-  float amp = 0.52;
+  float amp = 0.54;
   mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);
   for (int i = 0; i < 4; i++) {
     float n = valueNoise(p);
-    float billow = 1.0 - abs(n * 2.0 - 1.0); // rounded puffy cellular ridges
-    sum += mix(n, billow, 0.65) * amp;
-    p = rot * p * 2.03 + vec2(17.1, 31.7);
-    amp *= 0.5;
+    float billow = 1.0 - abs(n * 2.0 - 1.0); // rounded puffy cellular ridges with crisp dark creases
+    billow = billow * billow * (3.0 - 2.0 * billow);
+    sum += billow * amp;
+    p = rot * p * 2.07 + vec2(17.1, 31.7);
+    amp *= 0.50;
   }
   return sum;
 }
 
-// Fibrous wind-streaked fBm (silky ice crystal filaments for high cirrus & cumulonimbus anvils)
+// Fibrous wind-streaked fBm (silky ice crystal mares' tails for high cirrus & cumulonimbus anvils)
 float cirrusFibrousFbm(vec2 p, vec2 windDir)
 {
   vec2 ortho = vec2(-windDir.y, windDir.x);
-  vec2 anisoP = vec2(dot(p, windDir) * 0.28, dot(p, ortho) * 1.65);
+  vec2 anisoP = vec2(dot(p, windDir) * 0.22, dot(p, ortho) * 1.95);
   float sum = 0.0;
   float amp = 0.55;
   for (int i = 0; i < 4; i++) {
     sum += valueNoise(anisoP) * amp;
-    anisoP = anisoP * vec2(1.85, 2.15) + vec2(11.3, 23.9);
+    anisoP = anisoP * vec2(1.75, 2.25) + vec2(11.3, 23.9);
     amp *= 0.48;
   }
   return sum;
 }
 
-// Dual-phase Lagrangian flow-advected cloud microstructure (eliminates static "shower-door" noise swimming)
+// Dual-phase Lagrangian flow-advected cloud microstructure (flows at exact fluid velocity with zero static swimming)
 float sampleFlowCloudDetail(vec2 simPos, vec2 vel, float curlVal, float iceFrac)
 {
-  const float cycle = 90.0;
+  const float cycle = 84.0;
   float p0 = fract(iterNum / cycle);
   float p1 = fract(iterNum / cycle + 0.5);
   float blend = abs(2.0 * p0 - 1.0);
 
-  vec2 curlWarp = vec2(-vel.y, vel.x) * curlVal * 3.5;
-  vec2 pos0 = (simPos - vel * (p0 - 0.5) * cycle + curlWarp) * 0.32;
-  vec2 pos1 = (simPos - vel * (p1 - 0.5) * cycle + curlWarp) * 0.32 + vec2(37.2, 19.8);
+  vec2 curlWarp = vec2(-vel.y, vel.x) * curlVal * 4.5;
+  vec2 pos0 = (simPos - vel * (p0 - 0.5) * cycle + curlWarp) * 0.24;
+  vec2 pos1 = (simPos - vel * (p1 - 0.5) * cycle + curlWarp) * 0.24 + vec2(37.2, 19.8);
 
-  float cum0 = cumulusBillowFbm(pos0);
-  float cum1 = cumulusBillowFbm(pos1);
+  // Add a finer second scale for crisp close-up turret florets
+  float cum0 = cumulusBillowFbm(pos0) * 0.72 + cumulusBillowFbm(pos0 * 2.3 + vec2(5.1, 9.4)) * 0.28;
+  float cum1 = cumulusBillowFbm(pos1) * 0.72 + cumulusBillowFbm(pos1 * 2.3 + vec2(5.1, 9.4)) * 0.28;
   float cumulusDetail = mix(cum0, cum1, blend);
 
   float speed = length(vel);
-  vec2 windDir = (speed > 0.002) ? (vel / speed) : vec2(1.0, 0.08);
-  float cir0 = cirrusFibrousFbm(pos0 * 0.85, windDir);
-  float cir1 = cirrusFibrousFbm(pos1 * 0.85, windDir);
+  vec2 windDir = (speed > 0.002) ? (vel / speed) : vec2(1.0, 0.06);
+  float cir0 = cirrusFibrousFbm(pos0 * 0.80, windDir);
+  float cir1 = cirrusFibrousFbm(pos1 * 0.80, windDir);
   float cirrusDetail = mix(cir0, cir1, blend);
 
   return mix(cumulusDetail, cirrusDetail, iceFrac);
@@ -461,9 +463,11 @@ vec4 getAirColor(vec2 fragCoordIn)
 
   // Base unlit albedo blended between cloud condensate and precipitation shafts
   float cloudVsPrecip = (hydrometeorOpacity > 1e-5) ? clamp(cloudOpacity / hydrometeorOpacity, 0.0, 1.0) : 1.0;
-  vec3 baseHydrometeorAlbedo = mix(precipAlbedo, vec3(0.995) * stormCoreDarkening, cloudVsPrecip);
+  vec3 baseHydrometeorAlbedo = mix(precipAlbedo, vec3(0.995) * mix(0.82, 1.0, stormCoreDarkening), cloudVsPrecip);
 
-  vec3 ambientTerm = shadowTint * stormSlateTint * minShadowLight + ambientBounce + lightningTint;
+  // Combine sky-dome fill, crevice AO, overhead sky transmittance, ground bounce, and lightning scatter
+  float ambientStrength = minShadowLight * creviceAO * mix(0.55, 1.15, skyOcclusion);
+  vec3 ambientTerm = shadowTint * stormSlateTint * ambientStrength + ambientBounce * mix(0.65, 1.1, creviceAO) + lightningTint;
   vec3 litHydrometeor = baseHydrometeorAlbedo * (directTerm + ambientTerm);
   vec3 litSmokeOrFire = smokeOrFireCol * (directSunCol * lightIntensity + vec3(shadowLight) + ambientBounce + lightningTint);
 
