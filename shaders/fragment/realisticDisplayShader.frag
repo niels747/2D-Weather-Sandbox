@@ -68,7 +68,98 @@ vec3 emittedLight = vec3(0.); // pure light, like lightning
 
 float shadowLight;
 
-vec3 onLight; // extra light that lights up objects, just like sunlight and shadowlight
+vec3 onLight = vec3(0.); // extra light that lights up objects, just like sunlight and shadowlight
+
+bool useCustomAirLighting = false;
+vec3 customAirLitColor = vec3(0.0);
+
+// Fast, artifact-free procedural value noise & fBm for sub-grid cloud edge microstructure (no JPEG block artifacts)
+float hash21(vec2 p)
+{
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float valueNoise(vec2 p)
+{
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// Billowing cauliflower fBm (rounded convective lobes for warm liquid cumulus)
+float cumulusBillowFbm(vec2 p)
+{
+  float sum = 0.0;
+  float amp = 0.52;
+  mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);
+  for (int i = 0; i < 4; i++) {
+    float n = valueNoise(p);
+    float billow = 1.0 - abs(n * 2.0 - 1.0); // rounded puffy cellular ridges
+    sum += mix(n, billow, 0.65) * amp;
+    p = rot * p * 2.03 + vec2(17.1, 31.7);
+    amp *= 0.5;
+  }
+  return sum;
+}
+
+// Fibrous wind-streaked fBm (silky ice crystal filaments for high cirrus & cumulonimbus anvils)
+float cirrusFibrousFbm(vec2 p, vec2 windDir)
+{
+  vec2 ortho = vec2(-windDir.y, windDir.x);
+  vec2 anisoP = vec2(dot(p, windDir) * 0.28, dot(p, ortho) * 1.65);
+  float sum = 0.0;
+  float amp = 0.55;
+  for (int i = 0; i < 4; i++) {
+    sum += valueNoise(anisoP) * amp;
+    anisoP = anisoP * vec2(1.85, 2.15) + vec2(11.3, 23.9);
+    amp *= 0.48;
+  }
+  return sum;
+}
+
+// Dual-phase Lagrangian flow-advected cloud microstructure (eliminates static "shower-door" noise swimming)
+float sampleFlowCloudDetail(vec2 simPos, vec2 vel, float curlVal, float iceFrac)
+{
+  const float cycle = 90.0;
+  float p0 = fract(iterNum / cycle);
+  float p1 = fract(iterNum / cycle + 0.5);
+  float blend = abs(2.0 * p0 - 1.0);
+
+  vec2 curlWarp = vec2(-vel.y, vel.x) * curlVal * 3.5;
+  vec2 pos0 = (simPos - vel * (p0 - 0.5) * cycle + curlWarp) * 0.32;
+  vec2 pos1 = (simPos - vel * (p1 - 0.5) * cycle + curlWarp) * 0.32 + vec2(37.2, 19.8);
+
+  float cum0 = cumulusBillowFbm(pos0);
+  float cum1 = cumulusBillowFbm(pos1);
+  float cumulusDetail = mix(cum0, cum1, blend);
+
+  float speed = length(vel);
+  vec2 windDir = (speed > 0.002) ? (vel / speed) : vec2(1.0, 0.08);
+  float cir0 = cirrusFibrousFbm(pos0 * 0.85, windDir);
+  float cir1 = cirrusFibrousFbm(pos1 * 0.85, windDir);
+  float cirrusDetail = mix(cir0, cir1, blend);
+
+  return mix(cumulusDetail, cirrusDetail, iceFrac);
+}
+
+// Safely sample cloud water for 3D optical gradients without reading land snow from wall cells
+float sampleCloudSafe(vec2 pos)
+{
+  vec2 clampedPos = vec2(pos.x, clamp(pos.y, 0.5, resolution.y - 0.5));
+  ivec4 w = texture(wallTex, clampedPos * texelSize);
+  if (w[DISTANCE] == 0)
+    return 0.0;
+  if (w[DISTANCE] >= 5 && clampedPos.y > 3.5 && clampedPos.y < resolution.y - 3.5)
+    return max(bicubicClamped(waterTex, clampedPos)[CLOUD], 0.0);
+  return max(bilerpWallVis(waterTex, wallTex, clampedPos)[CLOUD], 0.0);
+}
 
 
 const vec3 bareDrySoilCol = pow(vec3(0.85, 0.60, 0.40), vec3(GAMMA));
@@ -205,51 +296,149 @@ vec3 spectral_zucconi(float w)
 
 vec4 getAirColor(vec2 fragCoordIn)
 {
-  vec2 bndFragCoord = vec2(fragCoordIn.x, clamp(fragCoordIn.y, 0., resolution.y)); // bound y within range
-  base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
-  wall = texture(wallTex, bndFragCoord * texelSize);                               // texCoord
-  water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
-  lightIntensity = texture(lightTex, bndFragCoord * texelSize)[0] / standardSunBrightness;
+  vec2 bndFragCoord = vec2(fragCoordIn.x, clamp(fragCoordIn.y, 0.5, resolution.y - 0.5)); // bound y within range
+  wall = texture(wallTex, bndFragCoord * texelSize);
 
-  ivec4 wallX0Ym = texture(wallTex, texCoordX0Ym);
+  bool clearOfWalls = (wall[DISTANCE] >= 5) && (bndFragCoord.y > 3.5) && (bndFragCoord.y < resolution.y - 3.5);
+  if (clearOfWalls) {
+    base = bicubicClamped(baseTex, bndFragCoord);
+    water = bicubicClamped(waterTex, bndFragCoord);
+  } else {
+    base = bilerpWallVis(baseTex, wallTex, bndFragCoord);
+    water = bilerpWallVis(waterTex, wallTex, bndFragCoord);
+  }
+
+  // Smooth sub-texel sunlight sampling
+  lightIntensity = bilerp(lightTex, bndFragCoord)[0] / standardSunBrightness;
 
   float realTemp = potentialToRealT(base[TEMPERATURE]);
-
-  bool nightTime = abs(sunAngle) > 85.0 * deg2rad; // false = day time
+  float iceFrac = cloudIceFraction(realTemp);
 
   shadowLight = minShadowLight;
 
-  // fragmentColor = vec4(vec3(light),1); return; // View light texture for debugging
+  float rawCloud = max(water[CLOUD], 0.0);
+  float cloudwater = rawCloud;
 
-  float cloudwater = water[CLOUD];
+  // Sub-grid flow-advected edge detail (cauliflower lobes for warm cumulus, silky streaks for high ice cirrus/anvils)
+  float microFbm = 0.5;
+  if (rawCloud > 0.001 || water[PRECIPITATION] > 0.002) {
+    float localCurl = texture(curlTex, bndFragCoord * texelSize).r;
+    microFbm = sampleFlowCloudDetail(bndFragCoord, base.xy, localCurl, iceFrac);
 
-  vec3 cloudCol = vec3(1.0 / (cloudwater * 0.005 + 1.0)); // 0.10 white to black
+    if (rawCloud > 0.001) {
+      // Gently sculpt thin-to-moderate cloud margins while keeping dense cloud cores faithful to the fluid solver
+      float edgeMask = exp(-rawCloud * 1.35) * smoothstep(0.001, 0.04, rawCloud);
+      float erodeStrength = mix(0.26, 0.38, iceFrac);
+      cloudwater = max(rawCloud + (microFbm - 0.48) * erodeStrength * edgeMask, 0.0);
+    }
+  }
 
-  float cloudDensity = max(cloudwater * 13.6, 0.0);
+  // Beer-Lambert optical opacity: warm liquid droplets are crisp & dense; high ice cirrus/anvils are gossamer & translucent
+  float cloudExt = cloudwater * mix(10.5, 6.0, iceFrac);
+  float cloudOpacity = 1.0 - exp(-cloudExt);
 
-  float totalDensity = cloudDensity + water[PRECIPITATION] * 0.8; // visualize precipitation
+  // Wind-sheared precipitation curtains (slanted rain / virga shafts above 0 C, soft drifting snow trails below 0 C)
+  float precipAmount = max(water[PRECIPITATION], 0.0);
+  float precipOpacity = 0.0;
+  vec3 precipAlbedo = vec3(0.85);
+  if (precipAmount > 0.001) {
+    float rainFactor = smoothstep(-1.5, 3.5, KtoC(realTemp));
+    float fallTilt = clamp(base.x * mix(5.0, 2.8, rainFactor), -2.2, 2.2);
+    float fallDrift = iterNum * mix(0.09, 0.24, rainFactor);
+    vec2 streakUV = vec2((bndFragCoord.x - bndFragCoord.y * fallTilt) * 0.45, bndFragCoord.y * 0.06 + fallDrift);
+    float streakTex = 0.76 + 0.24 * valueNoise(streakUV);
+    float precipOptical = precipAmount * mix(0.95, 0.62, rainFactor) * streakTex;
+    precipOpacity = 1.0 - exp(-precipOptical);
+    precipAlbedo = mix(vec3(0.93, 0.96, 1.00), vec3(0.70, 0.78, 0.88), rainFactor); // bright snow vs. cool slate-silver rain shafts
+  }
 
+  float hydrometeorOpacity = 1.0 - (1.0 - cloudOpacity) * (1.0 - precipOpacity);
 
-  // float cloudOpacity = clamp(cloudwater * 4.0, 0.0, 1.0);
-  float cloudOpacity = clamp(1.0 - (1.0 / (1. + totalDensity)), 0.0, 1.0);
+  // 3D Volumetric-Style Cloud & Precipitation Lighting
+  float scatering = clamp(map_range(abs(sunAngle), 68. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.);
+  vec3 directSunCol = sunColor(scatering);
+  float sunElev = cos(sunAngle);
+  float daylight = smoothstep(-0.06, 0.18, sunElev);
+  float twilight = smoothstep(-0.08, 0.05, sunElev) * (1.0 - smoothstep(0.06, 0.34, sunElev));
 
-  const vec3 smokeThinCol = vec3(0.8, 0.51, 0.26);
-  const vec3 smokeThickCol = vec3(0., 0., 0.);
+  vec3 cloudNormal = vec3(0.0, 0.25, 0.968);
+  float stormCoreDarkening = 1.0;
 
+  if (rawCloud > 0.002 && wall[DISTANCE] >= 2) {
+    // Multi-scale optical gradient reconstructs 3D outward-bulging cauliflower domes & crevices
+    float wallGradMask = smoothstep(1.5, 4.5, float(wall[DISTANCE]));
+    float cL = sampleCloudSafe(bndFragCoord - vec2(1.35, 0.0));
+    float cR = sampleCloudSafe(bndFragCoord + vec2(1.35, 0.0));
+    float cD = sampleCloudSafe(bndFragCoord - vec2(0.0, 1.35));
+    float cU = sampleCloudSafe(bndFragCoord + vec2(0.0, 1.35));
+
+    vec2 fineGrad = vec2(cR - cL, cU - cD) * 0.37;
+
+    vec2 macroGrad = fineGrad;
+    if (wall[DISTANCE] >= 6) {
+      float mL = sampleCloudSafe(bndFragCoord - vec2(4.2, 0.0));
+      float mR = sampleCloudSafe(bndFragCoord + vec2(4.2, 0.0));
+      float mD = sampleCloudSafe(bndFragCoord - vec2(0.0, 4.2));
+      float mU = sampleCloudSafe(bndFragCoord + vec2(0.0, 4.2));
+      macroGrad = vec2(mR - mL, mU - mD) * 0.12;
+    }
+
+    // Subtle micro-normal perturbation on sunlit cumulus turrets
+    vec2 microGrad = vec2(microFbm - 0.5) * 0.06 * exp(-rawCloud * 0.8);
+    vec2 combinedGrad = (fineGrad * 0.65 + macroGrad * 0.55 + microGrad) * wallGradMask;
+
+    // Outward 3D normal points opposite to inward density gradient (-d(q)/dx, -d(q)/dy, +z_bulge)
+    float zBulge = 0.26 + 0.18 * clamp(rawCloud, 0.0, 2.0);
+    cloudNormal = normalize(vec3(-combinedGrad.x, -combinedGrad.y, zBulge));
+
+    // Deep storm cores absorb & trap multi-scattered photons, creating dramatic dark cumulonimbus bases
+    stormCoreDarkening = 1.0 / (1.0 + max(rawCloud - 0.65, 0.0) * 0.095 + precipAmount * 0.085);
+  }
+
+  // Sun direction in 3D (with slight forward camera-side elevation so midday clouds retain rich 3D lobe sculpting)
+  vec3 sunDir3D = normalize(vec3(sin(sunAngle), max(sunElev, -0.15), 0.38));
+  float NdotL = dot(cloudNormal, sunDir3D);
+
+  // Sample upwind sunlight 2.2 cells toward the sun for thin-edge forward Mie scattering ("silver lining")
+  vec2 sunStep2D = vec2(sin(sunAngle), max(sunElev, 0.05)) * 2.2;
+  vec2 upwindPos = vec2(bndFragCoord.x + sunStep2D.x, min(bndFragCoord.y + sunStep2D.y, resolution.y - 0.5));
+  float upwindLight = bilerp(lightTex, upwindPos)[0] / standardSunBrightness;
+
+  // 3D lobe relief + Schneider-Vos Beer-Powder multi-scattering + Henyey-Greenstein silver lining
+  float reliefFactor = mix(0.64, 1.24, smoothstep(-0.60, 0.78, NdotL));
+  float beerPowder = mix(1.0, 1.0 - 0.36 * exp(-cloudwater * 3.4), clamp(cloudOpacity, 0.0, 1.0));
+  float rimPeak = exp(-cloudwater * 1.9) * (1.0 - exp(-cloudwater * 9.0));
+  float silverLining = rimPeak * max(upwindLight, lightIntensity) * mix(0.48, 0.82, twilight);
+
+  vec3 directTerm = directSunCol * (lightIntensity * reliefFactor * beerPowder + silverLining);
+
+  // Physically colored hemispheric sky-dome + earth-bounce ambient shading (replaces colorless gray shadows!)
+  vec3 daySkyTint = vec3(0.56, 0.73, 1.00);
+  vec3 twilightSkyTint = vec3(0.46, 0.48, 0.86); // rich periwinkle-indigo sunset shadow fill
+  vec3 skyDomeTint = mix(daySkyTint, twilightSkyTint, twilight);
+  vec3 groundBounceTint = mix(vec3(0.66, 0.68, 0.74), vec3(0.82, 0.68, 0.58), twilight);
+
+  float skyHemiWeight = clamp(cloudNormal.y * 0.5 + 0.55, 0.0, 1.0);
+  vec3 directionalTint = mix(groundBounceTint, skyDomeTint, skyHemiWeight);
+  vec3 shadowTint = mix(vec3(0.82, 0.88, 1.00), directionalTint, daylight); // cool moonlight tint at night
+
+  // Deep cumulonimbus storm bases shift slightly toward brooding slate-blue
+  vec3 stormSlateTint = mix(vec3(0.72, 0.80, 0.94), vec3(1.0), stormCoreDarkening);
+  vec3 ambientBounce = texture(ambientLightTex, bndFragCoord * texelSize).rgb * pow(1.0 - clamp(-texCoord.y * 15.0, 0.0, 1.0), 2.5);
+
+  // Smoke & fire plume optics
+  const vec3 smokeThinCol = vec3(0.78, 0.52, 0.30);
+  const vec3 smokeThickCol = vec3(0.04, 0.04, 0.05);
 
   float smokeOpacity = clamp(1. - (1. / (water[SMOKE] + 1.)), 0.0, 1.0);
   float fireIntensity = clamp((smokeOpacity - 0.8) * 25., 0.0, 1.0);
 
-  vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0)) * 1.0; // 1.0, 0.7, 0.0
-
+  vec3 fireCol = hsv2rgb(vec3(fireIntensity * 0.008, 0.98, 5.0));
   vec3 smokeOrFireCol = mix(mix(smokeThinCol, smokeThickCol, smokeOpacity), fireCol, fireIntensity);
 
-  shadowLight += fireIntensity * 2.5;                                                                                 // 1.5
+  shadowLight += fireIntensity * 2.5;
 
-  float opacity = 1. - (1. - smokeOpacity) * (1. - cloudOpacity);                                                     // alpha blending
-  vec3 color = (smokeOrFireCol * smokeOpacity / opacity) + (cloudCol * cloudOpacity * (1. - smokeOpacity) / opacity); // color blending
-
-
+  // Lightning bolt & in-cloud lightning volumetric scatter
   vec4 lightningData = texture(lightningDataTex, vec2(0.5));
   vec2 lightningPos = lightningData.xy;
   float lightningStartIterNum = lightningData[START_ITERNUM];
@@ -257,21 +446,35 @@ vec4 getAirColor(vec2 fragCoordIn)
   float lightningTime = calcLightningTime(lightningStartIterNum);
   float currentLightningIntensity = lightningIntensityOverTime(lightningTime, lightningPos, lightningData[INTENSITY]);
 
-
-  if (lightningData[INTENSITY] > 1.0) { // CG
+  if (lightningData[INTENSITY] > 1.0) { // CG bolt
     emittedLight += displayLightning(lightningPos, lightningTime, currentLightningIntensity);
-    emittedLight /= 1. + cloudDensity * 100.0;
+    emittedLight /= 1. + cloudExt * 9.0;
   }
 
-#define lightningOnLightBrightness 0.004 // 0.002
-
+#define lightningOnLightBrightness 0.004
   vec2 dist = vec2(lightningPos.x - texCoord.x, max((abs(lightningPos.y / 2. - texCoord.y) - 0.1), 0.));
   dist.x *= aspectRatios[0];
   float lightningOnLight = lightningOnLightBrightness / (pow(length(dist), 2.) + 0.03);
   lightningOnLight *= currentLightningIntensity;
-  onLight += vec3(lightningOnLight);
+  vec3 lightningTint = vec3(0.78, 0.72, 1.0) * lightningOnLight;
+  onLight += lightningTint;
 
-  return vec4(color, opacity);
+  // Base unlit albedo blended between cloud condensate and precipitation shafts
+  float cloudVsPrecip = (hydrometeorOpacity > 1e-5) ? clamp(cloudOpacity / hydrometeorOpacity, 0.0, 1.0) : 1.0;
+  vec3 baseHydrometeorAlbedo = mix(precipAlbedo, vec3(0.995) * stormCoreDarkening, cloudVsPrecip);
+
+  vec3 ambientTerm = shadowTint * stormSlateTint * minShadowLight + ambientBounce + lightningTint;
+  vec3 litHydrometeor = baseHydrometeorAlbedo * (directTerm + ambientTerm);
+  vec3 litSmokeOrFire = smokeOrFireCol * (directSunCol * lightIntensity + vec3(shadowLight) + ambientBounce + lightningTint);
+
+  float totalOpacity = 1.0 - (1.0 - smokeOpacity) * (1.0 - hydrometeorOpacity);
+  float safeOp = max(totalOpacity, 1e-5);
+
+  vec3 blendedAlbedo = (smokeOrFireCol * smokeOpacity + baseHydrometeorAlbedo * hydrometeorOpacity * (1.0 - smokeOpacity)) / safeOp;
+  customAirLitColor = (litSmokeOrFire * smokeOpacity + litHydrometeor * hydrometeorOpacity * (1.0 - smokeOpacity)) / safeOp;
+  useCustomAirLighting = true;
+
+  return vec4(blendedAlbedo, totalOpacity);
 }
 
 float rand(float n) { return fract(sin(n) * 43758.5453123); }
@@ -384,7 +587,9 @@ void main()
         opacity = airColor.a;
         color = airColor.rgb;
       } else {
-        color = vec3(0, 0.5, 1.0); // water
+        float waterDepth = max(float(-wall[VERT_DISTANCE]) - fract(fragCoord.y), 0.0);
+        color = mix(vec3(0.04, 0.48, 0.92), vec3(0.01, 0.18, 0.48), clamp(waterDepth * 0.14, 0.0, 1.0)); // shallow turquoise-blue to deep marine blue
+        useCustomAirLighting = false;
       }
 
       // draw 45° slopes under water
@@ -398,6 +603,7 @@ void main()
           water = texture(waterTex, texCoord);
           color = getWallColor(float(-wall[VERT_DISTANCE]) - localY);
           shadowLight = minShadowLight;
+          useCustomAirLighting = false;
         }
       }
       if (wallXpY0[DISTANCE] == 0 && wallXpY0[TYPE] != WALLTYPE_WATER && (fragCoord.y < 1. || wallX0Ym[TYPE] != WALLTYPE_WATER)) { // wall to the right and below
@@ -406,6 +612,7 @@ void main()
           water = texture(waterTex, texCoord);
           color = getWallColor(float(-wall[VERT_DISTANCE]) - localY);
           shadowLight = minShadowLight;
+          useCustomAirLighting = false;
         }
       }
 
@@ -474,6 +681,7 @@ void main()
           }
           color = texCol.rgb;
           opacity = texCol.a;
+          useCustomAirLighting = false;
         }
       } else if (wallX0Ym[TYPE] == WALLTYPE_INDUSTRIAL) {
 
@@ -502,6 +710,7 @@ void main()
           }
           color = texCol.rgb;
           opacity = texCol.a;
+          useCustomAirLighting = false;
         }
       }
 
@@ -525,7 +734,7 @@ void main()
         treeTexCoordY *= 0.72;                              // Trees only go up to 72% of the texture height
         treeTexCoordY = 1. - treeTexCoordY;                 // texture is upside down
 
-        vec4 texCol;
+        vec4 texCol = vec4(0.);
         if (wallX0Ym[TYPE] == WALLTYPE_LAND || wallX0Ym[TYPE] == WALLTYPE_URBAN) { // land below
           vec4 surfaceWater = texture(waterTex, texCoordX0Ym);                     // snow on land below
           float snow = surfaceWater[SNOW];
@@ -548,6 +757,7 @@ void main()
             shadowLight = 1.0;
 
           opacity = 1. - (1. - opacity) * (1. - texCol.a); // alpha blending
+          useCustomAirLighting = false;
         }
 
         // draw 45° slopes
@@ -560,6 +770,7 @@ void main()
             water = texture(waterTex, texCoordX0Ym);
             color = getWallColor(localY - 0.6);
             shadowLight = minShadowLight; // fire should not light ground
+            useCustomAirLighting = false;
           }
         }
         if (wallXpY0[DISTANCE] == 0 && wall[TYPE] != WALLTYPE_WATER) { // wall to the right and below
@@ -568,6 +779,7 @@ void main()
             water = texture(waterTex, texCoordX0Ym);
             color = getWallColor(localY - 0.6);
             shadowLight = minShadowLight; // fire should not light ground
+            useCustomAirLighting = false;
           }
         }
       }
@@ -578,36 +790,39 @@ void main()
       fragmentColor = vec4(vec3(1., 1., 0.), 1.);
       return; // exit shader
     }
-
-    // color.rg += vec2(arrow);
-    // color.b -= arrow;
-    // opacity += arrow;
-    // lightIntensity += arrow;
   }
 
 
-  float scatering = clamp(map_range(abs(sunAngle), 75. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // how red the sunlight is
+  float scatering = clamp(map_range(abs(sunAngle), 68. * deg2rad, 90. * deg2rad, 0., 1.), 0., 1.); // atmospheric reddening toward sunset
 
   vec3 finalLight = sunColor(scatering) * lightIntensity;
 
-
-  if (fract(cursor.w) > 0.5) {                                               // enable flashlight
+  float flashlightBoost = 0.0;
+  if (fract(cursor.w) > 0.5) { // enable flashlight
     vec2 vecFromMouse = cursor.xy - texCoord;
-    vecFromMouse.x *= texelSize.y / texelSize.x;                             // aspect ratio correction to make it a circle
-                                                                             // shadowLight += max(1. / (1.+length(vecFromMouse)*5.0),0.0); // point light
-    shadowLight += max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0); // smooth flashlight
+    vecFromMouse.x *= texelSize.y / texelSize.x; // aspect ratio correction to make it a circle
+    flashlightBoost = max(cos(min(length(vecFromMouse) * 5.0, 2.)) * 1.0, 0.0);
+    shadowLight += flashlightBoost;
   }
 
   vec3 ambientLight = texture(ambientLightTex, texCoord).rgb;
 
   onLight += ambientLight * pow(1. - clamp(-texCoord.y * 15., 0., 1.), 2.5);
 
+  // Subtle sky-blue tint in daytime terrain shadows so shaded mountains & oceans match the atmosphere
+  float daylightTerrain = smoothstep(92.0 * deg2rad, 76.0 * deg2rad, abs(sunAngle));
+  vec3 terrainShadowVec = mix(vec3(1.0), vec3(0.78, 0.88, 1.05), daylightTerrain * 0.45) * shadowLight;
 
-  finalLight += vec3(shadowLight) + onLight;
+  finalLight += terrainShadowVec + onLight;
 
   opacity += length(emittedLight);
   opacity = clamp(opacity, 0.0, 1.0);
-  fragmentColor = vec4(max(color * finalLight, 0.) + emittedLight, opacity);
+
+  vec3 litSurfaceOrCloud = useCustomAirLighting
+    ? (customAirLitColor + color * flashlightBoost)
+    : (color * finalLight);
+
+  fragmentColor = vec4(max(litSurfaceOrCloud, 0.) + emittedLight, opacity);
 
   drawCursor(cursor, view); // over everything else
 }
