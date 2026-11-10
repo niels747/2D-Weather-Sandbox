@@ -2,9 +2,9 @@
 precision highp float;
 
 
-in vec2 dropPosition;
-in vec2 mass; //[0] water   [1] ice
-in float density;
+layout(location = 0) in vec2 dropPosition;
+layout(location = 1) in vec2 mass; //[0] water   [1] ice
+layout(location = 2) in float density;
 
 // transform feedback varyings:
 out vec2 position_out;
@@ -65,6 +65,8 @@ void disableDroplet()
 
 void main()
 {
+  feedback = vec4(0.0);
+  deposition = vec2(0.0);
   newPos = dropPosition;
   newMass = mass;         // amount of water and ice carried
   newDensity = density;   // determines fall speed
@@ -144,7 +146,9 @@ void main()
           newMass[ICE] = 0.0;
           newDensity = 1.0;
         }
-        feedback[VAPOR] -= initalMass;
+        if (!lightningSpawned) {
+          feedback[VAPOR] -= initalMass;
+        }
       }
     }
 

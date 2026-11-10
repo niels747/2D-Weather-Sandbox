@@ -51,6 +51,9 @@ void main()
     case 3: // Fire wall
       fragmentColor = vec4(1.0, 0.5, 0.0, 1);
       break;
+    default: // Urban / Runway / Industrial wall
+      fragmentColor = vec4(vec3(0.20), 1.0);
+      break;
     }
   } else { // fluid
 

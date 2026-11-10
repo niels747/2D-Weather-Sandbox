@@ -37,6 +37,7 @@ uniform float dryLapse;
 
 void main()
 {
+  reflectedLight = vec4(0.0, 0.0, 0.0, 1.0);
   if (fragCoord.y >= resolution.y - 1.)
     light = vec4(sunIntensity, 0, 0, 0); // at top: full sun, no IR
   else {

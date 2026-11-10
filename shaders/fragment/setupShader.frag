@@ -13,7 +13,11 @@ uniform float heightMult;
 
 uniform vec4 initial_Tv[126];
 
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
+float getInitialT(int y)
+{
+  int yc = clamp(y, 0, 503);
+  return initial_Tv[yc >> 2][yc & 3];
+}
 
 in vec2 texCoord;
 in vec2 fragCoord;

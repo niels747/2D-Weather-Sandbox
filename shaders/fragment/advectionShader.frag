@@ -55,10 +55,29 @@ uniform vec4 realWorldSounding_Tv[126];
 uniform vec4 realWorldSounding_Wv[126];
 uniform vec4 realWorldSounding_Velv[126];
 
-float getInitialT(int y) { return initial_Tv[y / 4][y % 4]; }
-float getRealWorldSounding_T(int y) { return (realWorldSounding_Tv[y / 4][y % 4] + realWorldSounding_Tv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
-float getRealWorldSounding_W(int y) { return (realWorldSounding_Wv[y / 4][y % 4] + realWorldSounding_Wv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
-float getRealWorldSounding_Vel(int y) { return (realWorldSounding_Velv[y / 4][y % 4] + realWorldSounding_Velv[(y - 1) / 4][(y - 1) % 4]) / 2.; }
+float getInitialT(int y)
+{
+  int yc = clamp(y, 0, 503);
+  return initial_Tv[yc >> 2][yc & 3];
+}
+float getRealWorldSounding_T(int y)
+{
+  int yc = clamp(y, 0, 503);
+  int ym = max(yc - 1, 0);
+  return (realWorldSounding_Tv[yc >> 2][yc & 3] + realWorldSounding_Tv[ym >> 2][ym & 3]) * 0.5;
+}
+float getRealWorldSounding_W(int y)
+{
+  int yc = clamp(y, 0, 503);
+  int ym = max(yc - 1, 0);
+  return (realWorldSounding_Wv[yc >> 2][yc & 3] + realWorldSounding_Wv[ym >> 2][ym & 3]) * 0.5;
+}
+float getRealWorldSounding_Vel(int y)
+{
+  int yc = clamp(y, 0, 503);
+  int ym = max(yc - 1, 0);
+  return (realWorldSounding_Velv[yc >> 2][yc & 3] + realWorldSounding_Velv[ym >> 2][ym & 3]) * 0.5;
+}
 
 #include "common.glsl"
 
@@ -346,7 +365,7 @@ void main()
         case 22:                                               // add vegetation
           if (wall[DISTANCE] == 0 && (wall[TYPE] == WALLTYPE_LAND || wall[TYPE] == WALLTYPE_FIRE || wall[TYPE] == WALLTYPE_URBAN || wall[TYPE] == WALLTYPE_INDUSTRIAL) &&
               texture(wallTex, texCoordX0Yp)[DISTANCE] != 0) { // if land wall and no wall above
-            wall[VEGETATION] += 1;                             // add vegetation
+            wall[VEGETATION] = min(wall[VEGETATION] + 1, 127); // add vegetation
           }
           break;
         }
@@ -379,9 +398,9 @@ void main()
             if (wall[TYPE] == WALLTYPE_INDUSTRIAL) // remove industry
               wall[TYPE] = WALLTYPE_LAND;
           } else if (userInputType == 20) {        // remove moisture
-            water[SOIL_MOISTURE] += userInputValues[BRUSH_INTENSITY] * 10.0;
+            water[SOIL_MOISTURE] = max(water[SOIL_MOISTURE] + userInputValues[BRUSH_INTENSITY] * 10.0, 0.0);
           } else if (userInputType == 21) {
-            water[SNOW] += userInputValues[BRUSH_INTENSITY] * 0.5; // remove snow
+            water[SNOW] = max(water[SNOW] + userInputValues[BRUSH_INTENSITY] * 0.5, 0.0); // remove snow
           } else if (userInputType == 22) {
             wall[VEGETATION] = max(wall[VEGETATION] - 1, 0);       // remove vegetation
           } else if (texCoord.y > texelSize.y) {
