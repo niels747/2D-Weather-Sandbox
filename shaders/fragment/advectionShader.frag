@@ -100,89 +100,119 @@ void main()
     vec4 cellXmYp = texture(baseTex, texCoordXmYp);
     vec4 cellXpYm = texture(baseTex, texCoordXpYm);
 
-    // calculate velocities for different positions within cell
-    vec2 velAtP = vec2((cellXmY0.x + cellX0Y0.x) / 2.,
-                       (cellX0Ym.y + cellX0Y0.y) / 2.);                                        // center of cell
-    vec2 velAtVx = vec2(cellX0Y0.x, (cellX0Ym.y + cellXpY0.y + cellX0Y0.y + cellXpYm.y) / 4.); // midle of right edge of cell
-    vec2 velAtVy = vec2((cellXmY0.x + cellX0Yp.x + cellXmYp.x + cellX0Y0.x) / 4.,
-                        cellX0Y0.y);                                                           // midle of top edge of cell
+    // calculate velocities for different positions within cell (MAC staggered grid)
+    vec2 velAtP = vec2((cellXmY0.x + cellX0Y0.x) * 0.5,
+                       (cellX0Ym.y + cellX0Y0.y) * 0.5);                                         // center of cell
+    vec2 velAtVx = vec2(cellX0Y0.x, (cellX0Ym.y + cellXpY0.y + cellX0Y0.y + cellXpYm.y) * 0.25); // middle of right edge of cell
+    vec2 velAtVy = vec2((cellXmY0.x + cellX0Yp.x + cellXmYp.x + cellX0Y0.x) * 0.25,
+                        cellX0Y0.y);                                                             // middle of top edge of cell
+
+    // 2nd-order Midpoint (RK2) semi-Lagrangian backtracing
+    vec2 midVx = vec2(
+      bilerp(baseTex, fragCoord - 0.5 * velAtVx).x,
+      velAtVx.y
+    );
+    vec2 midVy = vec2(
+      velAtVy.x,
+      bilerp(baseTex, fragCoord - 0.5 * velAtVy).y
+    );
+    vec4 midSampleP = bilerp(baseTex, fragCoord - 0.5 * velAtP);
+    vec4 midSamplePmX = bilerp(baseTex, fragCoord - 0.5 * velAtP - vec2(1.0, 0.0));
+    vec4 midSamplePmY = bilerp(baseTex, fragCoord - 0.5 * velAtP - vec2(0.0, 1.0));
+    vec2 midVelP = vec2((midSamplePmX.x + midSampleP.x) * 0.5, (midSamplePmY.y + midSampleP.y) * 0.5);
 
     // ADVECT AIR:
+    // Away from terrain walls (Manhattan distance >= 5), use monotonic-clamped Catmull-Rom bicubic interpolation
+    // to preserve crisp Kelvin-Helmholtz billows, cumulus cauliflower turrets, and thin anvil/cirrus filaments.
+    bool clearOfWalls = (wall[DISTANCE] >= 5) && (fragCoord.y > 3.5) && (fragCoord.y < resolution.y - 3.5);
 
-    base[VX] = bilerp(baseTex, fragCoord - velAtVx).x;
-    base[VY] = bilerp(baseTex, fragCoord - velAtVy).y;
+    if (clearOfWalls) {
+      base[VX] = bicubicClamped(baseTex, fragCoord - midVx).x;
+      base[VY] = bicubicClamped(baseTex, fragCoord - midVy).y;
 
-    base[PRESSURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[PRESSURE];
-    base[TEMPERATURE] = bilerpWall(baseTex, wallTex, fragCoord - velAtP)[TEMPERATURE];
+      vec4 advBaseP = bicubicClamped(baseTex, fragCoord - midVelP);
+      base[PRESSURE] = bilerp(baseTex, fragCoord - midVelP)[PRESSURE]; // smooth bilinear for acoustic pressure
+      base[TEMPERATURE] = advBaseP[TEMPERATURE];
 
-    water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw; // centered
+      water.xyw = bicubicClamped(waterTex, fragCoord - midVelP).xyw;
+    } else {
+      base[VX] = bilerp(baseTex, fragCoord - midVx).x;
+      base[VY] = bilerp(baseTex, fragCoord - midVy).y;
 
-                                                                       //   water.z = bilerpWall(waterTex, wallTex, fragCoord + vec2(0.0, +0.01)).z;
-    // // precipitation visualization
-    water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0, 0.05))[PRECIPITATION]; // precipitation visualization advected with flow, and downward
+      vec4 advBaseP = bilerpWall(baseTex, wallTex, fragCoord - velAtP);
+      base[PRESSURE] = advBaseP[PRESSURE];
+      base[TEMPERATURE] = advBaseP[TEMPERATURE];
 
-    // vec2 backTracedPos = fragCoord - velAtP; // advect / flow
+      water.xyw = bilerpWall(waterTex, wallTex, fragCoord - velAtP).xyw;
+    }
 
-    // vec2 backTracedPos = texCoord; // no flow
+    // Precipitation curtain field advected with flow and terminal fall drift
+    water[PRECIPITATION] = bilerpWall(waterTex, wallTex, fragCoord - velAtP + vec2(0.0, 0.05))[PRECIPITATION];
 
-    // water.xy = bilerp(waterTex, backTracedPos).xy;
+    // Subgrid Smagorinsky turbulent entrainment (conservative mixing in high-shear zones such as cumulus flanks)
+    if (wall[DISTANCE] >= 3 && fragCoord.y > 1.5 && fragCoord.y < resolution.y - 1.5) {
+      float du_dx = cellX0Y0.x - cellXmY0.x;
+      float dv_dy = cellX0Y0.y - cellX0Ym.y;
+      float shear = 0.5 * (cellX0Yp.x - cellX0Ym.x + cellXpY0.y - cellXmY0.y);
+      float strainMag = sqrt(2.0 * (du_dx * du_dx + dv_dy * dv_dy) + shear * shear);
+      float eddyDiff = min(strainMag * 0.055, 0.012);
+
+      if (eddyDiff > 0.0001) {
+        float avgNeighborT = 0.25 * (cellXmY0[TEMPERATURE] + cellXpY0[TEMPERATURE] + cellX0Ym[TEMPERATURE] + cellX0Yp[TEMPERATURE]);
+        vec4 wAvg = 0.25 * (
+          texture(waterTex, texCoordXmY0) +
+          texture(waterTex, texCoordXpY0) +
+          texture(waterTex, texCoordX0Ym) +
+          texture(waterTex, texCoordX0Yp)
+        );
+        base[TEMPERATURE] = mix(base[TEMPERATURE], avgNeighborT, eddyDiff);
+        water.xyw = mix(water.xyw, wAvg.xyw, eddyDiff);
+      }
+    }
+
+    water[TOTAL] = max(water[TOTAL], 0.0);
+    water[CLOUD] = clamp(water[CLOUD], 0.0, water[TOTAL]);
 
     realTemp = potentialToRealT(base[TEMPERATURE]);
 
+    // Mixed-phase non-oscillatory Clausius-Clapeyron psychrometric saturation adjustment
+    // Accounts for Bergeron-Findeisen ice saturation lowering and glaciation latent heat below -4 C..-38 C
+    float iceFrac = cloudIceFraction(realTemp);
+    float satWater = maxWaterMixed(realTemp);
+    float dSat_dT = dMaxWaterMixed_dT(realTemp);
+    float effLatentHeat = evapHeat + iceFrac * meltingHeat * 0.25;
 
-    //  float excessWater = max(water[TOTAL] - maxWater(realTemp), 0.0); // calculate the amount of extra water beyond 100% rel hum, including both vapor and cloud water
-    float excessWater = water[TOTAL] - maxWater(realTemp);
-
-    float overSaturation = excessWater - water[CLOUD]; // amount of water vapor that should condence, but hasn't yet
+    float psychroFactor = 1.0 + effLatentHeat * dSat_dT;
+    float overSaturation = (water[TOTAL] - satWater) - water[CLOUD];
+    float eqDeltaCloud = overSaturation / psychroFactor;
 
     float condensation;
-
-    if (overSaturation < 0.) {                          // evaporation
-      condensation = overSaturation * 0.20;             // evaporation is rapid
-    } else {                                            // condensation
-      condensation = overSaturation * condensationRate; // 0.002 0.25 amount of the oversaturated water vapor that slowly condences
+    if (eqDeltaCloud < 0.0) {
+      // Warm liquid cloud droplets evaporate crisply in dry air; high ice clouds (anvils/cirrus) sublimate slowly
+      float evapRelax = mix(0.38, 0.055, iceFrac);
+      condensation = eqDeltaCloud * evapRelax;
+    } else {
+      float condRelax = min(condensationRate * min(psychroFactor, 3.0), 0.85);
+      condensation = eqDeltaCloud * condRelax;
     }
-    condensation = max(condensation, -water[CLOUD]);    // Prevent cloudwater from going negative
+    condensation = clamp(condensation, -water[CLOUD], max(water[TOTAL] - water[CLOUD], 0.0));
 
-    float dT = condensation * evapHeat * 1.0;           // how much that water phase change would change the temperature
+    float dT = condensation * effLatentHeat;
     base[TEMPERATURE] += dT;
     realTemp += dT;
-    water[CLOUD] += condensation;
+    water[CLOUD] = clamp(water[CLOUD] + condensation, 0.0, water[TOTAL]);
 
-
-    // float newCloudWater = water[CLOUD] + condensation;                             // slowly condence the oversaturated vapor
-
-    // float dWt = max(water[TOTAL] - maxWater(realTemp + dT), 0.0) - overSaturation; // how much that temperature change would change
-    //  the amount of liquid water
-
-    // actualTempChange = dT_saturated(dT, dWt * evapHeat);
-
-    //  base[TEMPERATURE] += actualTempChange; // APPLY LATENT HEAT!
-
-    // realTemp += actualTempChange;
-
-    // float tempC = KtoC(realTemp);
-
-
-    //   water[CLOUD] = max(water[TOTAL] - maxWater(realTemp), 0.0); // recalculate cloud water
-
-    // float relHum = relativeHumd(realTemp, water[TOTAL]); // not used
-
-    // Radiative cooling and heating effects
+    // Radiative / large-scale forcing & tropopause stabilization
+    int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
 
     if (texCoord.y > globalEffectsStartAlt && texCoord.y < globalEffectsEndAlt) {
       water[TOTAL] -= clamp(globalDrying, 0., max(water[TOTAL] - maxWater(max(realTemp - 20.0, CtoK(-80.))), 0.)); // only dry down to a dew point 20 C below the temperature
 
       base[TEMPERATURE] += globalHeating;
 
-
       // apply real sounding
-
-      int soundingArrayindex = int(texCoord.y * (1.0 / texelSize.y));
-
       float Tdiff = base[TEMPERATURE] - getRealWorldSounding_T(soundingArrayindex);
       base[TEMPERATURE] -= Tdiff * 0.001 * soundingForcing;
-
 
       float Wdiff = water[TOTAL] - getRealWorldSounding_W(soundingArrayindex);
       water[TOTAL] -= Wdiff * 0.001 * soundingForcing;
@@ -191,19 +221,17 @@ void main()
 
       float velDiff = base[VX] - getRealWorldSounding_Vel(soundingArrayindex);
       base[VX] -= velDiff * map_rangeC(soundingForcing, 0.9, 1.0, 0.0, 0.001);
-
-
-      // if (texCoord.y > 0.93) {
-      //   base[TEMPERATURE] -= (KtoC(realTemp) - -55.0) * 0.0005; // tropopause temperature stabilization
-      //   water[TOTAL] -= (water[TOTAL] - 0.0125) * 0.0001;       // keep stratosphere dew point around -80C
-      // }
     }
 
-    // water[0] -= max(water[1] - 0.1, 0.0) * 0.0001; // Precipitation effect
-    // drying !
+    // Gentle tropopause / lower-stratosphere thermal cap near top lid when free-running (forms flat-bottomed Cb anvils)
+    if (texCoord.y > 0.92 && soundingForcing < 0.05) {
+      float stratWeight = smoothstep(0.92, 1.0, texCoord.y) * (1.0 - soundingForcing * 20.0);
+      float targetStratT = getInitialT(soundingArrayindex);
+      base[TEMPERATURE] -= (base[TEMPERATURE] - targetStratT) * 0.0002 * stratWeight;
+    }
 
-
-    water[TOTAL] = max(water[TOTAL], 0.0); // prevent water from going negative
+    water[TOTAL] = max(water[TOTAL], 0.0);
+    water[CLOUD] = min(water[CLOUD], water[TOTAL]);
 
   } else {                                 // this is wall
 

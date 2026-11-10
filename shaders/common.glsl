@@ -169,14 +169,41 @@ float dT_saturated(float dTdry,
     return dTdry * multiplier;
   }
 }
-////////////// Water Functions ///////////////
+////////////// Water & Mixed-Phase Thermodynamics ///////////////
 #define wf_devider 250.0 // 250.0 Real water 	230 less steep curve
 #define wf_pow 17.0      // 17.0						10
 // https://www.geogebra.org/calculator/jc9hkfq4
 
 float maxWater(float T)
 {
-  return pow((T / wf_devider), wf_pow); // T in Kelvin, w in grams per m^3
+  float Ts = max(T, 150.0);
+  return pow((Ts / wf_devider), wf_pow); // T in Kelvin, w in grams per m^3
+}
+
+float dMaxWater_dT(float T)
+{
+  float Ts = max(T, 150.0);
+  return (wf_pow / Ts) * pow((Ts / wf_devider), wf_pow);
+}
+
+// Smooth glaciation fraction: 0.0 above -4 C (liquid droplets), 1.0 below -38 C (homogeneous ice freezing)
+float cloudIceFraction(float T)
+{
+  return 1.0 - smoothstep(235.15, 269.15, T);
+}
+
+// Effective saturation vapor density accounting for lower vapor pressure over ice (Bergeron-Findeisen effect)
+float maxWaterMixed(float T)
+{
+  float qsLiquid = maxWater(T);
+  float iceFactor = clamp(1.0 - 0.0075 * max(273.15 - T, 0.0), 0.68, 1.0);
+  return qsLiquid * mix(1.0, iceFactor, cloudIceFraction(T));
+}
+
+float dMaxWaterMixed_dT(float T)
+{
+  float Ts = max(T, 150.0);
+  return (wf_pow / Ts) * maxWaterMixed(T);
 }
 
 float dewpoint(float W)
@@ -187,49 +214,104 @@ float dewpoint(float W)
     return wf_devider * pow(W, 1.0 / wf_pow);
 }
 
-float relativeHumd(float T, float W) { return (W / maxWater(T)); }
+float relativeHumd(float T, float W) { return (W / max(maxWater(T), 1e-6)); }
 
 // interpolation
 
+vec2 clampSimUV(vec2 uv)
+{
+  return vec2(uv.x, clamp(uv.y, texelSize.y * 0.5, 1.0 - texelSize.y * 0.5));
+}
+
 vec4 bilerp(sampler2D tex, vec2 pos)
 {
-  vec2 st = pos - 0.5; // calc pixel coordinats
+  vec2 st = pos - 0.5; // calc pixel coordinates
 
-  vec2 ipos = vec2(floor(st));
+  vec2 ipos = floor(st);
   vec2 fpos = fract(st);
 
-  ipos /= resolution;
-  ipos += texelSize * 0.5;
+  vec2 uv00 = ipos * texelSize + texelSize * 0.5;
 
-  vec4 a = texture(tex, ipos);
-  vec4 b = texture(tex, ipos + vec2(texelSize.x, 0));
-  vec4 c = texture(tex, ipos + vec2(0, texelSize.y));
-  vec4 d = texture(tex, ipos + vec2(texelSize.x, texelSize.y));
+  vec4 a = texture(tex, clampSimUV(uv00));
+  vec4 b = texture(tex, clampSimUV(uv00 + vec2(texelSize.x, 0.0)));
+  vec4 c = texture(tex, clampSimUV(uv00 + vec2(0.0, texelSize.y)));
+  vec4 d = texture(tex, clampSimUV(uv00 + texelSize));
 
-  float mixAB = fpos.x;
-  float mixCD = fpos.x;
-  float mixAB_CD = fpos.y;
+  return mix(mix(a, b, fpos.x), mix(c, d, fpos.x), fpos.y);
+}
 
-  return mix(mix(a, b, mixAB), mix(c, d, mixCD), mixAB_CD);
+// Monotonic-clamped Catmull-Rom bicubic interpolation:
+// Eliminates numerical diffusion smearing on clouds & vortices while strictly preventing overshoots/oscillations
+vec4 bicubicClamped(sampler2D tex, vec2 pos)
+{
+  vec2 st = pos - 0.5;
+  vec2 ipos = floor(st);
+  vec2 f = fract(st);
+
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+
+  vec2 w0 = -0.5 * f3 + f2 - 0.5 * f;
+  vec2 w1 = 1.5 * f3 - 2.5 * f2 + 1.0;
+  vec2 w2 = -1.5 * f3 + 2.0 * f2 + 0.5 * f;
+  vec2 w3 = 0.5 * f3 - 0.5 * f2;
+
+  vec2 baseUV = ipos * texelSize + texelSize * 0.5;
+
+  vec4 c00 = texture(tex, clampSimUV(baseUV + vec2(-texelSize.x, -texelSize.y)));
+  vec4 c10 = texture(tex, clampSimUV(baseUV + vec2(0.0, -texelSize.y)));
+  vec4 c20 = texture(tex, clampSimUV(baseUV + vec2(texelSize.x, -texelSize.y)));
+  vec4 c30 = texture(tex, clampSimUV(baseUV + vec2(2.0 * texelSize.x, -texelSize.y)));
+
+  vec4 c01 = texture(tex, clampSimUV(baseUV + vec2(-texelSize.x, 0.0)));
+  vec4 c11 = texture(tex, clampSimUV(baseUV));
+  vec4 c21 = texture(tex, clampSimUV(baseUV + vec2(texelSize.x, 0.0)));
+  vec4 c31 = texture(tex, clampSimUV(baseUV + vec2(2.0 * texelSize.x, 0.0)));
+
+  vec4 c02 = texture(tex, clampSimUV(baseUV + vec2(-texelSize.x, texelSize.y)));
+  vec4 c12 = texture(tex, clampSimUV(baseUV + vec2(0.0, texelSize.y)));
+  vec4 c22 = texture(tex, clampSimUV(baseUV + vec2(texelSize.x, texelSize.y)));
+  vec4 c32 = texture(tex, clampSimUV(baseUV + vec2(2.0 * texelSize.x, texelSize.y)));
+
+  vec4 c03 = texture(tex, clampSimUV(baseUV + vec2(-texelSize.x, 2.0 * texelSize.y)));
+  vec4 c13 = texture(tex, clampSimUV(baseUV + vec2(0.0, 2.0 * texelSize.y)));
+  vec4 c23 = texture(tex, clampSimUV(baseUV + vec2(texelSize.x, 2.0 * texelSize.y)));
+  vec4 c33 = texture(tex, clampSimUV(baseUV + vec2(2.0 * texelSize.x, 2.0 * texelSize.y)));
+
+  vec4 r0 = c00 * w0.x + c10 * w1.x + c20 * w2.x + c30 * w3.x;
+  vec4 r1 = c01 * w0.x + c11 * w1.x + c21 * w2.x + c31 * w3.x;
+  vec4 r2 = c02 * w0.x + c12 * w1.x + c22 * w2.x + c32 * w3.x;
+  vec4 r3 = c03 * w0.x + c13 * w1.x + c23 * w2.x + c33 * w3.x;
+
+  vec4 val = r0 * w0.y + r1 * w1.y + r2 * w2.y + r3 * w3.y;
+
+  vec4 minVal = min(min(c11, c21), min(c12, c22));
+  vec4 maxVal = max(max(c11, c21), max(c12, c22));
+  return clamp(val, minVal, maxVal);
 }
 
 vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
-                vec2 pos) // prevents sampeling from wall cell
+                vec2 pos) // prevents sampling from wall cell
 {
-  vec2 st = pos - 0.5;    // calc pixel coordinats
+  vec2 st = pos - 0.5;    // calc pixel coordinates
 
-  vec2 ipos = vec2(floor(st));
+  vec2 ipos = floor(st);
   vec2 fpos = fract(st);
 
-  vec4 a = texture(tex, (ipos + vec2(0.5, 0.5)) / resolution);
-  vec4 b = texture(tex, (ipos + vec2(1.5, 0.5)) / resolution);
-  vec4 c = texture(tex, (ipos + vec2(0.5, 1.5)) / resolution);
-  vec4 d = texture(tex, (ipos + vec2(1.5, 1.5)) / resolution);
+  vec2 uvA = clampSimUV((ipos + vec2(0.5, 0.5)) / resolution);
+  vec2 uvB = clampSimUV((ipos + vec2(1.5, 0.5)) / resolution);
+  vec2 uvC = clampSimUV((ipos + vec2(0.5, 1.5)) / resolution);
+  vec2 uvD = clampSimUV((ipos + vec2(1.5, 1.5)) / resolution);
 
-  ivec4 wa = texture(wallTex, (ipos + vec2(0.5, 0.5)) / resolution);
-  ivec4 wb = texture(wallTex, (ipos + vec2(1.5, 0.5)) / resolution);
-  ivec4 wc = texture(wallTex, (ipos + vec2(0.5, 1.5)) / resolution);
-  ivec4 wd = texture(wallTex, (ipos + vec2(1.5, 1.5)) / resolution);
+  vec4 a = texture(tex, uvA);
+  vec4 b = texture(tex, uvB);
+  vec4 c = texture(tex, uvC);
+  vec4 d = texture(tex, uvD);
+
+  ivec4 wa = texture(wallTex, uvA);
+  ivec4 wb = texture(wallTex, uvB);
+  ivec4 wc = texture(wallTex, uvC);
+  ivec4 wd = texture(wallTex, uvD);
 
   float mixAB = fpos.x;
   float mixCD = fpos.x;
@@ -245,7 +327,7 @@ vec4 bilerpWall(sampler2D tex, isampler2D wallTex,
   else if (wd[DISTANCE] == 0)
     mixCD = 0.;
 
-  if (wa[DISTANCE] == 0 && wb[1] == 0)
+  if (wa[DISTANCE] == 0 && wb[DISTANCE] == 0)
     mixAB_CD = 1.;
   else if (wc[DISTANCE] == 0 && wd[DISTANCE] == 0)
     mixAB_CD = 0.;

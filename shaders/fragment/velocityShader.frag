@@ -48,24 +48,30 @@ void main()
   if (wall[DISTANCE] == 0) // is wall
   {
     base[VX] = 0.0;        // velocities in wall are 0
-    base[VY] = 0.0;        // this will make a wall not let any pressure trough and
-                           // thereby reflect any pressure waves back
+    base[VY] = 0.0;        // reflect pressure waves cleanly at solid boundaries
   } else {
+    float speed = length(base.xy);
+    float totalDrag = dragMultiplier * (0.0002 + 0.0012 * speed); // linear + high-speed quadratic turbulent drag
 
     if (wallXpY0[DISTANCE] == 0) {
-      base[VX] = 0.0;                                  // Since X velocity is defined at the right of the cell, it has to be done in the cell to the left of the wall
+      base[VX] = 0.0;                                  // X velocity is defined on right cell face
     } else {
-      base[VX] += base[PRESSURE] - baseXpY0[PRESSURE]; // The velocity through the cell changes proportionally to the pressure gradient across the cell. It's basically just newtons 2nd law.
-      base[VX] *= 1. - dragMultiplier * 0.0002;        // linear drag
+      base[VX] += base[PRESSURE] - baseXpY0[PRESSURE]; // Pressure-gradient force (Newton's 2nd law)
+      base[VX] *= 1.0 - totalDrag;
+      base[VX] += wind * 0.000001;
     }
 
-    base[VY] += base[PRESSURE] - baseX0Yp[PRESSURE];
-    base[VY] *= 1. - dragMultiplier * 0.0002;
-    // quadratic drag
-    // base[VX] -= base[VX] * base[VX] * base[VX] * base[VX] * base[VX] *
-    // dragMultiplier; base[VY] -= base[VY] * base[VY] * base[VY] * base[VY] *
-    // base[VY] * dragMultiplier;
+    if (wallX0Yp[DISTANCE] == 0 || texCoord.y >= 1.0 - texelSize.y * 1.1) {
+      base[VY] = 0.0; // No vertical penetration into ceiling walls or above domain top lid
+    } else {
+      base[VY] += base[PRESSURE] - baseX0Yp[PRESSURE];
+      base[VY] *= 1.0 - totalDrag;
 
-    base[VX] += wind * 0.000001;
+      // Upper-troposphere / stratospheric Rayleigh gravity-wave sponge to prevent lid reflections
+      float lidSponge = smoothstep(0.93, 1.0, texCoord.y);
+      base[VY] *= 1.0 - lidSponge * 0.012;
+    }
+
+    base.xy = clamp(base.xy, vec2(-0.85), vec2(0.85));
   }
 }

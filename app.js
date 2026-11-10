@@ -672,15 +672,15 @@ const wf_pow = 17.0;
 
 function maxWater(Td)
 {
-  return Math.pow(Td / wf_devider,
-                  wf_pow); // w = ((Td)/(250))^(18) // Td in Kelvin, w in grams per m^3
+  const Ts = Math.max(Td, 150.0);
+  return Math.pow(Ts / wf_devider,
+                  wf_pow); // Td in Kelvin, w in grams per m^3
 }
 
 function dewpoint(W)
 {
-  //  if (W < 0.00001) // can't remember why this was here...
-  //    return 0.0;
-  //  else
+  if (W <= 0.000001)
+    return 0.0;
   return wf_devider * Math.pow(W, 1.0 / wf_pow);
 }
 
@@ -4451,7 +4451,10 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
 
         if (wallTextureValues[4 * y + 1] != 0) { // fluid cell
 
-          var dewPoint = KtoC(dewpoint(waterTextureValues[4 * y]));
+          var totalW = waterTextureValues[4 * y];
+          var cloudW = waterTextureValues[4 * y + 1];
+          var vaporW = Math.max(totalW - cloudW, 0.0);
+          var dewPoint = KtoC(dewpoint(guiControls.realDewPoint ? vaporW : totalW));
 
           var temp = baseTextureValues[4 * y + 3] - ((y / sim_res_y) * guiControls.simHeight * guiControls.dryLapseRate) / 1000.0;
           if (guiControls.realDewPoint) {
@@ -4469,7 +4472,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
           if (y == simYpos) {
             c.fillText('' + printAltitude(map_range(y - 1, 0, sim_res_y, 0, guiControls.simHeight)), 5, scrYpos + 5);
 
-            let rh = relativeHumd(temp, waterTextureValues[4 * y]);
+            let rh = relativeHumd(temp, guiControls.realDewPoint ? vaporW : totalW);
 
             if (guiControls.realDewPoint) {
               rh = Math.min(rh, 100.0);
@@ -5667,42 +5670,42 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     gl.bindTexture(gl.TEXTURE_2D, baseTexture_1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialBaseTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     gl.bindTexture(gl.TEXTURE_2D, waterTexture_0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     gl.bindTexture(gl.TEXTURE_2D, waterTexture_1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, initialWaterTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    //	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     gl.bindTexture(gl.TEXTURE_2D, wallTexture_0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    //  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     gl.bindTexture(gl.TEXTURE_2D, wallTexture_1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8I, sim_res_x, sim_res_y, 0, gl.RGBA_INTEGER, gl.BYTE, initialWallTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 
     lastSaveTime = new Date();
@@ -5731,6 +5734,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, sim_res_x, sim_res_y, 0, gl.RED, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, curlFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, curlTexture,
@@ -5741,6 +5745,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, sim_res_x, sim_res_y, 0, gl.RG, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, vortForceFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, vortForceTexture, 0);
@@ -5773,11 +5778,13 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, sim_res_x, sim_res_y, 0, gl.RGBA, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   gl.bindTexture(gl.TEXTURE_2D, precipitationDepositionTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, sim_res_x, sim_res_y, 0, gl.RG, gl.FLOAT, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, precipitationFeedbackFrameBuff);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, precipitationFeedbackTexture, 0);
@@ -6060,6 +6067,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
   gl.uniform2f(getUniformLoc(skyBackgroundDisplayProgram, 'texelSize'), texelSizeX, texelSizeY);
   gl.uniform1f(getUniformLoc(skyBackgroundDisplayProgram, 'simHeight'), guiControls.simHeight);
   gl.uniform1f(getUniformLoc(skyBackgroundDisplayProgram, 'minShadowLight'), minShadowLight);
+  gl.uniform1f(getUniformLoc(skyBackgroundDisplayProgram, 'sunAngle'), 0.0);
   gl.uniform1i(getUniformLoc(skyBackgroundDisplayProgram, 'lightTex'), 3);
   gl.uniform1i(getUniformLoc(skyBackgroundDisplayProgram, 'ambientLightTex'), 9);
   gl.uniform1i(getUniformLoc(skyBackgroundDisplayProgram, 'precipFeedbackTex'), 7);
@@ -7058,6 +7066,7 @@ async function mainScript(initialBaseTex, initialWaterTex, initialWallTex, initi
     gl.uniform1f(getUniformLoc(realisticDisplayProgram, 'minShadowLight'), minShadowLight);
     gl.useProgram(skyBackgroundDisplayProgram);
     gl.uniform1f(getUniformLoc(skyBackgroundDisplayProgram, 'minShadowLight'), minShadowLight);
+    gl.uniform1f(getUniformLoc(skyBackgroundDisplayProgram, 'sunAngle'), solarZenithAngle);
 
     if (clockEl) {
       if (guiControls.dayNightCycle)
