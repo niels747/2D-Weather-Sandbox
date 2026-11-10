@@ -34,7 +34,7 @@ void main()
 
   outputCol *= exposure;
 
-  outputCol = pow(outputCol, ONE_OVER_GAMMA); // gamma correction
+  outputCol = pow(max(outputCol, vec3(0.0)), ONE_OVER_GAMMA); // gamma correction
 
 
   /*

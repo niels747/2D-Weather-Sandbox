@@ -1,9 +1,9 @@
 #version 300 es
 precision highp float;
 
-in vec2 dropPosition;
-in vec2 mass; //[0] water   [1] ice
-in float density;
+layout(location = 0) in vec2 dropPosition;
+layout(location = 1) in vec2 mass; //[0] water   [1] ice
+layout(location = 2) in float density;
 
 out vec2 position_out;
 out vec2 mass_out;

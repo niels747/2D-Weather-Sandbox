@@ -1,8 +1,8 @@
 #version 300 es
 precision highp float;
 
-in vec2 vertPosition;
-in vec2 vertTexCoord;
+layout(location = 0) in vec2 vertPosition;
+layout(location = 1) in vec2 vertTexCoord;
 
 uniform vec2 texelSize;
 
